@@ -1,0 +1,9 @@
+using System.Security.Claims;using BarIceCreamShop.Api.Models;using BarIceCreamShop.Api.Services;using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;
+namespace BarIceCreamShop.Api.Controllers;
+[ApiController,Authorize,Route("api/stock-movements")]public class StockMovementsController(StockMovementService service):ControllerBase{
+ [HttpGet]public async Task<ActionResult<ApiResponse<List<StockMovementDto>>>>List(DateTime? from,DateTime? to,int? productId,string? type)=>Ok(ApiResponse<List<StockMovementDto>>.Ok(await service.ListAsync(Company,Branch,from,to,productId,type)));
+ [HttpPost]public async Task<ActionResult<ApiResponse<StockMovementDto>>>Adjust(StockAdjustmentRequest r){try{return StatusCode(201,ApiResponse<StockMovementDto>.Ok(await service.AdjustAsync(Company,Branch,UserId,r),201));}catch(SaleException e){return StatusCode(e.StatusCode,ApiResponse<StockMovementDto>.Fail(e.Message,e.StatusCode));}}
+ [HttpGet("products/{id:int}/components")]public async Task<ActionResult<ApiResponse<List<ProductComponentDto>>>>Components(int id)=>Ok(ApiResponse<List<ProductComponentDto>>.Ok(await service.ComponentsAsync(Company,id)));
+ [HttpPut("products/{id:int}/components")]public async Task<ActionResult<ApiResponse<List<ProductComponentDto>>>>SaveComponents(int id,List<ProductComponentRequest> r){try{return Ok(ApiResponse<List<ProductComponentDto>>.Ok(await service.SaveComponentsAsync(Company,id,r)));}catch(SaleException e){return StatusCode(e.StatusCode,ApiResponse<List<ProductComponentDto>>.Fail(e.Message,e.StatusCode));}}
+ private int Company=>Claim("id_empresa");private int Branch=>Claim("id_sucursal");private int UserId=>Claim(ClaimTypes.NameIdentifier);private int Claim(string n)=>int.TryParse(User.FindFirstValue(n),out var id)?id:throw new SaleException("Token inválido.",401);
+}

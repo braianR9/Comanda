@@ -1,5 +1,0 @@
-BEGIN;
-
-ALTER TABLE mesas ALTER COLUMN descripcion DROP NOT NULL;
-
-COMMIT;

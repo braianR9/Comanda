@@ -499,7 +499,8 @@ class _SalesScreenState extends State<SalesScreen> {
     final comment = await showDialog<String>(
       context: context,
       builder: (dialogContext) => _DialogKeys(
-        onAccept: () => Navigator.pop(dialogContext, controller.text),
+        // Enter inserta salto de línea en el campo multilínea, no confirma el diálogo.
+        onAccept: null,
         onCancel: () => Navigator.pop(dialogContext),
         child: AlertDialog(
           title: Text('Comentario · ${line.product.name}'),

@@ -127,6 +127,19 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         if (!names.contains(child.name)) names.add(child.name);
       }
     }
+    if (widget.product == null) _suggestNextCode();
+  }
+
+  Future<void> _suggestNextCode() async {
+    try {
+      final nextCode =
+          await context.read<ProductProvider>().fetchNextProductCode();
+      if (mounted && code.text.trim().isEmpty) {
+        setState(() => code.text = nextCode.toString());
+      }
+    } catch (_) {
+      // Si falla, el usuario completa el código manualmente.
+    }
   }
 
   @override

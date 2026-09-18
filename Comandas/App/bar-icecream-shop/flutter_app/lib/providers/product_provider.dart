@@ -140,6 +140,24 @@ class ProductProvider extends ChangeNotifier {
     return _productFromApi(_body(response)['data'] as Map<String, dynamic>);
   }
 
+  // Trae todos los códigos de la sucursal/empresa actual para sugerir el siguiente.
+  Future<int> fetchNextProductCode() async {
+    final size = _totalItems > 0 ? _totalItems : pageSize;
+    final response = await http
+        .get(_uri('/api/productos', {'page': '1', 'pageSize': '$size'}),
+            headers: _headers)
+        .timeout(ApiConfig.timeout);
+    final data = _body(response)['data'] as Map<String, dynamic>? ?? const {};
+    final items = data['items'] as List<dynamic>? ?? const [];
+    var maxCode = 0;
+    for (final item in items) {
+      final code =
+          int.tryParse((item as Map<String, dynamic>)['codigo']?.toString() ?? '');
+      if (code != null && code > maxCode) maxCode = code;
+    }
+    return maxCode + 1;
+  }
+
   Future<void> save(Product product) async {
     final index = _products.indexWhere((item) => item.id == product.id);
     final creating = index == -1;

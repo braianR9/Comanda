@@ -11,6 +11,8 @@ import 'providers/printer_provider.dart';
 import 'providers/user_management_provider.dart';
 import 'providers/sales_report_provider.dart';
 import 'providers/google_sheet_provider.dart';
+import 'providers/caja_provider.dart';
+import 'providers/price_list_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'theme/app_theme.dart';
@@ -37,6 +39,8 @@ class BarApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserManagementProvider()),
         ChangeNotifierProvider(create: (_) => SalesReportProvider()),
         ChangeNotifierProvider(create: (_) => GoogleSheetProvider()),
+        ChangeNotifierProvider(create: (_) => CajaProvider()),
+        ChangeNotifierProvider(create: (_) => PriceListProvider()),
       ],
       child: MaterialApp(
         title: 'Foco',

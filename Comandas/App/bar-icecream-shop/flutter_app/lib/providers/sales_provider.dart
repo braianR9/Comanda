@@ -55,6 +55,7 @@ class SaleSnapshot {
   final int paymentCount;
   final double paymentAdjustment;
   final SaleCatalogItem? discount;
+  final int? priceListId;
 
   const SaleSnapshot(
       {required this.id,
@@ -70,7 +71,8 @@ class SaleSnapshot {
       this.paidAmount = 0,
       this.paymentCount = 0,
       this.paymentAdjustment = 0,
-      this.discount});
+      this.discount,
+      this.priceListId});
 
   factory SaleSnapshot.fromJson(Map<String, dynamic> json) => SaleSnapshot(
         id: (json['id'] as num).toInt(),
@@ -97,6 +99,7 @@ class SaleSnapshot {
             : null,
         openedAt:
             DateTime.tryParse(json['openedAt']?.toString() ?? '')?.toLocal(),
+        priceListId: (json['priceListId'] as num?)?.toInt(),
         items: [
           for (final item in (json['items'] as List? ?? const []))
             if (item is Map<String, dynamic>)
@@ -143,6 +146,7 @@ class SalesProvider extends ChangeNotifier {
     required int tableId,
     required List<SaleLine> lines,
     int? waiterId,
+    int? priceListId,
   }) async {
     final response = await http
         .post(Uri.parse('${ApiConfig.baseUrl}/api/sales'),
@@ -150,6 +154,7 @@ class SalesProvider extends ChangeNotifier {
             body: jsonEncode({
               'tableId': tableId,
               'waiterId': waiterId,
+              'priceListId': priceListId,
               'items': [for (final line in lines) _linePayload(line)],
             }))
         .timeout(ApiConfig.timeout);
@@ -168,7 +173,8 @@ class SalesProvider extends ChangeNotifier {
     SaleSnapshot? snapshot;
     final currentProducts = {for (final line in lines) line.product.id};
     final removedItems = existingItemIds.entries
-        .where((entry) => !currentProducts.contains(entry.key)).toList();
+        .where((entry) => !currentProducts.contains(entry.key))
+        .toList();
     for (final line in lines) {
       final itemId = ids[line.product.id];
       snapshot = itemId == null

@@ -26,5 +26,9 @@ namespace BarIceCreamShop.Api.Models
         /// ID de la planilla de Google Sheets donde se vuelcan las ventas finalizadas; null = desactivado.
         [Column("google_sheet_id")]
         public string? GoogleSheetId { get; set; }
+
+        /// Lista de precios que usa esta sucursal por defecto; null = usa la predeterminada de la empresa.
+        [Column("id_lista_precio_predeterminada")]
+        public int? IdListaPrecioPredeterminada { get; set; }
     }
 }

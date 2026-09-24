@@ -10,6 +10,8 @@ import '../../models/payment_amounts.dart';
 import '../../models/restaurant_table.dart';
 import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/caja_provider.dart';
+import '../../providers/price_list_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/sales_provider.dart';
 import '../../providers/sector_provider.dart';
@@ -53,6 +55,8 @@ class _SalesScreenState extends State<SalesScreen> {
               session.idEmpresa,
               token: session.token,
             ),
+        context.read<CajaProvider>().load(session.token),
+        context.read<PriceListProvider>().load(session.token),
       ]);
       if (!mounted) return;
       await _restoreActiveSales();
@@ -167,6 +171,27 @@ class _SalesScreenState extends State<SalesScreen> {
                 child: _title('Ventas', 'Seleccioná un sector y una mesa')),
             _SaleLegend(),
           ]),
+          if (!context.watch<CajaProvider>().isOpen) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF0A83A)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.lock_outline_rounded, color: Color(0xFFC56A22)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                      'No hay una caja abierta en esta sucursal. Abrí la caja desde '
+                      'la sección "Caja" del menú antes de vender.',
+                      style: TextStyle(color: Color(0xFFC56A22))),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 18),
           if (sectorProvider.loading && sectors.isEmpty)
             const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -297,6 +322,13 @@ class _SalesScreenState extends State<SalesScreen> {
               icon: const Icon(Icons.person_outline_rounded),
               label: Text(order.waiter ?? 'Sin mozo'),
             ),
+            if (context.watch<PriceListProvider>().activeLists.length > 1) ...[
+              const SizedBox(width: 8),
+              _PriceListSelector(
+                order: order,
+                onChanged: (value) => setState(() => order.priceListId = value),
+              ),
+            ],
             const SizedBox(width: 8),
             PopupMenuButton<String>(
               tooltip: 'Acciones de mesa',
@@ -714,6 +746,11 @@ class _SalesScreenState extends State<SalesScreen> {
   Future<void> _sendOrderImpl(_OrderDraft order, RestaurantTable table) async {
     if (!order.canSend) return;
     final firstSend = !order.sent;
+    if (firstSend && !context.read<CajaProvider>().isOpen) {
+      _showApiError(Exception(
+          'No hay una caja abierta en esta sucursal. Abrí la caja antes de vender.'));
+      return;
+    }
     final ticketRows = order.ticketRows(firstSend: firstSend);
     final provider = context.read<SalesProvider>();
     try {
@@ -746,6 +783,7 @@ class _SalesScreenState extends State<SalesScreen> {
         snapshot = await provider.createSale(
           tableId: order.tableId,
           lines: lines,
+          priceListId: order.priceListId,
         );
       } else {
         snapshot = await provider.synchronizeItems(
@@ -1831,6 +1869,48 @@ class _WaiterDialog extends StatelessWidget {
       );
 }
 
+class _PriceListSelector extends StatelessWidget {
+  final _OrderDraft order;
+  final ValueChanged<int?> onChanged;
+  const _PriceListSelector({required this.order, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final lists = context.watch<PriceListProvider>().activeLists;
+    final defaultId = context.read<PriceListProvider>().defaultList?.id;
+    if (order.priceListId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(defaultId));
+    }
+    final value = lists.any((l) => l.id == order.priceListId)
+        ? order.priceListId
+        : defaultId;
+    return Tooltip(
+      message: order.sent
+          ? 'La lista de precios no se puede cambiar una vez enviada la venta.'
+          : 'Lista de precios a usar para los productos que se agreguen.',
+      child: DropdownButtonHideUnderline(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFCFC6EE)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButton<int>(
+            value: value,
+            isDense: true,
+            icon: const Icon(Icons.sell_outlined, size: 16),
+            items: [
+              for (final lista in lists)
+                DropdownMenuItem(value: lista.id, child: Text(lista.nombre)),
+            ],
+            onChanged: order.sent ? null : onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SaleLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Wrap(spacing: 12, children: [
@@ -1877,6 +1957,7 @@ class _OrderDraft {
   bool paymentUncertain = false;
   int paymentCount = 0;
   double paymentAdjustmentAmount = 0;
+  int? priceListId;
   bool get editLocked => paymentCount > 0 || paidAmount > 0 || paymentUncertain;
 
   _OrderDraft(this.tableId);
@@ -1900,6 +1981,7 @@ class _OrderDraft {
     serverVersion = snapshot.version;
     openedAt = snapshot.openedAt ?? openedAt;
     tableId = snapshot.tableId;
+    priceListId = snapshot.priceListId ?? priceListId;
     serverItemIds
       ..clear()
       ..addAll(snapshot.itemIds);

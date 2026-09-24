@@ -36,6 +36,8 @@ namespace BarIceCreamShop.Api.Controllers
             {
                 if (printJob == null)
                     return BadRequest(ApiResponse<PrintJob>.Fail("Los datos son requeridos."));
+                if (printJob.OrderId is null && printJob.CajaId is null)
+                    return BadRequest(ApiResponse<PrintJob>.Fail("Indicá una venta o una caja para imprimir."));
                 var created = await _printerService.CreatePrinterAsync(printJob);
                 return StatusCode(201, ApiResponse<PrintJob>.Ok(created, 201));
             }

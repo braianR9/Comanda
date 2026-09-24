@@ -49,6 +49,43 @@ public class SucursalesController(AppDbContext db, GoogleSheetsService sheets) :
         }
     }
 
+    [HttpGet("lista-precios")]
+    public async Task<ActionResult<ApiResponse<object>>> GetListaPrecios()
+    {
+        try
+        {
+            var idListaPrecio = await db.Sucursales.AsNoTracking()
+                .Where(s => s.Id == Branch).Select(s => s.IdListaPrecioPredeterminada).SingleOrDefaultAsync();
+            return Ok(ApiResponse<object>.Ok(new { idListaPrecio }));
+        }
+        catch (SaleException e)
+        {
+            return StatusCode(e.StatusCode, ApiResponse<object>.Fail(e.Message, e.StatusCode));
+        }
+    }
+
+    [HttpPut("lista-precios")]
+    public async Task<ActionResult<ApiResponse<object>>> SetListaPrecios(SetSucursalPriceListRequest request)
+    {
+        try
+        {
+            RequireAdmin();
+            var company = int.TryParse(User.FindFirstValue("id_empresa"), out var idEmpresa) ? idEmpresa : throw new SaleException("Token inválido.", 401);
+            if (request.IdListaPrecio.HasValue &&
+                !await db.ListasPrecios.AnyAsync(l => l.Id == request.IdListaPrecio && l.IdEmpresa == company && l.Activa))
+                throw new SaleException("La lista de precios indicada no existe o está inactiva.", 404);
+            var sucursal = await db.Sucursales.SingleOrDefaultAsync(s => s.Id == Branch)
+                ?? throw new SaleException("Sucursal no encontrada.", 404);
+            sucursal.IdListaPrecioPredeterminada = request.IdListaPrecio;
+            await db.SaveChangesAsync();
+            return Ok(ApiResponse<object>.Ok(new { idListaPrecio = sucursal.IdListaPrecioPredeterminada }));
+        }
+        catch (SaleException e)
+        {
+            return StatusCode(e.StatusCode, ApiResponse<object>.Fail(e.Message, e.StatusCode));
+        }
+    }
+
     private int Branch => int.TryParse(User.FindFirstValue("id_sucursal"), out var id)
         ? id : throw new SaleException("Token inválido.", 401);
 

@@ -151,8 +151,8 @@ class ProductProvider extends ChangeNotifier {
     final items = data['items'] as List<dynamic>? ?? const [];
     var maxCode = 0;
     for (final item in items) {
-      final code =
-          int.tryParse((item as Map<String, dynamic>)['codigo']?.toString() ?? '');
+      final code = int.tryParse(
+          (item as Map<String, dynamic>)['codigo']?.toString() ?? '');
       if (code != null && code > maxCode) maxCode = code;
     }
     return maxCode + 1;

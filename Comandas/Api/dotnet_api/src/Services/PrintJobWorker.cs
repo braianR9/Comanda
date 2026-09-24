@@ -67,20 +67,76 @@ public sealed class PrintJobWorker : BackgroundService
 
         try
         {
-            var sale = await db.Orders
-                .AsNoTracking()
-                .Include(x => x.Table)
-                    .ThenInclude(x => x.Sector)
-                .Include(x => x.Items)
-                .Include(x => x.Payments)
-                .Include(x => x.Commands)
-                    .ThenInclude(x => x.Lines)
-                .SingleOrDefaultAsync(x => x.Id == job.OrderId, cancellationToken)
-                ?? throw new InvalidOperationException($"No existe la venta {job.OrderId}.");
+            byte[] ticket;
+            int companyId, branchId;
+
+            if (job.CajaId.HasValue)
+            {
+                var caja = await db.Cajas.AsNoTracking()
+                    .Include(x => x.UsuarioApertura)
+                    .Include(x => x.UsuarioCierre)
+                    .SingleOrDefaultAsync(x => x.Id == job.CajaId.Value, cancellationToken)
+                    ?? throw new InvalidOperationException($"No existe la caja {job.CajaId}.");
+                companyId = caja.IdEmpresa; branchId = caja.IdSucursal;
+                var detalle = await db.CajaCierreDetalles.AsNoTracking()
+                    .Where(x => x.CajaId == caja.Id).OrderByDescending(x => x.Total).ToListAsync(cancellationToken);
+                var movimientos = await db.CajaMovimientos.AsNoTracking()
+                    .Include(x => x.Usuario)
+                    .Where(x => x.CajaId == caja.Id).OrderBy(x => x.Fecha).ToListAsync(cancellationToken);
+                var companyName = await db.Empresas.AsNoTracking().Where(x => x.Id == companyId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+                var branch = await db.Sucursales.AsNoTracking().Where(x => x.Id == branchId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+                ticket = BuildCajaTicket(caja, detalle, movimientos, companyName, branch);
+            }
+            else
+            {
+                var sale = await db.Orders
+                    .AsNoTracking()
+                    .Include(x => x.Table)
+                        .ThenInclude(x => x.Sector)
+                    .Include(x => x.Items)
+                    .Include(x => x.Payments)
+                    .Include(x => x.Commands)
+                        .ThenInclude(x => x.Lines)
+                    .SingleOrDefaultAsync(x => x.Id == job.OrderId, cancellationToken)
+                    ?? throw new InvalidOperationException($"No existe la venta {job.OrderId}.");
+                companyId = sale.IdEmpresa; branchId = sale.IdSucursal;
+
+                var waiterId = sale.Commands
+                    .OrderByDescending(x => x.Fecha)
+                    .ThenByDescending(x => x.Id)
+                    .Select(x => x.MozoId)
+                    .FirstOrDefault() ?? sale.MozoId;
+                var waiterName = "Sin asignar";
+                if (waiterId.HasValue)
+                {
+                    waiterName = await db.Usuarios
+                        .AsNoTracking()
+                        .Where(x => x.Id == waiterId.Value)
+                        .Select(x => (x.Nombre + " " + x.Apellido).Trim())
+                        .SingleOrDefaultAsync(cancellationToken) ?? "Sin asignar";
+                }
+
+                if (job.JobType == "TicketVenta")
+                {
+                    var companyName = await db.Empresas.AsNoTracking()
+                        .Where(x => x.Id == sale.IdEmpresa)
+                        .Select(x => x.Nombre)
+                        .SingleAsync(cancellationToken);
+                    var branch = await db.Sucursales.AsNoTracking()
+                        .Where(x => x.Id == sale.IdSucursal)
+                        .Select(x => new { x.Nombre, x.Direccion, x.Telefono })
+                        .SingleAsync(cancellationToken);
+                    ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName);
+                }
+                else
+                {
+                    ticket = BuildCommandTicket(sale, waiterName);
+                }
+            }
 
             var printer = job.PrinterConfigurationId.HasValue
                 ? await db.PrinterConfigurations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == job.PrinterConfigurationId.Value && x.Activa, cancellationToken)
-                : await configurations.ResolveAsync(sale.IdEmpresa, sale.IdSucursal, job.JobType);
+                : await configurations.ResolveAsync(companyId, branchId, job.JobType == "CierreCaja" ? "TicketVenta" : job.JobType);
             if (printer is null)
             {
                 var fallbackQueue = string.IsNullOrWhiteSpace(job.PrinterId) ? _configuration["PrinterSettings:QueueName"] : job.PrinterId;
@@ -88,38 +144,6 @@ public sealed class PrintJobWorker : BackgroundService
                 printer = new PrinterConfiguration { Nombre = fallbackQueue, TipoConexion = "Cups", NombreCola = fallbackQueue, Uso = "Ambos", Activa = true };
             }
 
-            var waiterId = sale.Commands
-                .OrderByDescending(x => x.Fecha)
-                .ThenByDescending(x => x.Id)
-                .Select(x => x.MozoId)
-                .FirstOrDefault() ?? sale.MozoId;
-            var waiterName = "Sin asignar";
-            if (waiterId.HasValue)
-            {
-                waiterName = await db.Usuarios
-                    .AsNoTracking()
-                    .Where(x => x.Id == waiterId.Value)
-                    .Select(x => (x.Nombre + " " + x.Apellido).Trim())
-                    .SingleOrDefaultAsync(cancellationToken) ?? "Sin asignar";
-            }
-
-            byte[] ticket;
-            if (job.JobType == "TicketVenta")
-            {
-                var companyName = await db.Empresas.AsNoTracking()
-                    .Where(x => x.Id == sale.IdEmpresa)
-                    .Select(x => x.Nombre)
-                    .SingleAsync(cancellationToken);
-                var branch = await db.Sucursales.AsNoTracking()
-                    .Where(x => x.Id == sale.IdSucursal)
-                    .Select(x => new { x.Nombre, x.Direccion, x.Telefono })
-                    .SingleAsync(cancellationToken);
-                ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName);
-            }
-            else
-            {
-                ticket = BuildCommandTicket(sale, waiterName);
-            }
             await transport.SendAsync(printer, ticket, cancellationToken);
 
             job.Status = "Impreso";
@@ -290,6 +314,74 @@ public sealed class PrintJobWorker : BackgroundService
         }
         text.AppendLine();
         text.AppendLine(Center("NO VALIDO COMO FACTURA", width));
+        text.AppendLine();
+        text.AppendLine();
+        text.AppendLine();
+        return ToEscPos(text.ToString());
+    }
+
+    private static byte[] BuildCajaTicket(
+        Caja caja,
+        List<CajaCierreDetalle> detalle,
+        List<CajaMovimiento> movimientos,
+        string companyName,
+        string branchName)
+    {
+        const int width = 42;
+        var text = new StringBuilder();
+        text.Append("\u001b!\u0008");
+
+        text.AppendLine(Center(companyName.ToUpperInvariant(), width));
+        if (!string.IsNullOrWhiteSpace(branchName) && !string.Equals(branchName, companyName, StringComparison.OrdinalIgnoreCase))
+            text.AppendLine(Center(branchName, width));
+        text.AppendLine();
+        text.AppendLine(Center(caja.Estado == "Cerrada" ? "CIERRE DE CAJA" : "REPORTE DE CAJA (ABIERTA)", width));
+        text.AppendLine(new string('=', width));
+
+        text.AppendLine($"Abrió: {caja.UsuarioApertura.Nombre} {caja.UsuarioApertura.Apellido}".Trim());
+        text.AppendLine($"Fecha apertura: {caja.FechaApertura.ToLocalTime():dd/MM/yyyy HH:mm}");
+        if (caja.UsuarioCierre is not null && caja.FechaCierre.HasValue)
+        {
+            text.AppendLine($"Cerró: {caja.UsuarioCierre.Nombre} {caja.UsuarioCierre.Apellido}".Trim());
+            text.AppendLine($"Fecha cierre: {caja.FechaCierre.Value.ToLocalTime():dd/MM/yyyy HH:mm}");
+        }
+        text.AppendLine(new string('-', width));
+        text.AppendLine($"{"Monto inicial:",-28}{FormatMoney(caja.MontoInicial),14}");
+
+        if (detalle.Count > 0)
+        {
+            text.AppendLine(new string('-', width));
+            foreach (var line in Wrap("Cobros por medio de pago:", width)) text.AppendLine(line);
+            foreach (var item in detalle)
+                text.AppendLine($"{item.MedioPago,-28}{FormatMoney(item.Total),14}");
+        }
+        text.AppendLine(new string('-', width));
+        text.AppendLine($"{"Total vendido:",-28}{FormatMoney(caja.TotalVentas ?? 0),14}");
+
+        var ingresos = movimientos.Where(x => x.Tipo == "Ingreso").ToList();
+        var egresos = movimientos.Where(x => x.Tipo == "Egreso").ToList();
+        if (ingresos.Count > 0 || egresos.Count > 0)
+        {
+            text.AppendLine(new string('-', width));
+            foreach (var line in Wrap("Movimientos manuales:", width)) text.AppendLine(line);
+            foreach (var item in ingresos)
+                foreach (var line in Wrap($"+ {item.Motivo} ({item.Usuario.Nombre} {item.Usuario.Apellido})".Trim(), width - 14))
+                    text.AppendLine($"{line,-28}{FormatMoney(item.Monto),14}");
+            foreach (var item in egresos)
+                foreach (var line in Wrap($"- {item.Motivo} ({item.Usuario.Nombre} {item.Usuario.Apellido})".Trim(), width - 14))
+                    text.AppendLine($"{line,-28}{FormatMoney(-item.Monto),14}");
+        }
+
+        text.AppendLine(new string('=', width));
+        text.Append("\u001b!\u0018");
+        text.AppendLine($"{"Efectivo esperado:",-28}{FormatMoney(caja.TotalEfectivoEsperado ?? 0),14}");
+        text.Append("\u001b!\u0008");
+        text.AppendLine(new string('=', width));
+
+        if (!string.IsNullOrWhiteSpace(caja.Observaciones))
+        {
+            foreach (var line in Wrap($"Obs: {caja.Observaciones}", width)) text.AppendLine(line);
+        }
         text.AppendLine();
         text.AppendLine();
         text.AppendLine();

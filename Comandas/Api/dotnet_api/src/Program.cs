@@ -44,6 +44,8 @@ builder.Services.AddScoped<StockMovementService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<UsuarioService>();
 builder.Services.AddScoped<ReportsService>();
+builder.Services.AddScoped<CajaService>();
+builder.Services.AddScoped<PriceListService>();
 builder.Services.AddSingleton<GoogleSheetsService>();
 builder.Services.AddHostedService<GoogleSheetSyncWorker>();
 

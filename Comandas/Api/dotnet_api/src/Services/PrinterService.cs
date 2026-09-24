@@ -19,14 +19,21 @@ namespace BarIceCreamShop.Api.Services
         public async Task<PrintJob?> GetPrintJobByIdAsync(int id)
             => await _context.PrintJobs.FindAsync(id);
 
+        private static readonly HashSet<string> ValidJobTypes = ["TicketVenta", "CierreCaja"];
+
         public async Task<PrintJob> CreatePrinterAsync(PrintJob printJob)
         {
-            if (!await _context.Orders.AnyAsync(v => v.Id == printJob.OrderId))
+            if (printJob.OrderId is null && printJob.CajaId is null)
+                throw new InvalidOperationException("Indicá una venta o una caja para imprimir.");
+            if (printJob.OrderId is not null && !await _context.Orders.AnyAsync(v => v.Id == printJob.OrderId))
                 throw new InvalidOperationException("La venta indicada no existe.");
+            if (printJob.CajaId is not null && !await _context.Cajas.AnyAsync(c => c.Id == printJob.CajaId))
+                throw new InvalidOperationException("La caja indicada no existe.");
             printJob.Id = 0;
             printJob.CreatedAt = DateTime.UtcNow;
             printJob.Status = "Pendiente";
-            printJob.JobType = "Comanda";
+            // Cualquier otro valor recibido (p.ej. "Command" del cliente legado) se normaliza a "Comanda".
+            printJob.JobType = ValidJobTypes.Contains(printJob.JobType) ? printJob.JobType : "Comanda";
             _context.PrintJobs.Add(printJob);
             await _context.SaveChangesAsync();
             return printJob;

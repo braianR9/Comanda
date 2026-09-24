@@ -8,7 +8,7 @@ namespace BarIceCreamShop.Api.Services;
 
 public sealed class SaleException(string message, int statusCode = 400) : Exception(message) { public int StatusCode { get; } = statusCode; }
 
-public class OrderService(AppDbContext context, IConfiguration configuration, StockMovementService stockMovements)
+public class OrderService(AppDbContext context, IConfiguration configuration, StockMovementService stockMovements, CajaService cajaService, PriceListService priceLists)
 {
     private static readonly string[] ActiveStates = ["Abierta", "EnPedido", "PedidoEnviado", "ConCambios"];
 
@@ -27,9 +27,14 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     public async Task<SaleDto> CreateAsync(int company, int branch, int user, CreateSaleRequest request)
     {
         if (request.Items == null || request.Items.Count == 0) throw new SaleException("La venta se abre al agregar el primer producto.");
+        try { await cajaService.RequireOpenAsync(company, branch); }
+        catch (CajaException e) { throw new SaleException(e.Message, e.StatusCode); }
+        int priceListId;
+        try { priceListId = await priceLists.ResolveSaleListIdAsync(company, branch, request.PriceListId); }
+        catch (PriceListException e) { throw new SaleException(e.Message, e.StatusCode); }
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         await ValidateFreeTable(company, branch, request.TableId, null);
-        var sale = new Order { IdEmpresa = company, IdSucursal = branch, Numero = await NextNumber(company, false, tx), TableId = request.TableId, MozoId = request.WaiterId, Estado = "EnPedido", FechaApertura = DateTime.UtcNow, UsuarioId = user, Version = 1 };
+        var sale = new Order { IdEmpresa = company, IdSucursal = branch, Numero = await NextNumber(company, false, tx), TableId = request.TableId, MozoId = request.WaiterId, Estado = "EnPedido", FechaApertura = DateTime.UtcNow, UsuarioId = user, Version = 1, IdListaPrecio = priceListId };
         (await context.Tables.FirstAsync(t => t.Id == request.TableId)).Status = "Ocupada";
         context.Orders.Add(sale); await context.SaveChangesAsync();
         foreach (var item in request.Items) await AddOrMergeItem(sale, item.ProductId, item.Quantity, item.Comment);
@@ -123,6 +128,29 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
 
     public async Task<SaleDto> RemoveDiscountAsync(int company, int branch, int id, long? version)
     { var sale = await Editable(company, branch, id, version); sale.DescuentoId = null; sale.DescuentoNombre = sale.DescuentoTipo = null; sale.DescuentoValor = null; sale.Version++; Recalculate(sale); await context.SaveChangesAsync(); return (await GetAsync(company, branch, id))!; }
+
+    public async Task<SaleDto> ChangePriceListAsync(int company, int branch, int id, ChangeSalePriceListRequest request)
+    {
+        var sale = await Editable(company, branch, id, request.Version);
+        int listId;
+        try { listId = await priceLists.ResolveSaleListIdAsync(company, branch, request.PriceListId); }
+        catch (PriceListException e) { throw new SaleException(e.Message, e.StatusCode); }
+        sale.IdListaPrecio = listId;
+        if (request.RepreciarRenglonesExistentes)
+        {
+            foreach (var item in sale.Items)
+            {
+                var precio = await priceLists.ResolvePriceAsync(item.ProductId, listId)
+                    ?? throw new SaleException($"'{item.ProductName}' no tiene precio configurado en la lista seleccionada.", 409);
+                item.UnitPrice = precio; item.Subtotal = Money(precio * item.Quantity);
+                item.IdListaPrecio = listId; item.FechaModificacion = DateTime.UtcNow;
+            }
+            Recalculate(sale);
+        }
+        sale.Version++;
+        await context.SaveChangesAsync();
+        return (await GetAsync(company, branch, id))!;
+    }
 
     public async Task<SaleDto> AddPaymentsAsync(int company, int branch, int user, int id, AddPaymentsRequest request)
     {
@@ -265,7 +293,14 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         if (quantity <= 0) throw new SaleException("La cantidad debe ser mayor que cero.");
         var product = await context.Productos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId && p.IdEmpresa == sale.IdEmpresa && p.Activo) ?? throw new SaleException("Producto no encontrado o inactivo.", 404);
         var item = sale.Items.FirstOrDefault(i => i.ProductId == productId); var now = DateTime.UtcNow;
-        if (item == null) sale.Items.Add(new OrderItem { ProductId = product.Id, ProductName = product.Nombre, UnitPrice = product.PrecioConIva, Quantity = quantity, Subtotal = Money(product.PrecioConIva * quantity), Comment = CleanComment(comment), Estado = "Activo", FechaCreacion = now, FechaModificacion = now });
+        if (item == null)
+        {
+            var listId = sale.IdListaPrecio ?? await priceLists.ResolveSaleListIdAsync(sale.IdEmpresa, sale.IdSucursal, null);
+            sale.IdListaPrecio ??= listId;
+            var precio = await priceLists.ResolvePriceAsync(productId, listId)
+                ?? throw new SaleException($"'{product.Nombre}' no tiene precio configurado en la lista de precios actual.", 409);
+            sale.Items.Add(new OrderItem { ProductId = product.Id, ProductName = product.Nombre, UnitPrice = precio, Quantity = quantity, Subtotal = Money(precio * quantity), Comment = CleanComment(comment), Estado = "Activo", FechaCreacion = now, FechaModificacion = now, IdListaPrecio = listId });
+        }
         else { item.Quantity += quantity; item.Comment = CleanComment(comment) ?? item.Comment; item.Subtotal = Money(item.UnitPrice * item.Quantity); item.FechaModificacion = now; }
     }
 
@@ -298,7 +333,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     private static void ValidateDiscount(string type, decimal value) { if (type is not ("Porcentaje" or "Importe")) throw new SaleException("El tipo de descuento debe ser Porcentaje o Importe."); if (value < 0 || type == "Porcentaje" && value > 100) throw new SaleException("El valor del descuento no es válido."); }
     private static string? CleanComment(string? value) { value = value?.Trim(); if (value?.Length > 500) throw new SaleException("El comentario no puede superar 500 caracteres."); return string.IsNullOrEmpty(value) ? null : value; }
     private static decimal Money(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
-    private static SaleDto Map(Order v) => new() { Id = v.Id, Number = v.Numero, TableId = v.TableId, WaiterId = v.MozoId, Status = v.Estado == "ConCambios" && v.Commands.Count > 0 && !HasPendingKitchenChanges(v) ? "PedidoEnviado" : v.Estado, OpenedAt = v.FechaApertura, ClosedAt = v.FechaCierre, Subtotal = v.Subtotal, DiscountAmount = v.ImporteDescuento, PaymentAdjustment = v.Payments.Sum(p => p.AdjustmentAmount), Total = v.Total, Version = v.Version, Items = v.Items.Select(i => new SaleItemDto(i.Id, i.ProductId, i.ProductName, i.UnitPrice, i.Quantity, i.Subtotal, i.Comment, i.Estado)).ToList(), Discount = v.DescuentoValor.HasValue ? new { id = v.DescuentoId, name = v.DescuentoNombre, type = v.DescuentoTipo, value = v.DescuentoValor, amount = v.ImporteDescuento } : null, Payments = v.Payments.Select(p => (object)new { id = p.Id, paymentTypeId = p.PaymentTypeId, cardId = p.CardId, name = p.PaymentTypeName, baseAmount = p.BaseAmount ?? p.Amount, adjustmentType = p.AdjustmentType, percentage = p.Percentage, adjustmentAmount = p.AdjustmentAmount, amount = p.Amount, date = p.Fecha, reference = p.Reference }).ToList(), JoinedTableIds = v.JoinedTables.Select(j => j.TableId).ToList() };
+    private static SaleDto Map(Order v) => new() { Id = v.Id, Number = v.Numero, TableId = v.TableId, WaiterId = v.MozoId, Status = v.Estado == "ConCambios" && v.Commands.Count > 0 && !HasPendingKitchenChanges(v) ? "PedidoEnviado" : v.Estado, OpenedAt = v.FechaApertura, ClosedAt = v.FechaCierre, Subtotal = v.Subtotal, DiscountAmount = v.ImporteDescuento, PaymentAdjustment = v.Payments.Sum(p => p.AdjustmentAmount), Total = v.Total, Version = v.Version, PriceListId = v.IdListaPrecio, Items = v.Items.Select(i => new SaleItemDto(i.Id, i.ProductId, i.ProductName, i.UnitPrice, i.Quantity, i.Subtotal, i.Comment, i.Estado, i.IdListaPrecio)).ToList(), Discount = v.DescuentoValor.HasValue ? new { id = v.DescuentoId, name = v.DescuentoNombre, type = v.DescuentoTipo, value = v.DescuentoValor, amount = v.ImporteDescuento } : null, Payments = v.Payments.Select(p => (object)new { id = p.Id, paymentTypeId = p.PaymentTypeId, cardId = p.CardId, name = p.PaymentTypeName, baseAmount = p.BaseAmount ?? p.Amount, adjustmentType = p.AdjustmentType, percentage = p.Percentage, adjustmentAmount = p.AdjustmentAmount, amount = p.Amount, date = p.Fecha, reference = p.Reference }).ToList(), JoinedTableIds = v.JoinedTables.Select(j => j.TableId).ToList() };
     private static object Document(Order v, bool receipt) => new { type = receipt ? "Comprobante" : "TicketCuenta", companyId = v.IdEmpresa, saleNumber = v.Numero, date = v.FechaCierre ?? v.FechaApertura, table = v.Table.Nombre, items = v.Items.Select(i => new { quantity = i.Quantity, description = i.ProductName, unitPrice = i.UnitPrice, subtotal = i.Subtotal }), itemCount = v.Items.Sum(i => i.Quantity), v.Subtotal, discount = v.ImporteDescuento, paymentAdjustment = v.Payments.Sum(p => p.AdjustmentAmount), v.Total, payments = v.Payments.Select(p => new { name = p.PaymentTypeName, baseAmount = p.BaseAmount ?? p.Amount, adjustmentType = p.AdjustmentType, percentage = p.Percentage, adjustmentAmount = p.AdjustmentAmount, amount = p.Amount }), disclaimer = receipt ? "Documento no válido como factura" : null };
     private async Task<int> NextNumber(int company, bool command, IDbContextTransaction tx) { await using var cmd = context.Database.GetDbConnection().CreateCommand(); cmd.Transaction = tx.GetDbTransaction(); cmd.CommandText = command ? "INSERT INTO venta_contadores (id_empresa, ultimo_numero_venta, ultimo_numero_comanda) VALUES (@id,0,1) ON CONFLICT (id_empresa) DO UPDATE SET ultimo_numero_comanda=venta_contadores.ultimo_numero_comanda+1 RETURNING ultimo_numero_comanda" : "INSERT INTO venta_contadores (id_empresa, ultimo_numero_venta, ultimo_numero_comanda) VALUES (@id,1,0) ON CONFLICT (id_empresa) DO UPDATE SET ultimo_numero_venta=venta_contadores.ultimo_numero_venta+1 RETURNING ultimo_numero_venta"; var p = cmd.CreateParameter(); p.ParameterName = "id"; p.Value = company; cmd.Parameters.Add(p); return Convert.ToInt32(await cmd.ExecuteScalarAsync()); }
 }

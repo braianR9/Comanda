@@ -38,6 +38,11 @@ namespace BarIceCreamShop.Api.Data
         public DbSet<SaleCounter> SaleCounters { get; set; }
         public DbSet<UsuarioMesaExcluida> UsuarioMesasExcluidas { get; set; }
         public DbSet<GoogleSheetJob> GoogleSheetJobs { get; set; }
+        public DbSet<Caja> Cajas { get; set; }
+        public DbSet<CajaMovimiento> CajaMovimientos { get; set; }
+        public DbSet<CajaCierreDetalle> CajaCierreDetalles { get; set; }
+        public DbSet<ListaPrecio> ListasPrecios { get; set; }
+        public DbSet<ProductoPrecio> ProductoPrecios { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -82,6 +87,7 @@ namespace BarIceCreamShop.Api.Data
             modelBuilder.Entity<PrintJob>().ToTable("trabajos_impresion");
             modelBuilder.Entity<PrintJob>().HasKey(p => p.Id);
             modelBuilder.Entity<PrintJob>().HasOne<Order>().WithMany().HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<PrintJob>().HasOne<Caja>().WithMany().HasForeignKey(p => p.CajaId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<PrinterConfiguration>().HasKey(p => p.Id);
             modelBuilder.Entity<Producto>().HasKey(p => p.Id);
             modelBuilder.Entity<Rubro>().HasKey(r => r.Id);
@@ -96,6 +102,18 @@ namespace BarIceCreamShop.Api.Data
             modelBuilder.Entity<StockProducto>().HasIndex(s => new { s.IdProducto, s.IdSucursal }).IsUnique();
             modelBuilder.Entity<StockProducto>().HasOne(s => s.Producto).WithMany().HasForeignKey(s => s.IdProducto).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<StockProducto>().HasOne(s => s.Sucursal).WithMany().HasForeignKey(s => s.IdSucursal).OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Caja>().HasKey(c => c.Id);
+            modelBuilder.Entity<Caja>().HasIndex(c => new { c.IdSucursal, c.Estado });
+            modelBuilder.Entity<Caja>().HasOne(c => c.UsuarioApertura).WithMany().HasForeignKey(c => c.UsuarioAperturaId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Caja>().HasOne(c => c.UsuarioCierre).WithMany().HasForeignKey(c => c.UsuarioCierreId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CajaMovimiento>().HasKey(m => m.Id);
+            modelBuilder.Entity<CajaMovimiento>().HasOne(m => m.Usuario).WithMany().HasForeignKey(m => m.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CajaCierreDetalle>().HasKey(d => new { d.CajaId, d.MedioPago });
+
+            modelBuilder.Entity<ListaPrecio>().HasKey(l => l.Id);
+            modelBuilder.Entity<ListaPrecio>().HasIndex(l => new { l.IdEmpresa, l.Activa });
+            modelBuilder.Entity<ProductoPrecio>().HasKey(p => new { p.IdProducto, p.IdListaPrecio });
 
             modelBuilder.Entity<Producto>()
                 .HasIndex(p => new { p.IdEmpresa, p.Codigo })

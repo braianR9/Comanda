@@ -8,10 +8,12 @@ import '../../config/api_config.dart';
 import '../../models/product.dart';
 import '../../models/user_session.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/caja_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/sales_provider.dart';
 import '../../providers/sector_provider.dart';
 import '../auth/login_screen.dart';
+import '../caja/caja_screen.dart';
 import '../clients/clients_screen.dart';
 import '../products/product_editor_screen.dart';
 import '../products/product_groups_screen.dart';
@@ -24,15 +26,16 @@ import '../printers/printers_screen.dart';
 import '../users/users_screen.dart';
 import '../reports/sales_report_screen.dart';
 import '../settings/google_sheet_settings_screen.dart';
+import '../price_lists/price_lists_screen.dart';
 
 /// Secciones visibles según el rol de la sesión.
 /// 0 Inicio · 1 Productos · 2 Rubros · 3 Sectores · 4 Salón · 5 Descuentos y
 /// pagos · 6 Impresoras · 7 Movimientos de stock · 8 Clientes · 9 Usuarios ·
-/// 10 Listado de ventas · 11 Google Sheets.
+/// 10 Listado de ventas · 11 Google Sheets · 12 Caja · 13 Listas de precios.
 Set<int> _allowedSections(UserSession session) => {
       0,
-      4, 7, 8, // Ventas: todos los roles.
-      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10},
+      4, 7, 8, 12, // Ventas: todos los roles.
+      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13},
       if (session.canManageUsers) ...{9, 11},
     };
 
@@ -257,6 +260,8 @@ class _WideLayoutState extends State<_WideLayout>
       value: 1,
     );
     _widthAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => context.read<CajaProvider>().load(widget.session.token));
   }
 
   @override
@@ -380,104 +385,115 @@ class _WideLayoutState extends State<_WideLayout>
               },
             ),
           Expanded(
-            child: _section == 11
-                ? const GoogleSheetSettingsScreen(embedded: true)
-                : _section == 10
-                    ? const SalesReportScreen(embedded: true)
-                    : _section == 9
-                        ? const UsersScreen(embedded: true)
-                        : _section == 8
-                            ? const ClientsScreen(embedded: true)
-                            : _section == 7
-                                ? const StockMovementsScreen(embedded: true)
-                                : _section == 6
-                                    ? const PrintersScreen(embedded: true)
-                                    : _section == 5
-                                        ? const SalesCatalogsScreen(
+            child: _section == 12
+                ? const CajaScreen(embedded: true)
+                : _section == 13
+                    ? const PriceListsScreen(embedded: true)
+                    : _section == 11
+                        ? const GoogleSheetSettingsScreen(embedded: true)
+                        : _section == 10
+                            ? const SalesReportScreen(embedded: true)
+                            : _section == 9
+                                ? const UsersScreen(embedded: true)
+                                : _section == 8
+                                    ? const ClientsScreen(embedded: true)
+                                    : _section == 7
+                                        ? const StockMovementsScreen(
                                             embedded: true)
-                                        : _section == 4
-                                            ? const SalesScreen(embedded: true)
-                                            : _section == 1
-                                                ? _productEditorOpen
-                                                    ? ProductEditorScreen(
-                                                        key: ValueKey(
-                                                            _editingProduct
-                                                                    ?.id ??
-                                                                'new-product'),
-                                                        product:
-                                                            _editingProduct,
-                                                        embedded: true,
-                                                        onCancel: () =>
-                                                            setState(() {
-                                                          _productEditorOpen =
-                                                              false;
-                                                          _editingProduct =
-                                                              null;
-                                                        }),
-                                                        onSaved:
-                                                            (product) async {
-                                                          try {
-                                                            await context
-                                                                .read<
-                                                                    ProductProvider>()
-                                                                .save(product);
-                                                            if (!mounted)
-                                                              return;
-                                                            setState(() {
-                                                              _productEditorOpen =
-                                                                  false;
-                                                              _editingProduct =
-                                                                  null;
-                                                            });
-                                                            ScaffoldMessenger
-                                                                    .of(context)
-                                                                .showSnackBar(
-                                                              const SnackBar(
-                                                                  content: Text(
-                                                                      'Producto guardado correctamente')),
-                                                            );
-                                                          } catch (error) {
-                                                            if (!mounted)
-                                                              return;
-                                                            ScaffoldMessenger
-                                                                    .of(context)
-                                                                .showSnackBar(
-                                                              SnackBar(
-                                                                content: Text(error
-                                                                    .toString()
-                                                                    .replaceFirst(
-                                                                        'Exception: ',
-                                                                        '')),
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                      )
-                                                    : ProductsScreen(
-                                                        embedded: true,
-                                                        onOpenEditor:
-                                                            (product) =>
-                                                                setState(() {
-                                                          _editingProduct =
-                                                              product;
-                                                          _productEditorOpen =
-                                                              true;
-                                                        }),
-                                                      )
-                                                : _section == 2
-                                                    ? const ProductGroupsScreen(
+                                        : _section == 6
+                                            ? const PrintersScreen(
+                                                embedded: true)
+                                            : _section == 5
+                                                ? const SalesCatalogsScreen(
+                                                    embedded: true)
+                                                : _section == 4
+                                                    ? const SalesScreen(
                                                         embedded: true)
-                                                    : _section == 3
-                                                        ? const SectorsScreen(
-                                                            embedded: true)
-                                                        : SingleChildScrollView(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .all(32),
-                                                            child: _HomeContent(
-                                                                session: widget
-                                                                    .session),
-                                                          ),
+                                                    : _section == 1
+                                                        ? _productEditorOpen
+                                                            ? ProductEditorScreen(
+                                                                key: ValueKey(
+                                                                    _editingProduct
+                                                                            ?.id ??
+                                                                        'new-product'),
+                                                                product:
+                                                                    _editingProduct,
+                                                                embedded: true,
+                                                                onCancel: () =>
+                                                                    setState(
+                                                                        () {
+                                                                  _productEditorOpen =
+                                                                      false;
+                                                                  _editingProduct =
+                                                                      null;
+                                                                }),
+                                                                onSaved:
+                                                                    (product) async {
+                                                                  try {
+                                                                    await context
+                                                                        .read<
+                                                                            ProductProvider>()
+                                                                        .save(
+                                                                            product);
+                                                                    if (!mounted)
+                                                                      return;
+                                                                    setState(
+                                                                        () {
+                                                                      _productEditorOpen =
+                                                                          false;
+                                                                      _editingProduct =
+                                                                          null;
+                                                                    });
+                                                                    ScaffoldMessenger.of(
+                                                                            context)
+                                                                        .showSnackBar(
+                                                                      const SnackBar(
+                                                                          content:
+                                                                              Text('Producto guardado correctamente')),
+                                                                    );
+                                                                  } catch (error) {
+                                                                    if (!mounted)
+                                                                      return;
+                                                                    ScaffoldMessenger.of(
+                                                                            context)
+                                                                        .showSnackBar(
+                                                                      SnackBar(
+                                                                        content: Text(error.toString().replaceFirst(
+                                                                            'Exception: ',
+                                                                            '')),
+                                                                      ),
+                                                                    );
+                                                                  }
+                                                                },
+                                                              )
+                                                            : ProductsScreen(
+                                                                embedded: true,
+                                                                onOpenEditor:
+                                                                    (product) =>
+                                                                        setState(
+                                                                            () {
+                                                                  _editingProduct =
+                                                                      product;
+                                                                  _productEditorOpen =
+                                                                      true;
+                                                                }),
+                                                              )
+                                                        : _section == 2
+                                                            ? const ProductGroupsScreen(
+                                                                embedded: true)
+                                                            : _section == 3
+                                                                ? const SectorsScreen(
+                                                                    embedded:
+                                                                        true)
+                                                                : SingleChildScrollView(
+                                                                    padding:
+                                                                        const EdgeInsets
+                                                                            .all(
+                                                                            32),
+                                                                    child: _HomeContent(
+                                                                        session:
+                                                                            widget.session),
+                                                                  ),
           ),
         ],
       )),
@@ -494,6 +510,7 @@ class _MainMenu extends StatelessWidget {
 
   static const sales = <int, String>{
     4: 'Salón',
+    12: 'Caja',
     7: 'Movimientos de stock',
     8: 'Clientes',
   };
@@ -503,6 +520,7 @@ class _MainMenu extends StatelessWidget {
     3: 'Sectores',
     5: 'Descuentos y pagos',
     6: 'Impresoras',
+    13: 'Listas de precios',
   };
   static const statistics = <int, String>{
     10: 'Ventas · Listado de ventas',
@@ -596,8 +614,6 @@ class _MainMenu extends StatelessWidget {
                   icon: const Icon(Icons.table_chart_outlined, size: 19),
                   label: const Text('Google Sheets')),
             ],
-            const SizedBox(width: 6),
-            const TextButton(onPressed: null, child: Text('Caja')),
           ]),
         ),
       );
@@ -646,6 +662,12 @@ class _Sidebar extends StatelessWidget {
                 active: section == 4,
                 showLabel: expanded,
                 onTap: () => onSectionChanged(4)),
+            _SidebarItem(
+                icon: Icons.point_of_sale_outlined,
+                label: 'Caja',
+                active: section == 12,
+                showLabel: expanded,
+                onTap: () => onSectionChanged(12)),
             if (session.canAccessMasters)
               _SidebarItem(
                   icon: Icons.inventory_2_rounded,

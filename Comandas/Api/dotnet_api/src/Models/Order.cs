@@ -25,6 +25,7 @@ public class Order
     [Column("descuento_tipo")] public string? DescuentoTipo { get; set; }
     [Column("descuento_valor", TypeName = "decimal(18,2)")] public decimal? DescuentoValor { get; set; }
     [Column("version")] public long Version { get; set; } = 1;
+    [Column("id_lista_precio")] public int? IdListaPrecio { get; set; }
     public Table Table { get; set; } = null!;
     public List<OrderItem> Items { get; set; } = [];
     public List<SalePayment> Payments { get; set; } = [];
@@ -52,6 +53,7 @@ public class OrderItem
     [Column("estado")] public string Estado { get; set; } = "Activo";
     [Column("fecha_creacion")] public DateTime FechaCreacion { get; set; }
     [Column("fecha_modificacion")] public DateTime FechaModificacion { get; set; }
+    [Column("id_lista_precio")] public int? IdListaPrecio { get; set; }
 }
 
 [Table("descuentos")]
@@ -150,8 +152,9 @@ public class SaleCounter
 }
 
 public record SaleItemRequest([param: Range(1, int.MaxValue)] int ProductId, [param: Range(typeof(decimal), "0.001", "999999999999999.999")] decimal Quantity, [param: MaxLength(500)] string? Comment);
-public record CreateSaleRequest([param: Range(1, int.MaxValue)] int TableId, int? WaiterId, List<SaleItemRequest>? Items);
+public record CreateSaleRequest([param: Range(1, int.MaxValue)] int TableId, int? WaiterId, List<SaleItemRequest>? Items, int? PriceListId = null);
 public record UpdateSaleItemRequest([param: Range(typeof(decimal), "0.001", "999999999999999.999")] decimal Quantity, [param: MaxLength(500)] string? Comment, long? Version);
+public record ChangeSalePriceListRequest([param: Range(1, int.MaxValue)] int PriceListId, bool RepreciarRenglonesExistentes, long? Version);
 public record ApplyDiscountRequest(int? DiscountId, string? Name, string Type, decimal Value, long? Version);
 public record PaymentRequest([param: Range(1, int.MaxValue)] int? PaymentTypeId, [param: Range(typeof(decimal), "0", "9999999999999999.99")] decimal Amount, [param: MaxLength(500)] string? Reference, [param: Range(1, int.MaxValue)] int? CardId = null, decimal? BaseAmount = null);
 public record AddPaymentsRequest([param: Required, MinLength(1)] List<PaymentRequest> Payments, long? Version);
@@ -188,9 +191,9 @@ public class SaleDto
     public int? WaiterId { get; set; } public string Status { get; set; } = string.Empty;
     public DateTime OpenedAt { get; set; } public DateTime? ClosedAt { get; set; }
     public decimal Subtotal { get; set; } public decimal DiscountAmount { get; set; } public decimal PaymentAdjustment { get; set; } public decimal Total { get; set; }
-    public long Version { get; set; } public List<SaleItemDto> Items { get; set; } = [];
+    public long Version { get; set; } public int? PriceListId { get; set; } public List<SaleItemDto> Items { get; set; } = [];
     public object? Discount { get; set; } public List<object> Payments { get; set; } = []; public List<int> JoinedTableIds { get; set; } = [];
 }
-public record SaleItemDto(int Id, int ProductId, string Name, decimal UnitPrice, decimal Quantity, decimal Subtotal, string? Comment, string Status);
+public record SaleItemDto(int Id, int ProductId, string Name, decimal UnitPrice, decimal Quantity, decimal Subtotal, string? Comment, string Status, int? PriceListId);
 public record CommandLineDto(int ProductId, string Name, decimal QuantityDelta, decimal CurrentQuantity, string? Comment);
 public record CommandDto(int Id, int Number, string Type, DateTime Date, int TableId, int? WaiterId, List<CommandLineDto> Lines);

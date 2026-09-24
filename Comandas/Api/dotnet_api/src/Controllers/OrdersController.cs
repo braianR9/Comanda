@@ -22,6 +22,7 @@ public class SalesController(OrderService service) : ControllerBase
     [HttpGet("{id:int}/commands")] public async Task<ActionResult<ApiResponse<List<CommandDto>>>> Commands(int id) => await Run(() => service.CommandsAsync(Company, Branch, id));
     [HttpPost("{id:int}/discount")] public async Task<ActionResult<ApiResponse<SaleDto>>> Discount(int id, ApplyDiscountRequest r) => await Run(() => service.ApplyDiscountAsync(Company, Branch, id, r));
     [HttpDelete("{id:int}/discount")] public async Task<ActionResult<ApiResponse<SaleDto>>> RemoveDiscount(int id, [FromQuery] long? version) => await Run(() => service.RemoveDiscountAsync(Company, Branch, id, version));
+    [HttpPut("{id:int}/price-list")] public async Task<ActionResult<ApiResponse<SaleDto>>> PriceList(int id, ChangeSalePriceListRequest r) => await Run(() => service.ChangePriceListAsync(Company, Branch, id, r));
     [HttpPost("{id:int}/payments")] public async Task<ActionResult<ApiResponse<SaleDto>>> Payments(int id, AddPaymentsRequest r) => await Run(() => service.AddPaymentsAsync(Company, Branch, UserId, id, r));
     [HttpPost("{id:int}/checkout")] public async Task<ActionResult<ApiResponse<SaleDto>>> Checkout(int id, [FromQuery] long? version) => await Run(() => service.CheckoutAsync(Company, Branch, UserId, id, version));
     [HttpPost("{id:int}/cancel")] public async Task<ActionResult<ApiResponse<SaleDto>>> Cancel(int id, [FromQuery] long? version) => await Run(() => service.CancelAsync(Company, Branch, id, version, UserId));

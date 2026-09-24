@@ -14,8 +14,13 @@ public sealed class ProductoException(string message, int statusCode = 400) : Ex
 public class ProductoService
 {
     private readonly AppDbContext _context;
+    private readonly PriceListService _priceLists;
 
-    public ProductoService(AppDbContext context) => _context = context;
+    public ProductoService(AppDbContext context, PriceListService priceLists)
+    {
+        _context = context;
+        _priceLists = priceLists;
+    }
 
     public async Task<PagedResult<ProductListDto>> GetAllAsync(
         int idEmpresa, string? texto, int? idRubro, int? idSubRubro,
@@ -82,6 +87,7 @@ public class ProductoService
         Apply(product, request);
         _context.Productos.Add(product);
         await _context.SaveChangesAsync();
+        await _priceLists.SetDefaultListPriceAsync(idEmpresa, product.Id, product.PrecioConIva);
         if (request.Stock != null) await SaveStockValueAsync(product.Id, idSucursal, request.Stock);
         await transaction.CommitAsync();
         return (await GetAsync(idEmpresa, product.Id, idSucursal))!;
@@ -95,6 +101,7 @@ public class ProductoService
         Apply(product, request);
         product.FechaModificacion = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        await _priceLists.SetDefaultListPriceAsync(idEmpresa, product.Id, product.PrecioConIva);
         if (request.Stock != null)
         {
             await ValidateBranchAsync(idEmpresa, idSucursal);

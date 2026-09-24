@@ -37,7 +37,7 @@ static class LocalPaymentsIntegration
             var card = new Card { IdEmpresa = seed.IdEmpresa, Nombre = "Regression card " + Guid.NewGuid(), TipoAjuste = "Recargo", Porcentaje = 20, Activa = true };
             db.Orders.Add(sale); db.Cards.AddRange(cash, card);
             await db.SaveChangesAsync();
-            var service = new OrderService(db, new ConfigurationBuilder().Build(), new StockMovementService(db));
+            var service = new OrderService(db, new ConfigurationBuilder().Build(), new StockMovementService(db), new CajaService(db), new PriceListService(db));
             var first = await service.AddPaymentsAsync(seed.IdEmpresa, seed.IdSucursal, seed.UsuarioId, sale.Id,
                 new AddPaymentsRequest([new PaymentRequest(null, 36, null, cash.Id, 40)], 1));
             Require(first.Total == 96 && first.PaymentAdjustment == -4 && first.Version == 2, "Partial discounted payment persisted");

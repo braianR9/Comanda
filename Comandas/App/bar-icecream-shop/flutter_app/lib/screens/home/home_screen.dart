@@ -521,6 +521,7 @@ class _MainMenu extends StatelessWidget {
     5: 'Descuentos y pagos',
     6: 'Impresoras',
     13: 'Listas de precios',
+    9: 'Usuarios',
   };
   static const statistics = <int, String>{
     10: 'Ventas · Listado de ventas',
@@ -532,7 +533,8 @@ class _MainMenu extends StatelessWidget {
       tooltip: label,
       position: PopupMenuPosition.under,
       onSelected: onSelected,
-      itemBuilder: (_) => entries.entries
+        itemBuilder: (_) => entries.entries
+          .where((entry) => entry.key != 9 || session.canManageUsers)
           .map((entry) => PopupMenuItem<int>(
                 value: entry.key,
                 child: Row(children: [
@@ -591,17 +593,6 @@ class _MainMenu extends StatelessWidget {
               _group('Estadísticas', Icons.bar_chart_rounded, statistics),
             ],
             if (session.canManageUsers) ...[
-              const SizedBox(width: 6),
-              TextButton.icon(
-                  onPressed: () => onSelected(9),
-                  style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF3D2D8A),
-                      backgroundColor:
-                          section == 9 ? const Color(0xFFEDE9FF) : null,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 18)),
-                  icon: const Icon(Icons.badge_outlined, size: 19),
-                  label: const Text('Usuarios')),
               const SizedBox(width: 6),
               TextButton.icon(
                   onPressed: () => onSelected(11),
@@ -824,42 +815,50 @@ class _HomeContentState extends State<_HomeContent> {
           ),
         ],
       ),
-      child: isWide
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _LogoUpload(
-                  imageUrl: _imageUrl,
-                  onTap: _pickImage,
-                  uploading: _uploading,
-                  size: 160,
-                ),
-                const SizedBox(width: 36),
-                Expanded(
-                    child: _EmpresaInfo(
+      child: Column(
+        crossAxisAlignment:
+            isWide ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
+        children: [
+          isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _LogoUpload(
+                      imageUrl: _imageUrl,
+                      onTap: _pickImage,
+                      uploading: _uploading,
+                      size: 160,
+                    ),
+                    const SizedBox(width: 36),
+                    Expanded(
+                        child: _EmpresaInfo(
+                            empresa: empresa,
+                            sucursal: widget.session.sucursal,
+                            openTables: _openTables,
+                            totalTables: totalTables)),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _LogoUpload(
+                      imageUrl: _imageUrl,
+                      onTap: _pickImage,
+                      uploading: _uploading,
+                      size: 120,
+                    ),
+                    const SizedBox(height: 24),
+                    _EmpresaInfo(
                         empresa: empresa,
                         sucursal: widget.session.sucursal,
                         openTables: _openTables,
-                        totalTables: totalTables)),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _LogoUpload(
-                  imageUrl: _imageUrl,
-                  onTap: _pickImage,
-                  uploading: _uploading,
-                  size: 120,
+                        totalTables: totalTables),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                _EmpresaInfo(
-                    empresa: empresa,
-                    sucursal: widget.session.sucursal,
-                    openTables: _openTables,
-                    totalTables: totalTables),
-              ],
-            ),
+          const SizedBox(height: 24),
+          _SalonSummary(openTables: _openTables, totalTables: totalTables),
+        ],
+      ),
     );
   }
 
@@ -1055,8 +1054,6 @@ class _EmpresaInfo extends StatelessWidget {
             height: 1.1,
           ),
         ),
-        const SizedBox(height: 18),
-        _SalonSummary(openTables: openTables, totalTables: totalTables),
         const SizedBox(height: 16),
         _DataChip(
           icon: Icons.location_on_outlined,

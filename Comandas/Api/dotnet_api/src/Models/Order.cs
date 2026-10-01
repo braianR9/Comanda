@@ -151,12 +151,12 @@ public class SaleCounter
     [Column("ultimo_numero_comanda")] public int LastCommandNumber { get; set; }
 }
 
-public record SaleItemRequest([param: Range(1, int.MaxValue)] int ProductId, [param: Range(typeof(decimal), "0.001", "999999999999999.999")] decimal Quantity, [param: MaxLength(500)] string? Comment);
+public record SaleItemRequest([param: Range(1, int.MaxValue)] int ProductId, [param: Range(typeof(decimal), "0.001", "999999999999999.999", ParseLimitsInInvariantCulture = true)] decimal Quantity, [param: MaxLength(500)] string? Comment);
 public record CreateSaleRequest([param: Range(1, int.MaxValue)] int TableId, int? WaiterId, List<SaleItemRequest>? Items, int? PriceListId = null);
-public record UpdateSaleItemRequest([param: Range(typeof(decimal), "0.001", "999999999999999.999")] decimal Quantity, [param: MaxLength(500)] string? Comment, long? Version);
+public record UpdateSaleItemRequest([param: Range(typeof(decimal), "0.001", "999999999999999.999", ParseLimitsInInvariantCulture = true)] decimal Quantity, [param: MaxLength(500)] string? Comment, long? Version);
 public record ChangeSalePriceListRequest([param: Range(1, int.MaxValue)] int PriceListId, bool RepreciarRenglonesExistentes, long? Version);
 public record ApplyDiscountRequest(int? DiscountId, string? Name, string Type, decimal Value, long? Version);
-public record PaymentRequest([param: Range(1, int.MaxValue)] int? PaymentTypeId, [param: Range(typeof(decimal), "0", "9999999999999999.99")] decimal Amount, [param: MaxLength(500)] string? Reference, [param: Range(1, int.MaxValue)] int? CardId = null, decimal? BaseAmount = null);
+public record PaymentRequest([param: Range(1, int.MaxValue)] int? PaymentTypeId, [param: Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal Amount, [param: MaxLength(500)] string? Reference, [param: Range(1, int.MaxValue)] int? CardId = null, decimal? BaseAmount = null);
 public record AddPaymentsRequest([param: Required, MinLength(1)] List<PaymentRequest> Payments, long? Version);
 public record MoveTableRequest([param: Range(1, int.MaxValue)] int TableId, long? Version);
 public record JoinTableRequest([param: Range(1, int.MaxValue)] int TableId, long? Version);
@@ -167,7 +167,7 @@ public class DiscountRequest
     [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
     [MaxLength(500)] public string? Description { get; set; }
     [Required] public string Type { get; set; } = "Porcentaje";
-    [Range(typeof(decimal), "0", "9999999999999999.99")] public decimal Value { get; set; }
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] public decimal Value { get; set; }
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUntil { get; set; }
 }
@@ -177,7 +177,7 @@ public class CardRequest
     [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
     [MaxLength(500)] public string? Description { get; set; }
     [Required] public string AdjustmentType { get; set; } = "SinAjuste";
-    [Range(typeof(decimal), "0", "100")] public decimal Percentage { get; set; }
+    [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true)] public decimal Percentage { get; set; }
 }
 
 public class SalesCatalogStatusRequest { public bool Active { get; set; } }

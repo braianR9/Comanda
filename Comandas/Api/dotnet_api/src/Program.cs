@@ -46,6 +46,7 @@ builder.Services.AddScoped<UsuarioService>();
 builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<CajaService>();
 builder.Services.AddScoped<PriceListService>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<GoogleSheetsService>();
 builder.Services.AddHostedService<GoogleSheetSyncWorker>();
 
@@ -150,15 +151,14 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath)
 });
 
-// ─── Middleware de API Key ───────────────────────────────────────────────────
-app.UseMiddleware<ApiKeyMiddleware>();
-
 if ((builder.Configuration["Urls"] ?? string.Empty).Contains("https://", StringComparison.OrdinalIgnoreCase))
 {
     app.UseHttpsRedirection();
 }
 app.UseRouting();
 app.UseCors("FlutterDevCors");
+// CORS must handle browser preflight before the API-key check.
+app.UseMiddleware<ApiKeyMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -32,8 +32,8 @@ public class TableRequest
     [MaxLength(30)] public string Shape { get; set; } = "Rectangular";
     [MaxLength(30)] public string? Type { get; set; }
     [Range(1, int.MaxValue)] public int Capacity { get; set; }
-    [Range(typeof(decimal), "0", "1")] public decimal PositionX { get; set; }
-    [Range(typeof(decimal), "0", "1")] public decimal PositionY { get; set; }
+    [Range(typeof(decimal), "0", "1", ParseLimitsInInvariantCulture = true)] public decimal PositionX { get; set; }
+    [Range(typeof(decimal), "0", "1", ParseLimitsInInvariantCulture = true)] public decimal PositionY { get; set; }
 }
 
 public class TableStatusRequest { public bool Active { get; set; } }

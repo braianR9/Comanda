@@ -1,3 +1,4 @@
+import '../utils/api_response.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -152,9 +153,7 @@ class SalesCatalogsProvider extends ChangeNotifier {
       .timeout(ApiConfig.timeout));
 
   Map<String, dynamic> _body(http.Response response) {
-    final body = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+    final body = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(body['error']?.toString() ??
           'Error del servidor (${response.statusCode}).');

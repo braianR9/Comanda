@@ -41,6 +41,8 @@ namespace BarIceCreamShop.Api.Data
         public DbSet<Caja> Cajas { get; set; }
         public DbSet<CajaMovimiento> CajaMovimientos { get; set; }
         public DbSet<CajaCierreDetalle> CajaCierreDetalles { get; set; }
+        public DbSet<ScheduledPriceRule> ScheduledPriceRules { get; set; }
+        public DbSet<PriceHistory> PriceHistory { get; set; }
         public DbSet<ListaPrecio> ListasPrecios { get; set; }
         public DbSet<ProductoPrecio> ProductoPrecios { get; set; }
 

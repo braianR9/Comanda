@@ -71,7 +71,7 @@ public class AlicuotaRequest
 {
     [Required, MaxLength(100)] public string Nombre { get; set; } = string.Empty;
     [Required, MaxLength(500)] public string Descripcion { get; set; } = string.Empty;
-    [Range(typeof(decimal), "0", "100")] public decimal Porcentaje { get; set; }
+    [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true)] public decimal Porcentaje { get; set; }
 }
 
 public class AlicuotaDto

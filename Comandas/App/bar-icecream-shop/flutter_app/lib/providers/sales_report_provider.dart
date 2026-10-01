@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../utils/api_response.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -124,9 +124,7 @@ class SalesReportProvider extends ChangeNotifier {
       ).toUtc().toIso8601String();
 
   Map<String, dynamic> _body(http.Response response) {
-    final body = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+    final body = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(body['error']?.toString() ??
           body['title']?.toString() ??

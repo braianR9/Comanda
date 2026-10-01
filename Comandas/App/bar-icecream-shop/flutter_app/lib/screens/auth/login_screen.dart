@@ -129,33 +129,35 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildBrandSide() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FocoLogo(size: 80),
-          const SizedBox(height: 20),
-          Text(
-            'FOCO',
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 2,
+    return Container(
+      color: const Color(0xFF6C5CE7),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FocoLogo(size: 80),
+            const SizedBox(height: 20),
+            Text(
+              'FOCO',
+              style: GoogleFonts.poppins(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 2,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Tu negocio,\nen tus manos.',
-            style: GoogleFonts.poppins(
-              fontSize: 44,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.15,
+            const SizedBox(height: 16),
+            Text(
+              'Tu negocio\nen nuestras manos.',
+              style: GoogleFonts.poppins(
+                fontSize: 44,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1.15,
+              ),
             ),
-          ),
           const SizedBox(height: 16),
           Text(
             'Gestioná ventas, stock y tu negocio\ndesde cualquier lugar.',
@@ -166,20 +168,21 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 48),
-          const Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _FeatureChip(icon: Icons.point_of_sale_rounded, label: 'Ventas'),
-              _FeatureChip(icon: Icons.inventory_2_rounded, label: 'Stock'),
-              _FeatureChip(
-                  icon: Icons.account_balance_wallet_rounded, label: 'Caja'),
-              _FeatureChip(
-                  icon: Icons.bar_chart_rounded, label: 'Estadísticas'),
-              _FeatureChip(icon: Icons.people_rounded, label: 'Clientes'),
-            ],
-          ),
-        ],
+            const Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _FeatureChip(icon: Icons.point_of_sale_rounded, label: 'Ventas'),
+                _FeatureChip(icon: Icons.inventory_2_rounded, label: 'Stock'),
+                _FeatureChip(
+                    icon: Icons.account_balance_wallet_rounded, label: 'Caja'),
+                _FeatureChip(
+                    icon: Icons.bar_chart_rounded, label: 'Estadísticas'),
+                _FeatureChip(icon: Icons.people_rounded, label: 'Clientes'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -194,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen>
           style: GoogleFonts.poppins(
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: const Color(0xFF2D2260),
             letterSpacing: 3,
           ),
         ),
@@ -202,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen>
           'Gestioná tu negocio',
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: Colors.white.withOpacity(0.55),
+            color: const Color(0xFF6B6589),
           ),
         ),
       ],
@@ -210,17 +213,21 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildGlassCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.all(36),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE4E1EE)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
+        ],
+      ),
+      child: Container(
+          padding: const EdgeInsets.all(36),
           child: Form(
             key: _formKey,
             child: Column(
@@ -232,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen>
                   style: GoogleFonts.poppins(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: const Color(0xFF2D2260),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -240,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                   'Accedé al panel de tu negocio',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.55),
+                    color: const Color(0xFF6B6589),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -284,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen>
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: Colors.white54,
+                      color: const Color(0xFF6B6589),
                       size: 20,
                     ),
                     onPressed: () =>
@@ -303,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Text(
                       '¿Olvidaste tu contraseña?',
                       style: GoogleFonts.poppins(
-                        color: const Color(0xFFFF8C42),
+                        color: const Color(0xFF6C5CE7),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -359,91 +366,17 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
         ),
-      ),
     );
   }
 }
 
-// Background con blobs difuminados
+// Fondo compartido con el resto de la aplicación.
 class _AnimatedBackground extends StatelessWidget {
   const _AnimatedBackground();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F0C1D),
-            Color(0xFF1A0A2E),
-            Color(0xFF0D1B2A),
-          ],
-          stops: [0.0, 0.5, 1.0],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -80,
-            left: -60,
-            child: _Blob(
-                size: 320, color: const Color(0xFFFF8C42).withOpacity(0.22)),
-          ),
-          Positioned(
-            top: 100,
-            right: -80,
-            child: _Blob(
-                size: 280, color: const Color(0xFFFF3C78).withOpacity(0.18)),
-          ),
-          Positioned(
-            bottom: -60,
-            left: 80,
-            child: _Blob(
-                size: 260, color: const Color(0xFF4C6EF5).withOpacity(0.15)),
-          ),
-          Positioned(
-            bottom: 120,
-            right: 60,
-            child: _Blob(
-                size: 160, color: const Color(0xFF00D2C8).withOpacity(0.12)),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 1.2,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Blob extends StatelessWidget {
-  final double size;
-  final Color color;
-  const _Blob({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      ),
-    );
+    return Container(color: const Color(0xFFF5F5F8));
   }
 }
 
@@ -523,30 +456,31 @@ class _GlassField extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
-      style: GoogleFonts.poppins(color: Colors.white, fontSize: 15),
+        style: GoogleFonts.poppins(
+          color: const Color(0xFF2D2260), fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.poppins(
-          color: Colors.white.withOpacity(0.5),
+          color: const Color(0xFF6B6589),
           fontSize: 14,
         ),
-        prefixIcon: Icon(icon, color: Colors.white60, size: 20),
+        prefixIcon: Icon(icon, color: const Color(0xFF9E8FCC), size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withOpacity(0.11),
+        fillColor: const Color(0xFFF8F7FC),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+          borderSide: const BorderSide(color: Color(0xFFE4E1EE)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+          borderSide: const BorderSide(color: Color(0xFFE4E1EE)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFFF8C42), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF6C5CE7), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -578,9 +512,9 @@ class _GradientButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: onPressed == null
               ? const LinearGradient(
-                  colors: [Color(0xFF555555), Color(0xFF444444)])
+                colors: [Color(0xFFD8D5E3), Color(0xFFC5C1D4)])
               : const LinearGradient(
-                  colors: [Color(0xFFFF8C42), Color(0xFFFF3C78)],
+                colors: [Color(0xFF6C5CE7), Color(0xFF8777E8)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
@@ -589,7 +523,7 @@ class _GradientButton extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: const Color(0xFFFF8C42).withOpacity(0.4),
+                    color: const Color(0xFF6C5CE7).withOpacity(0.28),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -628,21 +562,47 @@ class _GradientButton extends StatelessWidget {
 }
 
 // FocoLogo: punto central + cuatro esquinas
-
-// FocoLogo: punto central + cuatro esquinas
-
-// FocoLogo: punto central + cuatro esquinas
-class FocoLogo extends StatelessWidget {
+class FocoLogo extends StatefulWidget {
   final double size;
   final Color color;
   const FocoLogo({super.key, required this.size, this.color = Colors.white});
 
   @override
+  State<FocoLogo> createState() => _FocoLogoState();
+}
+
+class _FocoLogoState extends State<FocoLogo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _focusController;
+  late final Animation<double> _focusScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _focusScale = Tween<double>(begin: 1, end: 1.1).animate(
+      CurvedAnimation(parent: _focusController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _focusController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(painter: _FocoPainter(color: color)),
+    return ScaleTransition(
+      scale: _focusScale,
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: CustomPaint(painter: _FocoPainter(color: widget.color)),
+      ),
     );
   }
 }

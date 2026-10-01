@@ -138,9 +138,10 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         sale.IdListaPrecio = listId;
         if (request.RepreciarRenglonesExistentes)
         {
+            var priceInstant = DateTimeOffset.UtcNow;
             foreach (var item in sale.Items)
             {
-                var precio = await priceLists.ResolvePriceAsync(item.ProductId, listId)
+                var precio = await SalePriceAsync(item.ProductId, listId, priceInstant)
                     ?? throw new SaleException($"'{item.ProductName}' no tiene precio configurado en la lista seleccionada.", 409);
                 item.UnitPrice = precio; item.Subtotal = Money(precio * item.Quantity);
                 item.IdListaPrecio = listId; item.FechaModificacion = DateTime.UtcNow;
@@ -248,7 +249,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
             context.KitchenCommands.Add(command);
             context.PrintJobs.Add(new PrintJob {
                 OrderId = sale.Id, PrinterId = configuration["PrinterSettings:QueueName"] ?? "Printer_POS_80C",
-                CreatedAt = DateTime.UtcNow, Status = "Pendiente", JobType = "Command"
+                CreatedAt = DateTime.UtcNow, Status = "Pendiente", JobType = "Comanda"
             });
         }
         sale.Estado = "Cancelada"; sale.FechaCierre = DateTime.UtcNow; sale.Version++; sale.Table.Status = "Libre";
@@ -288,6 +289,12 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     public async Task<object> CustomerTicketAsync(int company, int branch, int id) { var sale = await Require(company, branch, id); return Document(sale, false); }
     public async Task<object> ReceiptAsync(int company, int branch, int id) { var sale = await Require(company, branch, id); return Document(sale, true); }
 
+    private async Task<decimal?> SalePriceAsync(int productId, int listId, DateTimeOffset? instant = null)
+    {
+        try { return await priceLists.ResolvePriceAsync(productId, listId, instant); }
+        catch (PriceListException e) { throw new SaleException(e.Message, e.StatusCode); }
+    }
+
     private async Task AddOrMergeItem(Order sale, int productId, decimal quantity, string? comment)
     {
         if (quantity <= 0) throw new SaleException("La cantidad debe ser mayor que cero.");
@@ -297,7 +304,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         {
             var listId = sale.IdListaPrecio ?? await priceLists.ResolveSaleListIdAsync(sale.IdEmpresa, sale.IdSucursal, null);
             sale.IdListaPrecio ??= listId;
-            var precio = await priceLists.ResolvePriceAsync(productId, listId)
+            var precio = await SalePriceAsync(productId, listId)
                 ?? throw new SaleException($"'{product.Nombre}' no tiene precio configurado en la lista de precios actual.", 409);
             sale.Items.Add(new OrderItem { ProductId = product.Id, ProductName = product.Nombre, UnitPrice = precio, Quantity = quantity, Subtotal = Money(precio * quantity), Comment = CleanComment(comment), Estado = "Activo", FechaCreacion = now, FechaModificacion = now, IdListaPrecio = listId });
         }

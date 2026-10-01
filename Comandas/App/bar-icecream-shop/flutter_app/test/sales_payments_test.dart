@@ -1,3 +1,6 @@
+import 'package:bar_icecream_shop/models/product.dart';
+import 'package:bar_icecream_shop/providers/caja_provider.dart';
+import 'package:bar_icecream_shop/providers/price_list_provider.dart';
 import 'dart:async';
 
 import 'package:bar_icecream_shop/models/payment_amounts.dart';
@@ -164,12 +167,40 @@ class FakeSectors extends SectorProvider {
 }
 
 class FakeProducts extends ProductProvider {
+  final List<Product> catalog;
+  FakeProducts({this.catalog = const []});
+  @override
+  List<Product> get products => catalog;
   @override
   Future<void> load(int companyId,
       {String token = '', bool force = false}) async {}
 }
 
-Future<void> openSale(WidgetTester tester, FakeSales sales) async {
+class FakeCaja extends CajaProvider {
+  @override
+  Future<void> load(String token) async {}
+  @override
+  bool get isOpen => true;
+}
+
+class FakeSalePrices extends PriceListProvider {
+  double currentPrice = 800;
+  int quoteCalls = 0;
+  @override
+  Future<Map<int, Map<String, dynamic>>> quotePrices(List<int> ids,
+      {int? listId, DateTime? instant}) async {
+    quoteCalls++;
+    return {
+      for (final id in ids) id: {'idProducto': id, 'precioFinal': currentPrice}
+    };
+  }
+
+  @override
+  Future<void> load(String token) async {}
+}
+
+Future<void> openSale(WidgetTester tester, FakeSales sales,
+    {FakeProducts? products, FakeSalePrices? prices}) async {
   tester.view.physicalSize = const Size(1400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -178,7 +209,11 @@ Future<void> openSale(WidgetTester tester, FakeSales sales) async {
     ChangeNotifierProvider<AuthProvider>(create: (_) => FakeAuth()),
     ChangeNotifierProvider<SalesProvider>.value(value: sales),
     ChangeNotifierProvider<SectorProvider>(create: (_) => FakeSectors()),
-    ChangeNotifierProvider<ProductProvider>(create: (_) => FakeProducts()),
+    ChangeNotifierProvider<ProductProvider>(
+        create: (_) => products ?? FakeProducts()),
+    ChangeNotifierProvider<CajaProvider>(create: (_) => FakeCaja()),
+    ChangeNotifierProvider<PriceListProvider>(
+        create: (_) => prices ?? FakeSalePrices()),
   ], child: const MaterialApp(home: SalesScreen())));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Mesa 1'));
@@ -187,6 +222,26 @@ Future<void> openSale(WidgetTester tester, FakeSales sales) async {
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  testWidgets(
+      'catalog and new line use server prices, including a boundary change',
+      (tester) async {
+    final prices = FakeSalePrices();
+    await openSale(tester, FakeSales(),
+        prices: prices,
+        products: FakeProducts(catalog: [
+          const Product(id: '2', name: 'Té promo', category: '', price: 1000)
+        ]));
+    expect(find.text('\$800.00'), findsOneWidget);
+    prices.currentPrice = 700;
+    // The screen intentionally ignores taps for 500ms after opening a table.
+    await tester.pump(const Duration(milliseconds: 550));
+    await tester.tap(find.text('Té promo'));
+    await tester.pumpAndSettle();
+    expect(prices.quoteCalls, 2);
+    expect(find.text('\$700.00'), findsWidgets);
+    expect(find.text('\$1000.00'), findsNothing);
+  });
 
   test('payment amounts must be positive, finite and match the balance', () {
     expect(validPaymentAmounts([30, 60], 90), isTrue);

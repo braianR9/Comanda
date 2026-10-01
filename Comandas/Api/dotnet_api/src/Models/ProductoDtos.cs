@@ -47,8 +47,8 @@ public class CreateProductRequest
     [Range(1, int.MaxValue)] public int IdRubro { get; set; }
     public int? IdSubRubro { get; set; }
     [Range(1, int.MaxValue)] public int IdAlicuota { get; set; }
-    [Range(typeof(decimal), "0", "9999999999999999.99")] public decimal CostoConIva { get; set; }
-    [Range(typeof(decimal), "0", "9999999999999999.99")] public decimal PrecioConIva { get; set; }
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] public decimal CostoConIva { get; set; }
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] public decimal PrecioConIva { get; set; }
     public bool MostrarDelivery { get; set; }
     public bool MostrarSalon { get; set; }
     public bool MostrarCartaDigital { get; set; }
@@ -67,9 +67,9 @@ public class UploadProductImageRequest { [Required] public IFormFile Imagen { ge
 public class ProductStockRequest
 {
     [Required, MaxLength(20)] public string OperacionCantidad { get; set; } = "Entero";
-    [Range(typeof(decimal), "0", "999999999999999.999")] public decimal StockActual { get; set; }
-    [Range(typeof(decimal), "0", "999999999999999.999")] public decimal StockMinimo { get; set; }
-    [Range(typeof(decimal), "0", "999999999999999.999")] public decimal StockIdeal { get; set; }
+    [Range(typeof(decimal), "0", "999999999999999.999", ParseLimitsInInvariantCulture = true)] public decimal StockActual { get; set; }
+    [Range(typeof(decimal), "0", "999999999999999.999", ParseLimitsInInvariantCulture = true)] public decimal StockMinimo { get; set; }
+    [Range(typeof(decimal), "0", "999999999999999.999", ParseLimitsInInvariantCulture = true)] public decimal StockIdeal { get; set; }
     public bool TieneAlarmaStock { get; set; }
     public bool TieneAlarmaStockMinimo { get; set; }
     public bool ComprobarStockAlVender { get; set; }

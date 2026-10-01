@@ -1,3 +1,4 @@
+import '../utils/api_response.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -89,8 +90,8 @@ class AuthProvider extends ChangeNotifier {
           )
           .timeout(ApiConfig.timeout);
 
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final codigo = body['codigo'] as int;
+      final body = decodeApiResponse(response);
+      final codigo = body['codigo'] as int?;
 
       if (response.statusCode == 200 && codigo == 200) {
         _session = UserSession.fromJson(body['data'] as Map<String, dynamic>);

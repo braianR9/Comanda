@@ -1,3 +1,4 @@
+import '../utils/api_response.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -176,6 +177,9 @@ class PriceListProvider extends ChangeNotifier {
     List<int>? productoIds,
     required String operacion,
     required double valor,
+    double redondeo = 0,
+    String modoRedondeo = 'Arriba',
+    List<BulkPricePreviewItem>? confirmados,
   }) async {
     final response = await http
         .post(_uri('/api/listas-precios/$listId/precios/vista-previa-masiva'),
@@ -189,6 +193,17 @@ class PriceListProvider extends ChangeNotifier {
               },
               'operacion': operacion,
               'valor': valor,
+              'redondeo': redondeo,
+              'modoRedondeo': modoRedondeo,
+              if (confirmados != null)
+                'cambiosConfirmados': confirmados
+                    .map((p) => {
+                          'idListaPrecio': listId,
+                          'idProducto': p.idProducto,
+                          'precioAnterior': p.precioActual,
+                          'precioNuevo': p.precioNuevo,
+                        })
+                    .toList(),
             }))
         .timeout(ApiConfig.timeout);
     final items = _body(response)['data'] as List<dynamic>? ?? const [];
@@ -205,6 +220,9 @@ class PriceListProvider extends ChangeNotifier {
     List<int>? productoIds,
     required String operacion,
     required double valor,
+    double redondeo = 0,
+    String modoRedondeo = 'Arriba',
+    List<BulkPricePreviewItem>? confirmados,
   }) async {
     final response = await http
         .post(_uri('/api/listas-precios/$listId/precios/aplicar-masivo'),
@@ -218,10 +236,86 @@ class PriceListProvider extends ChangeNotifier {
               },
               'operacion': operacion,
               'valor': valor,
+              'redondeo': redondeo,
+              'modoRedondeo': modoRedondeo,
+              if (confirmados != null)
+                'cambiosConfirmados': confirmados
+                    .map((p) => {
+                          'idListaPrecio': listId,
+                          'idProducto': p.idProducto,
+                          'precioAnterior': p.precioActual,
+                          'precioNuevo': p.precioNuevo,
+                        })
+                    .toList(),
             }))
         .timeout(ApiConfig.timeout);
     final data = _body(response)['data'] as Map<String, dynamic>;
     return (data['actualizados'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> saveGrid(List<Map<String, dynamic>> changes) async {
+    _body(await http
+        .put(_uri('/api/listas-precios/planilla'),
+            headers: _headers, body: jsonEncode({'cambios': changes}))
+        .timeout(ApiConfig.timeout));
+  }
+
+  Future<Map<String, dynamic>> history(int page) async => _body(await http
+      .get(_uri('/api/listas-precios/historial', {'page': '$page'}),
+          headers: _headers)
+      .timeout(ApiConfig.timeout))['data'] as Map<String, dynamic>;
+
+  Future<List<Map<String, dynamic>>> historyDetails(String batch) async {
+    final body = _body(await http
+        .get(_uri('/api/listas-precios/historial/$batch'), headers: _headers)
+        .timeout(ApiConfig.timeout));
+    return (body['data'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> revert(String batch) async {
+    _body(await http
+        .post(_uri('/api/listas-precios/historial/$batch/revertir'),
+            headers: _headers)
+        .timeout(ApiConfig.timeout));
+  }
+
+  Future<List<Map<String, dynamic>>> rules(int listId) async {
+    final body = _body(await http
+        .get(_uri('/api/listas-precios/$listId/reglas'), headers: _headers)
+        .timeout(ApiConfig.timeout));
+    return (body['data'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> saveRule(int listId, Map<String, dynamic> rule,
+      {int? id}) async {
+    final uri =
+        _uri('/api/listas-precios/$listId/reglas${id == null ? '' : '/$id'}');
+    final response = id == null
+        ? await http
+            .post(uri, headers: _headers, body: jsonEncode(rule))
+            .timeout(ApiConfig.timeout)
+        : await http
+            .put(uri, headers: _headers, body: jsonEncode(rule))
+            .timeout(ApiConfig.timeout);
+    _body(response);
+  }
+
+  Future<Map<int, Map<String, dynamic>>> quotePrices(List<int> productIds,
+      {int? listId, DateTime? instant}) async {
+    if (productIds.isEmpty) return {};
+    final body = _body(await http
+        .post(_uri('/api/listas-precios/consulta-precios'),
+            headers: _headers,
+            body: jsonEncode({
+              'idListaPrecio': listId,
+              'productoIds': productIds,
+              if (instant != null) 'fecha': instant.toUtc().toIso8601String()
+            }))
+        .timeout(ApiConfig.timeout));
+    return {
+      for (final row in (body['data'] as List).cast<Map<String, dynamic>>())
+        (row['idProducto'] as num).toInt(): row
+    };
   }
 
   void _replace(PriceList updated) {
@@ -231,7 +325,7 @@ class PriceListProvider extends ChangeNotifier {
   }
 
   Map<String, dynamic> _body(http.Response response) {
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final body = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(body['error']?.toString() ??
           'Error del servidor (${response.statusCode}).');

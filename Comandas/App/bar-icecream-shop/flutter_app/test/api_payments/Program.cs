@@ -1,6 +1,56 @@
 using System.Reflection;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using BarIceCreamShop.Api.Models;
 using BarIceCreamShop.Api.Services;
+
+if (args.Contains("--test-scheduled-prices"))
+{
+    ScheduledPriceRegression.Calendar();
+    await ScheduledPriceRegression.Integration();
+    return;
+}
+
+if (args.Contains("--test-price-calculations"))
+{
+    PriceListRegression.Calculations();
+    return;
+}
+if (args.Contains("--test-price-lists"))
+{
+    PriceListRegression.Calculations();
+    await PriceListRegression.Integration();
+    return;
+}
+
+if (args.Contains("--test-decimal-validation"))
+{
+    var originalCulture = CultureInfo.CurrentCulture;
+    try
+    {
+        foreach (var culture in new[] { "es-AR", "en-US" })
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+            var ranges = typeof(Order).Assembly.GetTypes()
+                .SelectMany(type => type.GetProperties().Cast<ICustomAttributeProvider>()
+                    .Concat(type.GetConstructors().SelectMany(c => c.GetParameters())))
+                .SelectMany(member => member.GetCustomAttributes(typeof(RangeAttribute), false).Cast<RangeAttribute>())
+                .Where(range => range.OperandType == typeof(decimal)).ToList();
+            if (ranges.Count == 0) throw new Exception("No decimal validators found.");
+            foreach (var range in ranges)
+            {
+                var min = Convert.ToDecimal(range.Minimum, CultureInfo.InvariantCulture);
+                var max = Convert.ToDecimal(range.Maximum, CultureInfo.InvariantCulture);
+                if (!range.IsValid(min) || !range.IsValid(max) || !range.IsValid((min + max) / 2)
+                    || range.IsValid(min - 0.001m) || range.IsValid(max + 0.001m))
+                    throw new Exception($"Incorrect decimal validation in {culture}.");
+            }
+            Console.WriteLine($"PASS: {ranges.Count} decimal validators accept boundaries and reject out-of-range values in {culture}.");
+        }
+    }
+    finally { CultureInfo.CurrentCulture = originalCulture; }
+    return;
+}
 
 if (args.Contains("--test-local-payments"))
 {

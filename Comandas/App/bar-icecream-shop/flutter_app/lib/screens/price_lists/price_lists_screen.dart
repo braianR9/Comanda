@@ -1,3 +1,6 @@
+import 'price_rules_screen.dart';
+import 'price_grid_screen.dart';
+import 'price_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -163,6 +166,31 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
             icon: const Icon(Icons.add_rounded),
             label: const Text('Nueva lista')),
       ]),
+      const SizedBox(height: 12),
+      Wrap(spacing: 12, runSpacing: 8, children: [
+        OutlinedButton.icon(
+            onPressed: provider.lists.isEmpty
+                ? null
+                : () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const PriceRulesScreen())),
+            icon: const Icon(Icons.schedule),
+            label: const Text('Promociones y aumentos programados')),
+        OutlinedButton.icon(
+            onPressed: provider.activeLists.isEmpty
+                ? null
+                : () async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const PriceGridScreen()));
+                    if (mounted) await _load();
+                  },
+            icon: const Icon(Icons.table_chart_outlined),
+            label: const Text('Planilla de precios')),
+        OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PriceHistoryScreen())),
+            icon: const Icon(Icons.history),
+            label: const Text('Historial de cambios')),
+      ]),
       const SizedBox(height: 20),
       if (provider.lists.isEmpty)
         Padding(
@@ -171,65 +199,76 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
               style: GoogleFonts.poppins(color: const Color(0xFF9E8FCC))),
         )
       else
-        ...provider.lists.map((lista) => Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade200)),
-              child: ListTile(
-                onTap: () => setState(() => _selected = lista),
-                title: Row(children: [
-                  Text(lista.nombre,
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-                  if (lista.esPredeterminada) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFEDE9FF),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text('Predeterminada',
-                          style: GoogleFonts.poppins(
-                              fontSize: 11, color: const Color(0xFF3D2D8A))),
-                    ),
-                  ],
-                ]),
-                subtitle: Text(
-                    '${lista.cantidadPrecios} productos con precio configurado',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: const Color(0xFF9E8FCC))),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Switch(
-                      value: lista.activa,
-                      onChanged: (v) => _toggleActive(lista, v)),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'rename':
-                          _rename(lista);
-                        case 'default':
-                          _setDefault(lista);
-                        case 'delete':
-                          _delete(lista);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                          value: 'rename', child: Text('Renombrar')),
-                      if (!lista.esPredeterminada)
-                        const PopupMenuItem(
-                            value: 'default',
-                            child: Text('Marcar como predeterminada')),
-                      if (!lista.esPredeterminada)
-                        const PopupMenuItem(
-                            value: 'delete', child: Text('Eliminar')),
-                    ],
-                  ),
-                ]),
-              ),
-            )),
+        Expanded(
+            child: ListView(
+                children: provider.lists
+                    .map((lista) => Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey.shade200)),
+                          child: ListTile(
+                            onTap: () => setState(() => _selected = lista),
+                            title: Row(children: [
+                              Text(lista.nombre,
+                                  style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700)),
+                              if (lista.esPredeterminada) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                      color: const Color(0xFFEDE9FF),
+                                      borderRadius: BorderRadius.circular(20)),
+                                  child: Text('Predeterminada',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: const Color(0xFF3D2D8A))),
+                                ),
+                              ],
+                            ]),
+                            subtitle: Text(
+                                '${lista.cantidadPrecios} productos con precio configurado',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: const Color(0xFF9E8FCC))),
+                            trailing:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                              Switch(
+                                  value: lista.activa,
+                                  onChanged: (v) => _toggleActive(lista, v)),
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'rename':
+                                      _rename(lista);
+                                    case 'default':
+                                      _setDefault(lista);
+                                    case 'delete':
+                                      _delete(lista);
+                                  }
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Renombrar')),
+                                  if (!lista.esPredeterminada)
+                                    const PopupMenuItem(
+                                        value: 'default',
+                                        child:
+                                            Text('Marcar como predeterminada')),
+                                  if (!lista.esPredeterminada)
+                                    const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Eliminar')),
+                                ],
+                              ),
+                            ]),
+                          ),
+                        ))
+                    .toList())),
     ]);
   }
 }
@@ -432,11 +471,19 @@ class _PriceListDetailState extends State<_PriceListDetail> {
           child: DropdownButtonFormField<String?>(
             value: _idRubro,
             decoration: const InputDecoration(labelText: 'Rubro'),
+            isExpanded: true,
             items: [
               const DropdownMenuItem(
-                  value: null, child: Text('Todos los rubros')),
+                  value: null,
+                  child: SizedBox(
+                      width: 190, child: Text('Todos los rubros'))),
               for (final rubro in rubros)
-                DropdownMenuItem(value: rubro.id, child: Text(rubro.name)),
+                DropdownMenuItem(
+                    value: rubro.id,
+                    child: SizedBox(
+                        width: 190,
+                        child: Text(rubro.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis))),
             ],
             onChanged: (value) {
               setState(() {
@@ -452,11 +499,17 @@ class _PriceListDetailState extends State<_PriceListDetail> {
           child: DropdownButtonFormField<String?>(
             value: _idSubRubro,
             decoration: const InputDecoration(labelText: 'Subrubro'),
+            isExpanded: true,
             items: [
               const DropdownMenuItem(
                   value: null, child: Text('Todos los subrubros')),
               for (final sub in subrubros)
-                DropdownMenuItem(value: sub.id, child: Text(sub.name)),
+                DropdownMenuItem(
+                    value: sub.id,
+                child: SizedBox(
+                  width: 190,
+                  child: Text(sub.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis))),
             ],
             onChanged: _idRubro == null
                 ? null
@@ -624,6 +677,8 @@ class _BulkPriceDialog extends StatefulWidget {
 
 class _BulkPriceDialogState extends State<_BulkPriceDialog> {
   String _operacion = 'AumentarPorcentaje';
+  double _redondeo = 0;
+  String _modoRedondeo = 'Arriba';
   final _valor = TextEditingController();
   List<BulkPricePreviewItem>? _preview;
   bool _loading = false;
@@ -643,7 +698,11 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
 
   Future<void> _preview_() async {
     final valor = double.tryParse(_valor.text.replaceAll(',', '.'));
-    if (valor == null || valor < 0) return;
+    if (valor == null || !valor.isFinite || valor < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ingresá un importe o porcentaje válido.')));
+      return;
+    }
     setState(() => _loading = true);
     try {
       final preview = await context.read<PriceListProvider>().previewBulk(
@@ -653,6 +712,8 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
             texto: widget.texto,
             operacion: _operacion,
             valor: valor,
+            redondeo: _redondeo,
+            modoRedondeo: _modoRedondeo,
           );
       if (!mounted) return;
       setState(() {
@@ -679,6 +740,9 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
             texto: widget.texto,
             operacion: _operacion,
             valor: valor,
+            confirmados: _preview,
+            redondeo: _redondeo,
+            modoRedondeo: _modoRedondeo,
           );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -708,11 +772,14 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
                     DropdownMenuItem(
                         value: entry.key, child: Text(entry.value)),
                 ],
-                onChanged: (value) => setState(() => _operacion = value!),
+                onChanged: _loading
+                    ? null
+                    : (value) => setState(() => _operacion = value!),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _valor,
+                enabled: !_loading,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
@@ -722,6 +789,38 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
                   suffixText: _operacion.contains('Porcentaje') ? '%' : null,
                 ),
               ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<double>(
+                value: _redondeo,
+                decoration: const InputDecoration(
+                    labelText: 'Redondear a múltiplos de'),
+                items: [
+                  for (final value in [0.0, 10.0, 50.0, 100.0, 500.0, 1000.0])
+                    DropdownMenuItem(
+                        value: value,
+                        child: Text(
+                            value == 0 ? 'Sin redondeo' : '\$${value.toInt()}'))
+                ],
+                onChanged: _loading
+                    ? null
+                    : (value) => setState(() => _redondeo = value!),
+              ),
+              if (_redondeo > 0)
+                DropdownButtonFormField<String>(
+                  value: _modoRedondeo,
+                  decoration: const InputDecoration(labelText: 'Dirección'),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'Arriba', child: Text('Hacia arriba')),
+                    DropdownMenuItem(
+                        value: 'Abajo', child: Text('Hacia abajo')),
+                    DropdownMenuItem(
+                        value: 'Cercano', child: Text('Al más cercano')),
+                  ],
+                  onChanged: _loading
+                      ? null
+                      : (value) => setState(() => _modoRedondeo = value!),
+                ),
               const SizedBox(height: 8),
               Text(
                   'Se aplica sobre los productos que coinciden con los filtros actuales de la '
@@ -760,6 +859,11 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar')),
+        if (preview != null)
+          TextButton(
+              onPressed:
+                  _loading ? null : () => setState(() => _preview = null),
+              child: const Text('Modificar')),
         if (preview == null)
           FilledButton(
               onPressed: _loading ? null : _preview_,

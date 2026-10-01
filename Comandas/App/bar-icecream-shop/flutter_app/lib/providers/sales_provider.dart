@@ -1,3 +1,4 @@
+import '../utils/api_response.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -403,9 +404,7 @@ class SalesProvider extends ChangeNotifier {
       SaleSnapshot.fromJson(_body(response)['data'] as Map<String, dynamic>);
 
   Map<String, dynamic> _body(http.Response response) {
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) throw const UnauthorizedException();
       throw Exception(decoded['error']?.toString() ??

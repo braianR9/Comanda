@@ -9,8 +9,10 @@ public sealed class PriceListException(string message, int statusCode = 400) : E
     public int StatusCode { get; } = statusCode;
 }
 
-public class PriceListService(AppDbContext context)
+public partial class PriceListService(AppDbContext context, IHttpContextAccessor? httpContext = null)
 {
+    private string CurrentActor => httpContext?.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+        ?? httpContext?.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "Sistema";
     private static readonly string[] Operaciones =
         ["AumentarPorcentaje", "DisminuirPorcentaje", "AumentarImporte", "DisminuirImporte"];
 
@@ -32,6 +34,12 @@ public class PriceListService(AppDbContext context)
         if (request.CopiarDesdeListaId.HasValue)
             origen = await RequireAsync(company, request.CopiarDesdeListaId.Value);
 
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync() : null;
+        var batch = Guid.NewGuid().ToString();
+        var actor = CurrentActor;
+        var reason = "Copiar lista";
+        await context.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('app.precio_lote', {batch}, true), set_config('app.precio_usuario', {actor}, true), set_config('app.precio_motivo', {reason}, true)");
         var now = DateTime.UtcNow;
         var lista = new ListaPrecio { IdEmpresa = company, Nombre = nombre, EsPredeterminada = false, Activa = true, FechaCreacion = now, FechaModificacion = now };
         context.ListasPrecios.Add(lista);
@@ -46,6 +54,7 @@ public class PriceListService(AppDbContext context)
                 """);
         }
 
+        if (transaction != null) await transaction.CommitAsync();
         return await ToDtoAsync(lista);
     }
 
@@ -106,7 +115,7 @@ public class PriceListService(AppDbContext context)
         var query = FilterProducts(company, idRubro, idSubRubro, texto, null);
 
         var total = await query.CountAsync();
-        var items = await query.OrderBy(p => p.Nombre)
+        var items = await query.OrderBy(p => p.Nombre).ThenBy(p => p.Id)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(p => new
             {
@@ -124,7 +133,7 @@ public class PriceListService(AppDbContext context)
         };
     }
 
-    public async Task<ProductPriceDto> SetPriceAsync(int company, int listId, int productId, decimal precio)
+    public async Task<ProductPriceDto> SetPriceAsync(int company, int listId, int productId, decimal precio, string usuario = "Sistema")
     {
         if (precio < 0) throw new PriceListException("El precio no puede ser negativo.");
         await RequireAsync(company, listId);
@@ -133,13 +142,9 @@ public class PriceListService(AppDbContext context)
             .FirstOrDefaultAsync(p => p.Id == productId && p.IdEmpresa == company)
             ?? throw new PriceListException("Producto no encontrado.", 404);
 
-        var now = DateTime.UtcNow;
-        var existing = await context.ProductoPrecios.FirstOrDefaultAsync(pp => pp.IdProducto == productId && pp.IdListaPrecio == listId);
-        if (existing == null)
-            context.ProductoPrecios.Add(new ProductoPrecio { IdProducto = productId, IdListaPrecio = listId, Precio = decimal.Round(precio, 2), FechaModificacion = now });
-        else
-        { existing.Precio = decimal.Round(precio, 2); existing.FechaModificacion = now; }
-        await context.SaveChangesAsync();
+        var previous = await ResolveBasePriceAsync(productId, listId);
+        await SaveGridAsync(company, [new PriceCellChange { IdListaPrecio = listId, IdProducto = productId,
+            PrecioAnterior = previous, PrecioNuevo = precio }], usuario, "Edición individual");
 
         return new ProductPriceDto(producto.Id, producto.Codigo, producto.Nombre,
             new ReferenciaDto(producto.Rubro.Id, producto.Rubro.Nombre),
@@ -160,24 +165,21 @@ public class PriceListService(AppDbContext context)
 
         // Los productos sin precio configurado en esta lista se excluyen: no hay una base sobre la cual calcular el aumento/descuento.
         return productos.Where(p => precios.ContainsKey(p.Id))
-            .Select(p => new BulkPricePreviewItem(p.Id, p.Nombre, precios[p.Id], ApplyOperation(precios[p.Id], request.Operacion, request.Valor)))
+            .Select(p => new BulkPricePreviewItem(p.Id, p.Nombre, precios[p.Id], CalculatePrice(precios[p.Id], request)))
             .OrderBy(x => x.Nombre).ToList();
     }
 
-    public async Task<int> ApplyBulkAsync(int company, int listId, BulkPriceOperationRequest request)
+    public async Task<int> ApplyBulkAsync(int company, int listId, BulkPriceOperationRequest request, string usuario = "Sistema")
     {
-        var preview = await PreviewBulkAsync(company, listId, request);
-        var now = DateTime.UtcNow;
-        var existentes = await context.ProductoPrecios
-            .Where(pp => pp.IdListaPrecio == listId && preview.Select(x => x.IdProducto).Contains(pp.IdProducto))
-            .ToDictionaryAsync(pp => pp.IdProducto);
-        foreach (var item in preview)
-        {
-            existentes[item.IdProducto].Precio = item.PrecioNuevo;
-            existentes[item.IdProducto].FechaModificacion = now;
-        }
-        await context.SaveChangesAsync();
-        return preview.Count;
+        ValidateOperation(request);
+        await RequireAsync(company, listId);
+        var confirmed = request.CambiosConfirmados
+            ?? throw new PriceListException("Generá la vista previa antes de confirmar.");
+        if (confirmed.Any(c => c == null || c.IdListaPrecio != listId || c.PrecioAnterior == null
+            || c.PrecioNuevo != CalculatePrice(c.PrecioAnterior.Value, request)))
+            throw new PriceListException("La vista previa no coincide con la operación.");
+        return await SaveGridAsync(company, confirmed, usuario,
+            $"{request.Operacion}: {request.Valor}; redondeo {request.ModoRedondeo} {request.Redondeo}");
     }
 
     public async Task<int> GetDefaultListIdAsync(int company)
@@ -208,7 +210,7 @@ public class PriceListService(AppDbContext context)
         return await GetDefaultListIdAsync(company);
     }
 
-    public async Task<decimal?> ResolvePriceAsync(int productId, int listId) =>
+    public async Task<decimal?> ResolveBasePriceAsync(int productId, int listId) =>
         await context.ProductoPrecios.AsNoTracking()
             .Where(pp => pp.IdProducto == productId && pp.IdListaPrecio == listId)
             .Select(pp => (decimal?)pp.Precio).FirstOrDefaultAsync();
@@ -218,13 +220,10 @@ public class PriceListService(AppDbContext context)
     public async Task SetDefaultListPriceAsync(int company, int productId, decimal precio)
     {
         var listId = await GetDefaultListIdAsync(company);
-        var now = DateTime.UtcNow;
-        var existing = await context.ProductoPrecios.FirstOrDefaultAsync(pp => pp.IdProducto == productId && pp.IdListaPrecio == listId);
-        if (existing == null)
-            context.ProductoPrecios.Add(new ProductoPrecio { IdProducto = productId, IdListaPrecio = listId, Precio = decimal.Round(precio, 2), FechaModificacion = now });
-        else
-        { existing.Precio = decimal.Round(precio, 2); existing.FechaModificacion = now; }
-        await context.SaveChangesAsync();
+        var previous = await ResolveBasePriceAsync(productId, listId);
+        await SaveGridAsync(company, [new PriceCellChange { IdListaPrecio = listId, IdProducto = productId,
+            PrecioAnterior = previous, PrecioNuevo = decimal.Round(precio, 2) }],
+            CurrentActor, "Edición de producto");
     }
 
     private async Task<ListaPrecio> RequireAsync(int company, int id) =>
@@ -254,6 +253,10 @@ public class PriceListService(AppDbContext context)
 
     private static void ValidateOperation(BulkPriceOperationRequest request)
     {
+        if (request.Redondeo < 0 || request.Redondeo > 1000000 || decimal.Round(request.Redondeo, 2) != request.Redondeo)
+            throw new PriceListException("El múltiplo de redondeo debe estar entre 0 y 1.000.000 y tener hasta dos decimales.");
+        if (!new[] { "Arriba", "Abajo", "Cercano" }.Contains(request.ModoRedondeo))
+            throw new PriceListException("Modo de redondeo inválido.");
         if (!Operaciones.Contains(request.Operacion))
             throw new PriceListException("La operación debe ser AumentarPorcentaje, DisminuirPorcentaje, AumentarImporte o DisminuirImporte.");
         if (request.Valor < 0) throw new PriceListException("El valor no puede ser negativo.");
@@ -261,12 +264,27 @@ public class PriceListService(AppDbContext context)
             throw new PriceListException("El porcentaje no puede superar 100.");
     }
 
-    private static decimal ApplyOperation(decimal actual, string operacion, decimal valor) => decimal.Round(operacion switch
+    public static decimal CalculatePrice(decimal actual, BulkPriceOperationRequest request)
     {
-        "AumentarPorcentaje" => actual * (1 + valor / 100),
-        "DisminuirPorcentaje" => Math.Max(0, actual * (1 - valor / 100)),
-        "AumentarImporte" => actual + valor,
-        "DisminuirImporte" => Math.Max(0, actual - valor),
-        _ => actual,
-    }, 2, MidpointRounding.AwayFromZero);
+        ValidateOperation(request);
+        var value = request.Operacion switch
+        {
+            "AumentarPorcentaje" => actual * (1 + request.Valor / 100),
+            "DisminuirPorcentaje" => Math.Max(0, actual * (1 - request.Valor / 100)),
+            "AumentarImporte" => actual + request.Valor,
+            "DisminuirImporte" => Math.Max(0, actual - request.Valor),
+            _ => actual,
+        };
+        if (request.Redondeo > 0)
+        {
+            var units = value / request.Redondeo;
+            value = request.Redondeo * (request.ModoRedondeo switch {
+                "Arriba" => decimal.Ceiling(units), "Abajo" => decimal.Floor(units),
+                _ => decimal.Round(units, 0, MidpointRounding.AwayFromZero)
+            });
+        }
+        value = decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        if (value > 9999999999999999.99m) throw new PriceListException("El precio calculado supera el máximo permitido.");
+        return value;
+    }
 }

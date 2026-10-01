@@ -30,7 +30,7 @@ class _SalesScreenState extends State<SalesScreen> {
   final Map<int, _OrderDraft> _orders = {};
   int? _selectedSectorId;
   int? _selectedTableId;
-  DateTime? _tableOpenedAt;
+  Timer? _tableOpeningGuard;
   String _productSearch = '';
   bool _productsAsGrid = true;
   Timer? _occupationTimer;
@@ -66,6 +66,7 @@ class _SalesScreenState extends State<SalesScreen> {
   @override
   void dispose() {
     _occupationTimer?.cancel();
+    _tableOpeningGuard?.cancel();
     super.dispose();
   }
 
@@ -252,7 +253,10 @@ class _SalesScreenState extends State<SalesScreen> {
                                     onTap: () => setState(() {
                                       _selectedTableId =
                                           _ownerTableId(table.id);
-                                      _tableOpenedAt = DateTime.now();
+                                      _tableOpeningGuard?.cancel();
+                                      _tableOpeningGuard = Timer(
+                                          const Duration(milliseconds: 500),
+                                          () {});
                                     }),
                                   ),
                                 ),
@@ -326,7 +330,7 @@ class _SalesScreenState extends State<SalesScreen> {
               const SizedBox(width: 8),
               _PriceListSelector(
                 order: order,
-                onChanged: (value) => setState(() => order.priceListId = value),
+                onChanged: (value) => _changePriceList(order, value),
               ),
             ],
             const SizedBox(width: 8),
@@ -379,7 +383,9 @@ class _SalesScreenState extends State<SalesScreen> {
         Expanded(
           child: LayoutBuilder(builder: (context, constraints) {
             final compact = constraints.maxWidth < 850;
-            final catalog = _ProductCatalog(
+            final catalog = _CurrentPriceCatalog(
+              key: ValueKey((tableId, order.priceListId)),
+              priceListId: order.priceListId,
               products: products,
               search: _productSearch,
               asGrid: _productsAsGrid,
@@ -448,22 +454,65 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
-  void _addProduct(_OrderDraft order, Product product) {
+  Future<void> _addProduct(_OrderDraft order, Product product) async {
     if (_operationInProgress || order.editLocked) return;
-    // Evita que el mismo toque que abre la mesa agregue un producto sin querer.
-    if (_tableOpenedAt != null &&
-        DateTime.now().difference(_tableOpenedAt!) <
-            const Duration(milliseconds: 500)) {
-      return;
-    }
-    setState(() {
-      order.openedAt ??= DateTime.now();
-      final existing =
-          order.lines.where((line) => line.product.id == product.id);
-      if (existing.isEmpty) {
-        order.lines.add(_OrderLine(product));
-      } else {
-        existing.first.quantity++;
+    if (_tableOpeningGuard?.isActive ?? false) return;
+    await _runOrderOperation(order, () async {
+      try {
+        final existing = order.lines
+            .where((line) => line.product.id == product.id)
+            .firstOrNull;
+        if (existing != null) {
+          setState(() => existing.quantity++);
+          return;
+        }
+        final quotes = await context
+            .read<PriceListProvider>()
+            .quotePrices([int.parse(product.id)], listId: order.priceListId);
+        final quote = quotes[int.parse(product.id)];
+        final price = (quote?['precioFinal'] as num?)?.toDouble();
+        if (price == null) {
+          throw Exception(
+              'Este producto no tiene precio en la lista seleccionada.');
+        }
+        if (!mounted) return;
+        setState(() {
+          order.openedAt ??= DateTime.now();
+          order.lines.add(_OrderLine(product.copyWith(price: price)));
+        });
+      } catch (e) {
+        _showApiError(e);
+      }
+    });
+  }
+
+  Future<void> _changePriceList(_OrderDraft order, int? listId) async {
+    if (order.sent) return;
+    await _runOrderOperation(order, () async {
+      try {
+        final quotes = <int, Map<String, dynamic>>{};
+        final ids = order.lines.map((l) => int.parse(l.product.id)).toList();
+        for (var i = 0; i < ids.length; i += 100) {
+          quotes.addAll(await context.read<PriceListProvider>().quotePrices(
+              ids.sublist(i, (i + 100).clamp(0, ids.length)),
+              listId: listId));
+        }
+        if (quotes.values.any((q) => q['precioFinal'] == null)) {
+          throw Exception(
+              'La lista no tiene precio para todos los productos del pedido.');
+        }
+        if (!mounted) return;
+        setState(() {
+          for (final line in order.lines) {
+            line.product = line.product.copyWith(
+                price:
+                    (quotes[int.parse(line.product.id)]!['precioFinal'] as num)
+                        .toDouble());
+          }
+          order.priceListId = listId;
+        });
+      } catch (e) {
+        _showApiError(e);
       }
     });
   }
@@ -777,6 +826,10 @@ class _SalesScreenState extends State<SalesScreen> {
             comment: line.comment,
           ),
       ];
+      if (!firstSend && lines.isEmpty) {
+        await _clearOrderImpl(order);
+        return;
+      }
       final initialDiscount = order.discount;
       SaleSnapshot snapshot;
       if (firstSend) {
@@ -1122,6 +1175,126 @@ class _SaleTableCard extends StatelessWidget {
     if (duration.inHours < 1) return '${duration.inMinutes.clamp(0, 59)} min';
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     return '${duration.inHours} h $minutes min';
+  }
+}
+
+class _CurrentPriceCatalog extends StatefulWidget {
+  final int? priceListId;
+  final List<Product> products;
+  final String search;
+  final bool asGrid;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<bool> onViewChanged;
+  final ValueChanged<Product> onAdd;
+  const _CurrentPriceCatalog(
+      {super.key,
+      this.priceListId,
+      required this.products,
+      required this.search,
+      required this.asGrid,
+      required this.onSearch,
+      required this.onViewChanged,
+      required this.onAdd});
+  @override
+  State<_CurrentPriceCatalog> createState() => _CurrentPriceCatalogState();
+}
+
+class _CurrentPriceCatalogState extends State<_CurrentPriceCatalog> {
+  Map<int, Map<String, dynamic>> _quotes = {};
+  String? _error;
+  bool _loading = true;
+  int _generation = 0;
+  Timer? _timer;
+  String get _signature => widget.products.map((p) => p.id).join(',');
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_loading) _load();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _CurrentPriceCatalog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.priceListId != widget.priceListId ||
+        oldWidget.products.map((p) => p.id).join(',') != _signature) _load();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final provider = context.read<PriceListProvider>();
+      final ids = widget.products.map((p) => int.parse(p.id)).toList();
+      final quotes = <int, Map<String, dynamic>>{};
+      for (var i = 0; i < ids.length; i += 100) {
+        quotes.addAll(await provider.quotePrices(
+            ids.sublist(i, (i + 100).clamp(0, ids.length)),
+            listId: widget.priceListId));
+      }
+      if (mounted && generation == _generation) {
+        setState(() => _quotes = quotes);
+      }
+    } catch (e) {
+      if (mounted && generation == _generation) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final products = [
+      for (final p in widget.products)
+        if (_quotes[int.parse(p.id)]?['precioFinal'] != null)
+          p.copyWith(
+              price:
+                  (_quotes[int.parse(p.id)]!['precioFinal'] as num).toDouble())
+    ];
+    if (_error != null) {
+      return Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(_error!),
+        TextButton(
+            onPressed: _load,
+            child: const Text('Reintentar consulta de precios'))
+      ]));
+    }
+    return Column(children: [
+      if (_loading) const LinearProgressIndicator(),
+      if (!_loading && products.length < widget.products.length)
+        const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('Algunos productos no tienen precio en esta lista.')),
+      const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('Precios vigentes. Se confirman al enviar el pedido.')),
+      Expanded(
+          child: IgnorePointer(
+              ignoring: _loading,
+              child: _ProductCatalog(
+                  products: products,
+                  search: widget.search,
+                  asGrid: widget.asGrid,
+                  onSearch: widget.onSearch,
+                  onViewChanged: widget.onViewChanged,
+                  onAdd: widget.onAdd))),
+    ]);
   }
 }
 
@@ -1877,13 +2050,8 @@ class _PriceListSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lists = context.watch<PriceListProvider>().activeLists;
-    final defaultId = context.read<PriceListProvider>().defaultList?.id;
-    if (order.priceListId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(defaultId));
-    }
-    final value = lists.any((l) => l.id == order.priceListId)
-        ? order.priceListId
-        : defaultId;
+    final value =
+        lists.any((l) => l.id == order.priceListId) ? order.priceListId : null;
     return Tooltip(
       message: order.sent
           ? 'La lista de precios no se puede cambiar una vez enviada la venta.'
@@ -1899,7 +2067,10 @@ class _PriceListSelector extends StatelessWidget {
             value: value,
             isDense: true,
             icon: const Icon(Icons.sell_outlined, size: 16),
+            hint: const Text('Predeterminada de sucursal'),
             items: [
+              const DropdownMenuItem<int>(
+                  value: null, child: Text('Predeterminada de sucursal')),
               for (final lista in lists)
                 DropdownMenuItem(value: lista.id, child: Text(lista.nombre)),
             ],
@@ -1982,6 +2153,13 @@ class _OrderDraft {
     openedAt = snapshot.openedAt ?? openedAt;
     tableId = snapshot.tableId;
     priceListId = snapshot.priceListId ?? priceListId;
+    for (final item in snapshot.items) {
+      final line =
+          lines.where((l) => l.product.id == '${item.productId}').firstOrNull;
+      if (line != null) {
+        line.product = line.product.copyWith(price: item.unitPrice);
+      }
+    }
     serverItemIds
       ..clear()
       ..addAll(snapshot.itemIds);
@@ -2115,7 +2293,7 @@ class _TicketRow {
 }
 
 class _OrderLine {
-  final Product product;
+  Product product;
   int quantity = 1;
   String? comment;
   _OrderLine(this.product);

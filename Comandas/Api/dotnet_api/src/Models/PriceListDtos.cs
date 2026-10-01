@@ -26,7 +26,7 @@ public record ProductPriceDto(
 
 public class SetProductPriceRequest
 {
-    [Range(typeof(decimal), "0", "9999999999999999.99")] public decimal Precio { get; set; }
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] public decimal Precio { get; set; }
 }
 
 public class BulkPriceFilter
@@ -39,10 +39,13 @@ public class BulkPriceFilter
 
 public class BulkPriceOperationRequest
 {
+    public decimal Redondeo { get; set; }
+    public string ModoRedondeo { get; set; } = "Arriba";
+    public List<PriceCellChange>? CambiosConfirmados { get; set; }
     public BulkPriceFilter Filtro { get; set; } = new();
     /// AumentarPorcentaje | DisminuirPorcentaje | AumentarImporte | DisminuirImporte
     [Required] public string Operacion { get; set; } = string.Empty;
-    [Range(typeof(decimal), "0", "9999999999999999.99")] public decimal Valor { get; set; }
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] public decimal Valor { get; set; }
 }
 
 public record BulkPricePreviewItem(int IdProducto, string Nombre, decimal? PrecioActual, decimal PrecioNuevo);
@@ -51,4 +54,16 @@ public class SetSucursalPriceListRequest
 {
     /// null = la sucursal usa la lista predeterminada de la empresa.
     public int? IdListaPrecio { get; set; }
+}
+
+public class PriceCellChange
+{
+    public int IdListaPrecio { get; set; }
+    public int IdProducto { get; set; }
+    public decimal? PrecioAnterior { get; set; }
+    public decimal? PrecioNuevo { get; set; }
+}
+public class SavePriceGridRequest
+{
+    [Required, MinLength(1), MaxLength(2000)] public List<PriceCellChange> Cambios { get; set; } = [];
 }

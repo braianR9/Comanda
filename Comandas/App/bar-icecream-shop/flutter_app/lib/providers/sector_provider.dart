@@ -1,3 +1,4 @@
+import '../utils/api_response.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -185,9 +186,7 @@ class SectorProvider extends ChangeNotifier {
   }
 
   Map<String, dynamic> _body(http.Response response) {
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_apiError(decoded, response.statusCode));
     }

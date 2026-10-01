@@ -533,7 +533,7 @@ class _MainMenu extends StatelessWidget {
       tooltip: label,
       position: PopupMenuPosition.under,
       onSelected: onSelected,
-        itemBuilder: (_) => entries.entries
+      itemBuilder: (_) => entries.entries
           .where((entry) => entry.key != 9 || session.canManageUsers)
           .map((entry) => PopupMenuItem<int>(
                 value: entry.key,

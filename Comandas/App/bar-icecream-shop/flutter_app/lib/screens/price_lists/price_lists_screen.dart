@@ -475,8 +475,7 @@ class _PriceListDetailState extends State<_PriceListDetail> {
             items: [
               const DropdownMenuItem(
                   value: null,
-                  child: SizedBox(
-                      width: 190, child: Text('Todos los rubros'))),
+                  child: SizedBox(width: 190, child: Text('Todos los rubros'))),
               for (final rubro in rubros)
                 DropdownMenuItem(
                     value: rubro.id,
@@ -506,10 +505,10 @@ class _PriceListDetailState extends State<_PriceListDetail> {
               for (final sub in subrubros)
                 DropdownMenuItem(
                     value: sub.id,
-                child: SizedBox(
-                  width: 190,
-                  child: Text(sub.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis))),
+                    child: SizedBox(
+                        width: 190,
+                        child: Text(sub.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis))),
             ],
             onChanged: _idRubro == null
                 ? null

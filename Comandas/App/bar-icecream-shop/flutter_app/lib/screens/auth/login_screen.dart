@@ -158,21 +158,22 @@ class _LoginScreenState extends State<LoginScreen>
                 height: 1.15,
               ),
             ),
-          const SizedBox(height: 16),
-          Text(
-            'Gestioná ventas, stock y tu negocio\ndesde cualquier lugar.',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: Colors.white.withOpacity(0.6),
-              height: 1.6,
+            const SizedBox(height: 16),
+            Text(
+              'Gestioná ventas, stock y tu negocio\ndesde cualquier lugar.',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.white.withOpacity(0.6),
+                height: 1.6,
+              ),
             ),
-          ),
-          const SizedBox(height: 48),
+            const SizedBox(height: 48),
             const Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                _FeatureChip(icon: Icons.point_of_sale_rounded, label: 'Ventas'),
+                _FeatureChip(
+                    icon: Icons.point_of_sale_rounded, label: 'Ventas'),
                 _FeatureChip(icon: Icons.inventory_2_rounded, label: 'Stock'),
                 _FeatureChip(
                     icon: Icons.account_balance_wallet_rounded, label: 'Caja'),
@@ -227,145 +228,145 @@ class _LoginScreenState extends State<LoginScreen>
         ],
       ),
       child: Container(
-          padding: const EdgeInsets.all(36),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Iniciá sesión',
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF2D2260),
-                  ),
+        padding: const EdgeInsets.all(36),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Iniciá sesión',
+                style: GoogleFonts.poppins(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF2D2260),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Accedé al panel de tu negocio',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Accedé al panel de tu negocio',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF6B6589),
+                ),
+              ),
+              const SizedBox(height: 32),
+              _GlassField(
+                controller: _emailController,
+                label: 'Email',
+                icon: Icons.alternate_email_rounded,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => context.read<AuthProvider>().clearError(),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Ingresá tu email';
+                  }
+                  if (!v.contains('@')) {
+                    return 'Email inválido';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              _GlassField(
+                controller: _passwordController,
+                label: 'Contraseña',
+                icon: Icons.lock_outline_rounded,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _handleLogin(),
+                onChanged: (_) => context.read<AuthProvider>().clearError(),
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return 'Ingresá tu contraseña';
+                  }
+                  if (v.length < 6) {
+                    return 'Mínimo 6 caracteres';
+                  }
+                  return null;
+                },
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     color: const Color(0xFF6B6589),
+                    size: 20,
                   ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
-                const SizedBox(height: 32),
-                _GlassField(
-                  controller: _emailController,
-                  label: 'Email',
-                  icon: Icons.alternate_email_rounded,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  onChanged: (_) => context.read<AuthProvider>().clearError(),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Ingresá tu email';
-                    }
-                    if (!v.contains('@')) {
-                      return 'Email inválido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                _GlassField(
-                  controller: _passwordController,
-                  label: 'Contraseña',
-                  icon: Icons.lock_outline_rounded,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleLogin(),
-                  onChanged: (_) => context.read<AuthProvider>().clearError(),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) {
-                      return 'Ingresá tu contraseña';
-                    }
-                    if (v.length < 6) {
-                      return 'Mínimo 6 caracteres';
-                    }
-                    return null;
-                  },
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: const Color(0xFF6B6589),
-                      size: 20,
-                    ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {},
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 4),
-                    ),
-                    child: Text(
-                      '¿Olvidaste tu contraseña?',
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF6C5CE7),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  child: Text(
+                    '¿Olvidaste tu contraseña?',
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF6C5CE7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Consumer<AuthProvider>(
-                  builder: (_, auth, __) {
-                    if (auth.errorMessage == null) {
-                      return const SizedBox.shrink();
-                    }
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      margin: const EdgeInsets.only(bottom: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: AppColors.error.withOpacity(0.4)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline_rounded,
-                              color: AppColors.error, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              auth.errorMessage!,
-                              style: GoogleFonts.poppins(
-                                color: AppColors.error,
-                                fontSize: 13,
-                              ),
+              ),
+              const SizedBox(height: 6),
+              Consumer<AuthProvider>(
+                builder: (_, auth, __) {
+                  if (auth.errorMessage == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: AppColors.error.withOpacity(0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded,
+                            color: AppColors.error, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            auth.errorMessage!,
+                            style: GoogleFonts.poppins(
+                              color: AppColors.error,
+                              fontSize: 13,
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                Consumer<AuthProvider>(
-                  builder: (_, auth, __) {
-                    return _GradientButton(
-                      onPressed: auth.isLoading ? null : _handleLogin,
-                      isLoading: auth.isLoading,
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              Consumer<AuthProvider>(
+                builder: (_, auth, __) {
+                  return _GradientButton(
+                    onPressed: auth.isLoading ? null : _handleLogin,
+                    isLoading: auth.isLoading,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
+      ),
     );
   }
 }
@@ -456,8 +457,7 @@ class _GlassField extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
-        style: GoogleFonts.poppins(
-          color: const Color(0xFF2D2260), fontSize: 15),
+      style: GoogleFonts.poppins(color: const Color(0xFF2D2260), fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.poppins(
@@ -512,9 +512,9 @@ class _GradientButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: onPressed == null
               ? const LinearGradient(
-                colors: [Color(0xFFD8D5E3), Color(0xFFC5C1D4)])
+                  colors: [Color(0xFFD8D5E3), Color(0xFFC5C1D4)])
               : const LinearGradient(
-                colors: [Color(0xFF6C5CE7), Color(0xFF8777E8)],
+                  colors: [Color(0xFF6C5CE7), Color(0xFF8777E8)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using BarIceCreamShop.Api.Data;
 using BarIceCreamShop.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -126,7 +127,29 @@ public sealed class PrintJobWorker : BackgroundService
                         .Where(x => x.Id == sale.IdSucursal)
                         .Select(x => new { x.Nombre, x.Direccion, x.Telefono })
                         .SingleAsync(cancellationToken);
-                    ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName);
+                    // Factura vigente de la venta (si la tiene): el ticket sale como comprobante fiscal.
+                    // Si el trabajo indica el comprobante (factura, nota de crédito o reimpresión), se imprime ese.
+                    var invoice = job.InvoiceId.HasValue
+                        ? await db.Invoices.AsNoTracking()
+                            .SingleOrDefaultAsync(x => x.Id == job.InvoiceId && x.Status == "Autorizado", cancellationToken)
+                        : await db.Invoices.AsNoTracking()
+                            .Where(x => x.OrderId == sale.Id && x.Status == "Autorizado" && x.CreditNoteId == null
+                                && (x.Type == AfipCodes.FacturaA || x.Type == AfipCodes.FacturaB || x.Type == AfipCodes.FacturaC))
+                            .OrderByDescending(x => x.Id).FirstOrDefaultAsync(cancellationToken);
+                    if (invoice?.AssociatedInvoiceId is { } associatedId)
+                    {
+                        var associated = await db.Invoices.AsNoTracking().SingleAsync(x => x.Id == associatedId, cancellationToken);
+                        invoice.AssociatedLabel = $"{AfipCodes.TypeName(associated.Type)} {InvoiceService.Format(associated)}";
+                    }
+                    BillingSettings? billing = null;
+                    if (invoice != null)
+                    {
+                        var json = await db.CompanySettings.AsNoTracking().Where(x => x.CompanyId == sale.IdEmpresa)
+                            .Select(x => x.BillingJson).SingleOrDefaultAsync(cancellationToken);
+                        billing = json == null ? null : JsonSerializer.Deserialize<BillingSettings>(json);
+                    }
+                    ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName,
+                        billing == null ? null : invoice, billing, job.Reprint);
                 }
                 else
                 {
@@ -252,12 +275,20 @@ public sealed class PrintJobWorker : BackgroundService
         string branchName,
         string? address,
         string? phone,
-        string waiterName)
+        string waiterName,
+        Invoice? invoice = null,
+        BillingSettings? billing = null,
+        bool reprint = false)
     {
         const int width = 42;
         var text = new StringBuilder();
         // Fuente A enfatizada a tamaño normal para una lectura compacta y firme.
         text.Append("\u001b!\u0008");
+        if (invoice != null && billing != null)
+        {
+            AppendFiscalHeader(text, invoice, billing, width, reprint);
+            companyName = "";
+        }
         var closedAt = (sale.FechaCierre ?? DateTime.UtcNow).ToLocalTime();
         var tableName = sale.Table?.Nombre ?? sale.TableId.ToString(CultureInfo.InvariantCulture);
         var sectorName = sale.Table?.Sector?.Nombre;
@@ -265,8 +296,9 @@ public sealed class PrintJobWorker : BackgroundService
             ? tableName
             : $"{tableName} ({sectorName})";
 
-        text.AppendLine(Center(companyName.ToUpperInvariant(), width));
-        if (!string.IsNullOrWhiteSpace(branchName) && !string.Equals(branchName, companyName, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(companyName))
+            text.AppendLine(Center(companyName.ToUpperInvariant(), width));
+        if (invoice == null && !string.IsNullOrWhiteSpace(branchName) && !string.Equals(branchName, companyName, StringComparison.OrdinalIgnoreCase))
             text.AppendLine(Center(branchName, width));
         if (!string.IsNullOrWhiteSpace(address))
             text.AppendLine(Center(address, width));
@@ -313,11 +345,96 @@ public sealed class PrintJobWorker : BackgroundService
             text.AppendLine(FormatMoney(payment.Amount).PadLeft(width));
         }
         text.AppendLine();
+        if (invoice != null && billing != null)
+        {
+            AppendFiscalFooter(text, invoice, width);
+            var qr = InvoiceService.QrUrl(invoice, billing.Cuit);
+            return ToEscPos(text.ToString(), qr == null ? null : QrCode(qr));
+        }
         text.AppendLine(Center("NO VALIDO COMO FACTURA", width));
         text.AppendLine();
         text.AppendLine();
         text.AppendLine();
         return ToEscPos(text.ToString());
+    }
+
+    private static void AppendFiscalHeader(StringBuilder text, Invoice invoice, BillingSettings billing, int width, bool reprint)
+    {
+        foreach (var line in Wrap(billing.LegalName.ToUpperInvariant(), width)) text.AppendLine(Center(line, width));
+        foreach (var line in Wrap(billing.FiscalAddress, width)) if (line.Length > 0) text.AppendLine(Center(line, width));
+        var city = string.Join(" - ", new[] { billing.City, billing.Province }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        if (city.Length > 0) text.AppendLine(Center(city, width));
+        text.AppendLine($"CUIT: {FormatCuit(billing.Cuit)}");
+        if (!string.IsNullOrWhiteSpace(billing.GrossIncomeRegistration)) text.AppendLine($"IIBB: {billing.GrossIncomeRegistration}");
+        if (billing.ActivityStart is { } start) text.AppendLine($"Inicio de actividades: {start:dd/MM/yyyy}");
+        foreach (var line in Wrap($"IVA {billing.TaxCondition.ToUpperInvariant()}", width)) text.AppendLine(line);
+        text.AppendLine(new string('=', width));
+        text.AppendLine(Center($"{AfipCodes.TypeName(invoice.Type).ToUpperInvariant()}  (Cod. {invoice.Type:000})", width));
+        text.AppendLine($"Nro: {InvoiceService.Format(invoice)}   Fecha: {invoice.Date:dd/MM/yyyy}");
+        if (reprint) text.AppendLine(Center("*** REIMPRESION ***", width));
+        if (invoice.AssociatedLabel != null) text.AppendLine($"Anula: {invoice.AssociatedLabel}");
+        text.AppendLine(new string('-', width));
+        if (invoice.DocType == AfipCodes.DocSinIdentificar)
+            text.AppendLine("A CONSUMIDOR FINAL");
+        else
+        {
+            foreach (var line in Wrap($"Cliente: {invoice.ReceiverName}", width)) text.AppendLine(line);
+            text.AppendLine($"{DocName(invoice.DocType)}: {(invoice.DocType == AfipCodes.DocCuit ? FormatCuit(invoice.DocNumber.ToString(CultureInfo.InvariantCulture)) : invoice.DocNumber.ToString(CultureInfo.InvariantCulture))}");
+            text.AppendLine($"IVA: {VatConditionName(invoice.ReceiverVatCondition)}");
+        }
+        text.AppendLine(new string('=', width));
+    }
+
+    private static void AppendFiscalFooter(StringBuilder text, Invoice invoice, int width)
+    {
+        var vat = JsonSerializer.Deserialize<List<InvoiceVat>>(invoice.VatJson, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
+        if (AfipCodes.Letter(invoice.Type) == "A")
+        {
+            text.AppendLine($"{"NETO GRAVADO:",-20}{FormatMoney(invoice.Net),22}");
+            foreach (var item in vat) text.AppendLine($"{$"IVA {item.Rate:0.##}%:",-20}{FormatMoney(item.Amount),22}");
+        }
+        else if (AfipCodes.Letter(invoice.Type) == "B")
+        {
+            text.AppendLine("Regimen de Transparencia Fiscal al");
+            text.AppendLine("Consumidor (Ley 27.743)");
+            text.AppendLine($"{"IVA contenido:",-20}{FormatMoney(invoice.Vat),22}");
+        }
+        if (invoice.IsCreditNote && !string.IsNullOrWhiteSpace(invoice.Reason))
+            foreach (var line in Wrap($"Motivo: {invoice.Reason}", width)) text.AppendLine(line);
+        text.AppendLine(new string('.', width));
+        text.AppendLine($"CAE: {invoice.Cae}");
+        text.AppendLine($"Vto. CAE: {invoice.CaeExpiresAt:dd/MM/yyyy}");
+        if (invoice.Environment != "Produccion") text.AppendLine(Center("*** HOMOLOGACION - SIN VALIDEZ ***", width));
+        text.AppendLine(Center("Comprobante autorizado por ARCA", width));
+    }
+
+    private static string DocName(int docType) => docType switch
+    {
+        AfipCodes.DocCuit => "CUIT", AfipCodes.DocCuil => "CUIL", AfipCodes.DocCdi => "CDI",
+        AfipCodes.DocPasaporte => "Pasaporte", _ => "DNI",
+    };
+
+    private static string VatConditionName(int condition) => condition switch
+    {
+        AfipCodes.CondResponsableInscripto => "Responsable Inscripto", AfipCodes.CondMonotributo => "Responsable Monotributo",
+        AfipCodes.CondExento => "Exento", AfipCodes.CondConsumidorFinal => "Consumidor Final", _ => "No categorizado",
+    };
+
+    private static string FormatCuit(string cuit) => cuit.Length == 11 ? $"{cuit[..2]}-{cuit[2..10]}-{cuit[10]}" : cuit;
+
+    /// QR nativo ESC/POS (GS ( k), centrado.
+    private static byte[] QrCode(string data)
+    {
+        var bytes = Encoding.ASCII.GetBytes(data);
+        var length = bytes.Length + 3;
+        byte[] center = [0x1B, 0x61, 0x01];
+        byte[] model = [0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00];
+        byte[] size = [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x04];
+        byte[] correction = [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30];
+        byte[] store = [0x1D, 0x28, 0x6B, (byte)(length % 256), (byte)(length / 256), 0x31, 0x50, 0x30];
+        byte[] print = [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30];
+        byte[] left = [0x1B, 0x61, 0x00, 0x0A];
+        return [.. center, .. model, .. size, .. correction, .. store, .. bytes, .. print, .. left];
     }
 
     private static byte[] BuildCajaTicket(
@@ -388,7 +505,7 @@ public sealed class PrintJobWorker : BackgroundService
         return ToEscPos(text.ToString());
     }
 
-    private static byte[] ToEscPos(string text)
+    private static byte[] ToEscPos(string text, byte[]? trailer = null)
     {
         // La impresora soporta ESC/POS. Se normaliza a ASCII para evitar caracteres
         // corruptos hasta configurar explícitamente la página de códigos del equipo.
@@ -403,7 +520,7 @@ public sealed class PrintJobWorker : BackgroundService
         // última leyenda no quede dentro de la zona de corte.
         byte[] feedBeforeCut = [0x1B, 0x64, 0x05];
         byte[] cut = [0x1D, 0x56, 0x00];
-        return [.. initialize, .. readableFont, .. body, .. normalFont, .. feedBeforeCut, .. cut];
+        return [.. initialize, .. readableFont, .. body, .. normalFont, .. (trailer ?? []), .. feedBeforeCut, .. cut];
     }
 
     private static string FormatQuantity(decimal value)

@@ -19,6 +19,8 @@ public class Table
     [Column("numero")] public int Number { get; set; }
     [Column("estado")] public string Status { get; set; } = "Libre";
     [Column("activo")] public bool Activo { get; set; } = true;
+    /// Mesa virtual de venta directa (mostrador): admite varias ventas activas simultáneas.
+    [Column("es_mostrador")] public bool EsMostrador { get; set; }
     [Column("fecha_creacion")] public DateTime FechaCreacion { get; set; }
     [Column("fecha_modificacion")] public DateTime FechaModificacion { get; set; }
     public Sector Sector { get; set; } = null!;
@@ -52,4 +54,5 @@ public class TableDto
     public decimal PositionY { get; set; }
     public string Status { get; set; } = string.Empty;
     public bool Active { get; set; }
+    public bool IsMostrador { get; set; }
 }

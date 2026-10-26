@@ -9,6 +9,7 @@ import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sector_provider.dart';
 import '../../providers/user_management_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class UsersScreen extends StatefulWidget {
   final bool embedded;
@@ -67,11 +68,11 @@ class _UsersScreenState extends State<UsersScreen> {
                             children: [
                           Text('Usuarios',
                               style: GoogleFonts.poppins(
-                                  color: const Color(0xFF2D2260),
+                                  color: Brand.ink,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800)),
-                          const Text('Empleados, encargados y administradores.',
-                              style: TextStyle(color: Color(0xFF6B6589))),
+                          Text('Empleados, encargados y administradores.',
+                              style: TextStyle(color: Brand.subtle)),
                         ])),
                     FilledButton.icon(
                         onPressed:
@@ -118,13 +119,14 @@ class _UsersScreenState extends State<UsersScreen> {
                                           itemBuilder: (_, i) {
                                             final u = filtered[i];
                                             return ListTile(
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                    horizontal: 18,
-                                                    vertical: 5),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 18,
+                                                        vertical: 5),
                                                 leading: CircleAvatar(
-                                                    backgroundColor:
-                                                        const Color(0xFFEDE9FF),
-                                                    child: Text(u.firstName.isEmpty
+                                                    backgroundColor: Brand.tint,
+                                                    child: Text(u
+                                                            .firstName.isEmpty
                                                         ? '?'
                                                         : u.firstName[0]
                                                             .toUpperCase())),
@@ -135,7 +137,8 @@ class _UsersScreenState extends State<UsersScreen> {
                                                 subtitle: Text(
                                                     '${u.email} · ${u.roleName}'),
                                                 trailing: Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
                                                       Chip(
                                                           label: Text(u.active

@@ -14,5 +14,9 @@ namespace BarIceCreamShop.Api.Models
         [Column("estado")] public string Status { get; set; } = "Pendiente";
         [Column("tipo")] public string JobType { get; set; } = "Comanda";
         [Column("id_impresora_configuracion")] public int? PrinterConfigurationId { get; set; }
+        /// Comprobante electrónico a imprimir; si falta, se usa la factura vigente de la venta.
+        [Column("id_comprobante")] public int? InvoiceId { get; set; }
+        [Column("id_usuario")] public int? UserId { get; set; }
+        [Column("reimpresion")] public bool Reprint { get; set; }
     }
 }

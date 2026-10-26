@@ -9,6 +9,15 @@ namespace BarIceCreamShop.Api.Data
         {
         }
 
+        public DbSet<CompanySettings> CompanySettings { get; set; }
+        public DbSet<AfipCredential> AfipCredentials { get; set; }
+        public DbSet<AfipToken> AfipTokens { get; set; }
+        public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<SupplierProduct> SupplierProducts { get; set; }
+        public DbSet<Purchase> Purchases { get; set; }
+        public DbSet<PurchaseItem> PurchaseItems { get; set; }
+        public DbSet<PurchaseAudit> PurchaseAudits { get; set; }
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Empresa> Empresas { get; set; }
         public DbSet<Sucursal> Sucursales { get; set; }
@@ -49,6 +58,17 @@ namespace BarIceCreamShop.Api.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<CompanySettings>().HasKey(x => x.CompanyId);
+            modelBuilder.Entity<AfipCredential>().HasKey(x => new { x.CompanyId, x.Environment });
+            modelBuilder.Entity<AfipToken>().HasKey(x => new { x.CompanyId, x.Environment, x.Service });
+            modelBuilder.Entity<Invoice>().HasKey(x => x.Id);
+            modelBuilder.Entity<Supplier>().HasKey(x => x.Id);
+            modelBuilder.Entity<SupplierProduct>().HasKey(x => new { x.SupplierId, x.ProductId });
+            modelBuilder.Entity<Purchase>().HasKey(x => x.Id);
+            modelBuilder.Entity<Purchase>().HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseId);
+            modelBuilder.Entity<PurchaseItem>().HasKey(x => new { x.PurchaseId, x.ProductId });
+            modelBuilder.Entity<PurchaseAudit>().HasKey(x => x.Id);
+
 
             modelBuilder.Entity<Usuario>().HasKey(u => u.Id);
             modelBuilder.Entity<Usuario>().HasOne(u => u.SectorAsignado).WithMany().HasForeignKey(u => u.IdSectorAsignado).OnDelete(DeleteBehavior.SetNull);

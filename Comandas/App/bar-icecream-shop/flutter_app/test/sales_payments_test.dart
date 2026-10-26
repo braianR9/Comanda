@@ -172,8 +172,12 @@ class FakeProducts extends ProductProvider {
   @override
   List<Product> get products => catalog;
   @override
+  List<Product> get salesCatalog => catalog;
+  @override
   Future<void> load(int companyId,
       {String token = '', bool force = false}) async {}
+  @override
+  Future<void> refreshSalesCatalog() async {}
 }
 
 class FakeCaja extends CajaProvider {
@@ -333,7 +337,7 @@ void main() {
     await tester.tap(find.text('Completar cobro'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.widgetWithText(TextFormField, '50.0'), findsOneWidget);
+    expect(double.parse(tester.widget<TextFormField>(find.byType(TextFormField)).controller!.text), 50);
     await tester.tap(find.text('Confirmar cobro'));
     await tester.pumpAndSettle();
     expect(sales.paymentCalls, 1);
@@ -429,6 +433,29 @@ void main() {
       expect(sales.checkoutCalls, 1);
     });
   }
+
+  testWidgets('second payment prefills remainder and can refresh after editing first', (tester) async {
+    await openSale(tester, FakeSales());
+    await tester.tap(find.text('Cobrar cuenta'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField), '40');
+    await tester.tap(find.text('Agregar otro medio de pago'));
+    await tester.pump();
+    expect(tester.widget<TextFormField>(find.byType(TextFormField).last).controller!.text, '50.00');
+    expect(find.text('Saldo luego de los medios anteriores: \$50.00'), findsOneWidget);
+    expect(find.text('Falta asignar: \$0.00'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, '30');
+    await tester.pump();
+    expect(find.text('Saldo luego de los medios anteriores: \$60.00'), findsOneWidget);
+    expect(find.text('Falta asignar: \$10.00'), findsOneWidget);
+    await tester.tap(find.text('Completar saldo con este medio'));
+    await tester.pump();
+    expect(tester.widget<TextFormField>(find.byType(TextFormField).last).controller!.text, '60.00');
+    expect(find.text('Falta asignar: \$0.00'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('mixed payment methods calculate each portion separately',
       (tester) async {

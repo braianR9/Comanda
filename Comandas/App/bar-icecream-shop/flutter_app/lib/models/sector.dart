@@ -4,6 +4,7 @@ class Sector {
   final String description;
   final int order;
   final bool active;
+  final bool isSystem;
 
   const Sector({
     required this.id,
@@ -11,6 +12,7 @@ class Sector {
     this.description = '',
     this.order = 0,
     this.active = true,
+    this.isSystem = false,
   });
 
   factory Sector.fromJson(Map<String, dynamic> json) => Sector(
@@ -19,6 +21,7 @@ class Sector {
         description: json['description']?.toString() ?? '',
         order: (json['order'] as num?)?.toInt() ?? 0,
         active: json['active'] as bool? ?? true,
+        isSystem: json['isSystem'] as bool? ?? false,
       );
 
   Sector copyWith({
@@ -27,6 +30,7 @@ class Sector {
     String? description,
     int? order,
     bool? active,
+    bool? isSystem,
   }) =>
       Sector(
         id: id ?? this.id,
@@ -34,5 +38,6 @@ class Sector {
         description: description ?? this.description,
         order: order ?? this.order,
         active: active ?? this.active,
+        isSystem: isSystem ?? this.isSystem,
       );
 }

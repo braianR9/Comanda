@@ -20,9 +20,9 @@ class Empresa {
   factory Empresa.fromJson(Map<String, dynamic> json) => Empresa(
         id: json['id'] as int,
         nombre: json['nombre'] as String,
-        cuit: json['cuit'] as String,
-        email: json['email'] as String,
-        telefono: json['telefono'] as String,
+        cuit: json['cuit'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        telefono: json['telefono'] as String? ?? '',
         imagenUrl: json['imagenUrl'] as String?,
         activa: json['activa'] as bool,
       );

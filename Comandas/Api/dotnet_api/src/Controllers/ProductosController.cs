@@ -24,12 +24,20 @@ public class ProductosController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PagedResult<ProductListDto>>>> GetAll(
         [FromQuery] string? texto, [FromQuery] int? idRubro, [FromQuery] int? idSubRubro,
-        [FromQuery] bool? activo, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        [FromQuery] bool? activo, [FromQuery] string? orden, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var company = GetCompanyId();
         if (company == null) return Unauthorized(ApiResponse<PagedResult<ProductListDto>>.Fail("El token no contiene una empresa válida.", 401));
         return Ok(ApiResponse<PagedResult<ProductListDto>>.Ok(
-            await _service.GetAllAsync(company.Value, texto, idRubro, idSubRubro, activo, page, pageSize)));
+            await _service.GetAllAsync(company.Value, texto, idRubro, idSubRubro, activo, page, pageSize, orden)));
+    }
+
+    [HttpGet("componentes-disponibles")]
+    public async Task<ActionResult<ApiResponse<List<ReferenciaDto>>>> ComponentOptions([FromQuery] string? texto)
+    {
+        var company = GetCompanyId();
+        if (company == null) return Unauthorized(ApiResponse<List<ReferenciaDto>>.Fail("El token no contiene una empresa válida.", 401));
+        return Ok(ApiResponse<List<ReferenciaDto>>.Ok(await _service.ComponentOptionsAsync(company.Value, texto)));
     }
 
     [HttpGet("{id:int}")]
@@ -42,6 +50,18 @@ public class ProductosController : ControllerBase
         var product = await _service.GetAsync(company.Value, id, branch.Value);
         return product == null
             ? NotFound(ApiResponse<ProductDetailDto>.NotFound("Producto no encontrado."))
+            : Ok(ApiResponse<ProductDetailDto>.Ok(product));
+    }
+
+    /// Resolución exacta por código de barras, usada por el pistoleo del punto de venta.
+    [HttpGet("codigo-barras/{codigo}")]
+    public async Task<ActionResult<ApiResponse<ProductDetailDto>>> GetByBarcode(string codigo)
+    {
+        var company = GetCompanyId();
+        if (company == null) return Unauthorized(ApiResponse<ProductDetailDto>.Fail("El token no contiene una empresa válida.", 401));
+        var product = await _service.GetByBarcodeAsync(company.Value, codigo);
+        return product == null
+            ? NotFound(ApiResponse<ProductDetailDto>.NotFound("No se encontró un producto con ese código de barras."))
             : Ok(ApiResponse<ProductDetailDto>.Ok(product));
     }
 

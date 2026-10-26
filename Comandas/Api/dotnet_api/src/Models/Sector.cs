@@ -12,6 +12,7 @@ public class Sector
     [Column("descripcion")] public string Descripcion { get; set; } = string.Empty;
     [Column("orden")] public int Orden { get; set; }
     [Column("activo")] public bool Activo { get; set; } = true;
+    [Column("es_sistema")] public bool EsSistema { get; set; }
     [Column("fecha_creacion")] public DateTime FechaCreacion { get; set; }
     [Column("fecha_modificacion")] public DateTime FechaModificacion { get; set; }
 }
@@ -34,6 +35,8 @@ public class SectorDto
     public string Description { get; set; } = string.Empty;
     public int Order { get; set; }
     public bool Active { get; set; }
+    /// Sector administrado por el sistema (ej. "Mostrador" de venta directa): no se muestra ni se edita desde la UI normal.
+    public bool IsSystem { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

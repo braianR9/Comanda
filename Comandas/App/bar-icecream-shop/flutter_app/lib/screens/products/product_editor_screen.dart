@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
+import '../../models/product_component.dart';
+import 'product_components_editor.dart';
 import '../../models/product_group.dart';
 import '../../models/product_tax.dart';
 import '../../providers/product_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class ProductEditorScreen extends StatefulWidget {
   final Product? product;
@@ -30,6 +33,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController name,
       code,
+      barcode,
       category,
       subcategory,
       cost,
@@ -38,6 +42,8 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
   late final TextEditingController tax, currentStock, minimumStock, idealStock;
   int section = 0;
   String type = 'Producto simple';
+  final List<ProductComponent> _components = [];
+  bool get _isCompound => type.toLowerCase().contains('compuesto');
   String? selectedTaxId;
   bool stockAlarm = false, minimumAlarm = false, checkOnSale = false;
   String stockUpdatesOn = 'Producto';
@@ -62,6 +68,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     final p = initial;
     name = TextEditingController(text: p.name);
     code = TextEditingController(text: p.code);
+    barcode = TextEditingController(text: p.barcode);
     category = TextEditingController(text: p.category);
     subcategory = TextEditingController(text: p.subcategory);
     cost = TextEditingController(text: p.cost.toStringAsFixed(2));
@@ -85,6 +92,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         TextEditingController(text: p.minimumStock.toStringAsFixed(0));
     idealStock = TextEditingController(text: p.idealStock.toStringAsFixed(0));
     type = p.type;
+    _components.addAll(p.components ?? []);
     stockAlarm = p.stockAlarm;
     minimumAlarm = p.minimumStockAlarm;
     checkOnSale = p.checkStockOnSale;
@@ -147,6 +155,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     for (final c in [
       name,
       code,
+      barcode,
       category,
       subcategory,
       cost,
@@ -207,7 +216,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                 child: Text(
                   widget.product == null ? 'Nuevo producto' : 'Editar producto',
                   style: GoogleFonts.poppins(
-                    color: const Color(0xFF2D2260),
+                    color: Brand.ink,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
@@ -250,7 +259,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE7E3F4)),
+          border: Border.all(color: Brand.surface),
         ),
         child: Row(children: [
           InkWell(
@@ -261,18 +270,18 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                 width: 82,
                 height: 82,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0EEF8),
+                  color: Brand.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: _productImage(size: 30),
               ),
-              const Positioned(
+              Positioned(
                 right: 3,
                 bottom: 3,
                 child: CircleAvatar(
                   radius: 10,
-                  backgroundColor: Color(0xFF6C5CE7),
+                  backgroundColor: Brand.primary,
                   child:
                       Icon(Icons.edit_rounded, color: Colors.white, size: 11),
                 ),
@@ -288,11 +297,9 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                        color: const Color(0xFF2D2260),
-                        fontWeight: FontWeight.w700)),
+                        color: Brand.ink, fontWeight: FontWeight.w700)),
                 Text(code.text.isEmpty ? 'Sin código' : code.text,
-                    style: const TextStyle(
-                        color: Color(0xFF6B6589), fontSize: 12)),
+                    style: TextStyle(color: Brand.subtle, fontSize: 12)),
               ],
             ),
           ),
@@ -311,7 +318,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE7E3F4)),
+          border: Border.all(color: Brand.surface),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,18 +332,18 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                     width: 170,
                     height: 170,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0EEF8),
+                      color: Brand.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: _productImage(size: 52),
                   ),
-                  const Positioned(
+                  Positioned(
                     right: 5,
                     bottom: 5,
                     child: CircleAvatar(
                       radius: 13,
-                      backgroundColor: Color(0xFF6C5CE7),
+                      backgroundColor: Brand.primary,
                       child: Icon(Icons.edit_rounded,
                           color: Colors.white, size: 14),
                     ),
@@ -350,14 +357,14 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                color: const Color(0xFF2D2260),
+                color: Brand.ink,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
             Text(
               code.text.isEmpty ? 'Sin código' : 'Código: ${code.text}',
-              style: const TextStyle(color: Color(0xFF6B6589), fontSize: 12),
+              style: TextStyle(color: Brand.subtle, fontSize: 12),
             ),
             const Divider(height: 32),
             _verticalValue('Costo sin IVA', _withoutTax(cost)),
@@ -382,27 +389,27 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         provider.resolveImageUrl(imageUrl),
         headers: provider.imageHeaders,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(
+        errorBuilder: (_, __, ___) => Icon(
           Icons.broken_image_outlined,
-          color: Color(0xFFB0A8D8),
+          color: Brand.muted,
           size: 38,
         ),
       );
     }
     return Icon(Icons.add_photo_alternate_outlined,
-        color: const Color(0xFFB0A8D8), size: size);
+        color: Brand.muted, size: size);
   }
 
   Widget _verticalValue(String label, double value, {bool strong = false}) =>
       Row(children: [
         Expanded(
-          child: Text(label,
-              style: const TextStyle(color: Color(0xFF6B6589), fontSize: 11)),
+          child:
+              Text(label, style: TextStyle(color: Brand.subtle, fontSize: 11)),
         ),
         Text(
           '\$${value.toStringAsFixed(2)}',
           style: GoogleFonts.poppins(
-            color: strong ? const Color(0xFF6C5CE7) : const Color(0xFF2D2260),
+            color: strong ? Brand.primary : Brand.ink,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
@@ -413,24 +420,22 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(label,
-              style: const TextStyle(color: Color(0xFF6B6589), fontSize: 11)),
+          Text(label, style: TextStyle(color: Brand.subtle, fontSize: 11)),
           Text('\$ ${value.toStringAsFixed(2)}',
               style: GoogleFonts.poppins(
-                color:
-                    strong ? const Color(0xFF6C5CE7) : const Color(0xFF2D2260),
+                color: strong ? Brand.primary : Brand.ink,
                 fontWeight: FontWeight.w700,
               )),
         ],
       );
 
   Future<void> _pickProductImage() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
-      withData: true,
     );
-    if (result?.files.first.bytes != null && mounted) {
-      setState(() => productImage = result!.files.first.bytes);
+    if (result.isNotEmpty && mounted) {
+      final bytes = await result.first.readAsBytes();
+      setState(() => productImage = bytes);
     }
   }
 
@@ -478,6 +483,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
 
   Widget _general() => _fields([
         _codeField(),
+        _barcodeField(),
         _field('Nombre', name, required: true),
         _dropdown(
             'Tipo de producto',
@@ -488,6 +494,16 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
               // 'Ingrediente', // Se habilitará junto con Recetas.
             ],
             (v) => setState(() => type = v!)),
+        if (_isCompound)
+          ProductComponentsEditor(
+            productId: int.tryParse(widget.product?.id ?? ''),
+            components: _components,
+            onChanged: (values) => setState(() {
+              _components
+                ..clear()
+                ..addAll(values);
+            }),
+          ),
         _calculatedMoney('Costo sin IVA', _withoutTax(cost)),
         _money('Costo con IVA', cost),
         _calculatedMoney('Precio sin IVA', _withoutTax(price)),
@@ -597,7 +613,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
           alignment: Alignment.centerLeft,
           child: Text('Actualizar sobre',
               style: GoogleFonts.poppins(
-                  color: const Color(0xFF2D2260), fontWeight: FontWeight.w600)),
+                  color: Brand.ink, fontWeight: FontWeight.w600)),
         ),
         Wrap(spacing: 12, children: [
           SizedBox(
@@ -639,8 +655,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
       child: Padding(
           padding: const EdgeInsets.all(40),
           child: Column(children: [
-            const Icon(Icons.construction_rounded,
-                size: 54, color: Color(0xFFB0A8D8)),
+            Icon(Icons.construction_rounded, size: 54, color: Brand.muted),
             const SizedBox(height: 14),
             Text(text, textAlign: TextAlign.center)
           ])));
@@ -678,6 +693,25 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                     product.id != widget.product?.id,
               );
           return duplicated ? 'Este código ya está en uso' : null;
+        },
+      );
+
+  /// Opcional: se pistolea o se tipea; se usa para resolver el producto en
+  /// la venta directa (punto de venta sin mesa).
+  Widget _barcodeField() => TextFormField(
+        controller: barcode,
+        onChanged: (_) => setState(() {}),
+        decoration:
+            const InputDecoration(labelText: 'Código de barras (opcional)'),
+        validator: (value) {
+          final trimmed = (value ?? '').trim();
+          if (trimmed.isEmpty) return null;
+          final duplicated = context.read<ProductProvider>().products.any(
+                (product) =>
+                    product.barcode == trimmed &&
+                    product.id != widget.product?.id,
+              );
+          return duplicated ? 'Este código de barras ya está en uso' : null;
         },
       );
   Widget _money(String label, TextEditingController c,
@@ -824,14 +858,31 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
           onSelected: (v) => setState(() => changed(v)));
 
   void _save() {
+    if (_isCompound &&
+        (_components.isEmpty ||
+            _components.any((c) =>
+                !c.quantity.isFinite ||
+                c.quantity <= 0 ||
+                c.quantity > 999999999999999.999 ||
+                (c.quantity * 1000 - (c.quantity * 1000).round()).abs() >
+                    0.000001))) {
+      setState(() => section = 0);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Agregá productos simples con cantidades positivas de hasta tres decimales.')));
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       setState(() => section = 0);
       return;
     }
     final p = initial;
     final result = p.copyWith(
+        components:
+            _isCompound ? List<ProductComponent>.from(_components) : const [],
         name: name.text.trim(),
         code: code.text.trim(),
+        barcode: barcode.text.trim(),
         category: category.text.trim(),
         subcategory: subcategory.text.trim(),
         description: description.text.trim(),
@@ -1024,12 +1075,12 @@ class _GroupDialogState extends State<_GroupDialog> {
   }
 
   Future<void> pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
-      withData: true,
     );
-    if (result?.files.first.bytes != null && mounted) {
-      setState(() => imageBytes = result!.files.first.bytes);
+    if (result.isNotEmpty && mounted) {
+      final bytes = await result.first.readAsBytes();
+      setState(() => imageBytes = bytes);
     }
   }
 

@@ -24,7 +24,7 @@ public class ProductoService
 
     public async Task<PagedResult<ProductListDto>> GetAllAsync(
         int idEmpresa, string? texto, int? idRubro, int? idSubRubro,
-        bool? activo, int page, int pageSize)
+        bool? activo, int page, int pageSize, string? orden = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -43,11 +43,20 @@ public class ProductoService
         }
 
         var total = await query.CountAsync();
-        var items = await query.OrderBy(p => p.Orden).ThenBy(p => p.Nombre)
+        // "vendidos": más vendidos primero (unidades en ventas no canceladas), para la selección rápida en el salón.
+        var ordered = string.Equals(orden, "vendidos", StringComparison.OrdinalIgnoreCase)
+            ? query.OrderByDescending(p => _context.Orders
+                    .Where(o => o.IdEmpresa == idEmpresa && o.Estado != "Cancelada")
+                    .SelectMany(o => o.Items)
+                    .Where(i => i.ProductId == p.Id && i.Estado == "Activo")
+                    .Sum(i => (decimal?)i.Quantity) ?? 0)
+                .ThenBy(p => p.Orden).ThenBy(p => p.Nombre)
+            : query.OrderBy(p => p.Orden).ThenBy(p => p.Nombre);
+        var items = await ordered.ThenBy(p => p.Id)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(p => new ProductListDto
             {
-                Id = p.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+                Id = p.Id, Codigo = p.Codigo, CodigoBarras = p.CodigoBarras, Nombre = p.Nombre,
                 TipoProducto = p.TipoProducto,
                 Rubro = new ReferenciaDto(p.Rubro.Id, p.Rubro.Nombre),
                 SubRubro = p.SubRubro == null ? null : new ReferenciaDto(p.SubRubro.Id, p.SubRubro.Nombre),
@@ -68,16 +77,19 @@ public class ProductoService
             .FirstOrDefaultAsync(p => p.IdEmpresa == idEmpresa && p.Id == id);
         if (product == null) return null;
         var detail = ToDetail(product);
+        detail.Componentes = await new StockMovementService(_context).ComponentsAsync(idEmpresa, id);
         if (idSucursal.HasValue) detail.Stock = await GetStockValueAsync(id, idSucursal.Value);
         return detail;
     }
 
     public async Task<ProductDetailDto> CreateAsync(int idEmpresa, int idSucursal, CreateProductRequest request)
     {
-        await ValidateReferencesAsync(idEmpresa, request);
+        await ValidateReferencesAsync(idEmpresa, request, null);
         await ValidateBranchAsync(idEmpresa, idSucursal);
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
-        var codigo = await NextCodeAsync(idEmpresa, transaction);
+        await ValidateCompositionAsync(idEmpresa, 0, request);
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted) : null;
+        var codigo = await NextCodeAsync(idEmpresa, transaction ?? _context.Database.CurrentTransaction!);
         var now = DateTime.UtcNow;
         var product = new Producto
         {
@@ -89,15 +101,19 @@ public class ProductoService
         await _context.SaveChangesAsync();
         await _priceLists.SetDefaultListPriceAsync(idEmpresa, product.Id, product.PrecioConIva);
         if (request.Stock != null) await SaveStockValueAsync(product.Id, idSucursal, request.Stock);
-        await transaction.CommitAsync();
+        await SaveCompositionAsync(idEmpresa, product.Id, request);
+        if (transaction != null) await transaction.CommitAsync();
         return (await GetAsync(idEmpresa, product.Id, idSucursal))!;
     }
 
     public async Task<ProductDetailDto> UpdateAsync(int idEmpresa, int idSucursal, int id, UpdateProductRequest request)
     {
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted) : null;
         var product = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id && p.IdEmpresa == idEmpresa)
             ?? throw new ProductoException("Producto no encontrado.", 404);
-        await ValidateReferencesAsync(idEmpresa, request);
+        await ValidateReferencesAsync(idEmpresa, request, id);
+        await ValidateCompositionAsync(idEmpresa, id, request);
         Apply(product, request);
         product.FechaModificacion = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -107,7 +123,59 @@ public class ProductoService
             await ValidateBranchAsync(idEmpresa, idSucursal);
             await SaveStockValueAsync(id, idSucursal, request.Stock);
         }
+        await SaveCompositionAsync(idEmpresa, id, request);
+        if (transaction != null) await transaction.CommitAsync();
         return (await GetAsync(idEmpresa, id, idSucursal))!;
+    }
+
+    public async Task<List<ReferenciaDto>> ComponentOptionsAsync(int company, string? text)
+    {
+        var query = _context.Productos.AsNoTracking().Where(p => p.IdEmpresa == company && p.Activo
+            && p.TipoProducto.Replace(" ", "").ToLower() == "productosimple");
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            var term = text.Trim();
+            query = int.TryParse(term, out var code)
+                ? query.Where(p => p.Codigo == code || EF.Functions.ILike(p.Nombre, $"%{term}%"))
+                : query.Where(p => EF.Functions.ILike(p.Nombre, $"%{term}%"));
+        }
+        return await query.OrderBy(p => p.Nombre).ThenBy(p => p.Id).Take(50)
+            .Select(p => new ReferenciaDto(p.Id, p.Nombre)).ToListAsync();
+    }
+
+    private async Task ValidateCompositionAsync(int company, int id, CreateProductRequest request)
+    {
+        var compound = NormalizeProductType(request.TipoProducto) == "Producto compuesto";
+        if (!compound)
+        {
+            if (request.Componentes?.Count > 0) throw new ProductoException("Un producto simple no puede tener componentes.");
+            return;
+        }
+        if (id != 0 && await _context.ProductComponents.AnyAsync(c => c.ComponentProductId == id))
+            throw new ProductoException("Este producto se usa como componente. Quitalo de esas composiciones antes de convertirlo en compuesto.");
+        var values = request.Componentes;
+        if (values == null && id != 0)
+            values = await _context.ProductComponents.Where(c => c.CompositeProductId == id)
+                .Select(c => new ProductComponentRequest { ProductId = c.ComponentProductId, Quantity = c.Quantity }).ToListAsync();
+        try { await new StockMovementService(_context).ValidateComponentsAsync(company, id, values ?? []); }
+        catch (SaleException e) { throw new ProductoException(e.Message, e.StatusCode); }
+    }
+
+    private async Task SaveCompositionAsync(int company, int id, CreateProductRequest request)
+    {
+        if (NormalizeProductType(request.TipoProducto) == "Producto compuesto")
+        {
+            if (request.Componentes != null)
+            {
+                try { await new StockMovementService(_context).SaveComponentsAsync(company, id, request.Componentes); }
+                catch (SaleException e) { throw new ProductoException(e.Message, e.StatusCode); }
+            }
+        }
+        else
+        {
+            _context.ProductComponents.RemoveRange(_context.ProductComponents.Where(c => c.CompositeProductId == id));
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task SetStatusAsync(int idEmpresa, int id, bool activo)
@@ -131,6 +199,17 @@ public class ProductoService
     public async Task<Producto> GetEntityAsync(int idEmpresa, int id) =>
         await _context.Productos.FirstOrDefaultAsync(p => p.Id == id && p.IdEmpresa == idEmpresa)
         ?? throw new ProductoException("Producto no encontrado.", 404);
+
+    /// Resolución exacta para pistoleo en el punto de venta.
+    public async Task<ProductDetailDto?> GetByBarcodeAsync(int idEmpresa, string barcode)
+    {
+        var code = barcode.Trim();
+        if (code.Length == 0) return null;
+        var product = await _context.Productos.AsNoTracking()
+            .Include(p => p.Rubro).Include(p => p.SubRubro).Include(p => p.Alicuota)
+            .FirstOrDefaultAsync(p => p.IdEmpresa == idEmpresa && p.Activo && p.CodigoBarras == code);
+        return product == null ? null : ToDetail(product);
+    }
 
     public Task SaveAsync() => _context.SaveChangesAsync();
 
@@ -201,7 +280,7 @@ public class ProductoService
             throw new ProductoException("La sucursal no existe o no pertenece a la empresa.", 404);
     }
 
-    private async Task ValidateReferencesAsync(int idEmpresa, CreateProductRequest request)
+    private async Task ValidateReferencesAsync(int idEmpresa, CreateProductRequest request, int? exceptId)
     {
         if (string.IsNullOrWhiteSpace(request.Nombre)) throw new ProductoException("El nombre es obligatorio.");
         if (request.CostoConIva < 0 || request.PrecioConIva < 0)
@@ -216,11 +295,19 @@ public class ProductoService
 
         if (!await _context.Alicuotas.AnyAsync(a => a.Id == request.IdAlicuota && a.Activa && (a.IdEmpresa == null || a.IdEmpresa == idEmpresa)))
             throw new ProductoException("La alícuota no existe o no está disponible para la empresa.");
+
+        if (!string.IsNullOrWhiteSpace(request.CodigoBarras))
+        {
+            var barcode = request.CodigoBarras.Trim();
+            if (await _context.Productos.AnyAsync(p => p.IdEmpresa == idEmpresa && p.Id != exceptId && p.CodigoBarras == barcode))
+                throw new ProductoException("Ya existe un producto con ese código de barras.", 409);
+        }
     }
 
     private static void Apply(Producto p, CreateProductRequest r)
     {
-        p.Nombre = r.Nombre.Trim(); p.Descripcion = r.Descripcion?.Trim(); p.TipoProducto = NormalizeProductType(r.TipoProducto);
+        p.Nombre = r.Nombre.Trim(); p.CodigoBarras = string.IsNullOrWhiteSpace(r.CodigoBarras) ? null : r.CodigoBarras.Trim();
+        p.Descripcion = r.Descripcion?.Trim(); p.TipoProducto = NormalizeProductType(r.TipoProducto);
         p.IdRubro = r.IdRubro; p.IdSubRubro = r.IdSubRubro; p.IdAlicuota = r.IdAlicuota;
         p.CostoConIva = decimal.Round(r.CostoConIva, 2); p.PrecioConIva = decimal.Round(r.PrecioConIva, 2);
         p.MostrarDelivery = r.MostrarDelivery; p.MostrarSalon = r.MostrarSalon;
@@ -262,7 +349,7 @@ public class ProductoService
         var precioSinIva = decimal.Round(p.PrecioConIva / divisor, 2, MidpointRounding.AwayFromZero);
         return new ProductDetailDto
         {
-            Id = p.Id, Codigo = p.Codigo, Nombre = p.Nombre, Descripcion = p.Descripcion,
+            Id = p.Id, Codigo = p.Codigo, CodigoBarras = p.CodigoBarras, Nombre = p.Nombre, Descripcion = p.Descripcion,
             TipoProducto = p.TipoProducto, Rubro = new ReferenciaDto(p.Rubro.Id, p.Rubro.Nombre),
             SubRubro = p.SubRubro == null ? null : new ReferenciaDto(p.SubRubro.Id, p.SubRubro.Nombre),
             Alicuota = new AlicuotaReferenciaDto(p.Alicuota.Id, p.Alicuota.Nombre, p.Alicuota.Descripcion, p.Alicuota.Porcentaje),

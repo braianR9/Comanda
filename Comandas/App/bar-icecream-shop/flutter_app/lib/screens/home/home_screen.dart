@@ -1,3 +1,6 @@
+import '../company/company_settings_screen.dart';
+import '../purchases/purchases_screen.dart';
+import '../purchases/suppliers_screen.dart';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -27,15 +30,19 @@ import '../users/users_screen.dart';
 import '../reports/sales_report_screen.dart';
 import '../settings/google_sheet_settings_screen.dart';
 import '../price_lists/price_lists_screen.dart';
+import '../invoices/invoices_screen.dart';
+import '../settings/brand_settings_screen.dart';
+import '../../theme/brand_colors.dart';
 
 /// Secciones visibles según el rol de la sesión.
 /// 0 Inicio · 1 Productos · 2 Rubros · 3 Sectores · 4 Salón · 5 Descuentos y
 /// pagos · 6 Impresoras · 7 Movimientos de stock · 8 Clientes · 9 Usuarios ·
-/// 10 Listado de ventas · 11 Google Sheets · 12 Caja · 13 Listas de precios.
+/// 10 Listado de ventas · 11 Google Sheets · 12 Caja · 13 Listas de precios ·
+/// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal.
 Set<int> _allowedSections(UserSession session) => {
       0,
-      4, 7, 8, 12, // Ventas: todos los roles.
-      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13},
+      4, 7, 8, 12, 14, 16, 17, 18, // Ventas: todos los roles.
+      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19},
       if (session.canManageUsers) ...{9, 11},
     };
 
@@ -96,12 +103,12 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const FocoLogo(size: 26, color: Color(0xFF5C4D9B)),
+          FocoLogo(size: 26, color: Brand.strong),
           const SizedBox(width: 10),
           Text(
             'FOCO',
             style: GoogleFonts.poppins(
-              color: const Color(0xFF3D2D8A),
+              color: Brand.strong,
               fontSize: 17,
               fontWeight: FontWeight.w800,
               letterSpacing: 2,
@@ -113,16 +120,14 @@ class _TopBar extends StatelessWidget {
                   session: session, section: section, onSelected: onSelected)),
           const SizedBox(width: 12),
           if (MediaQuery.of(context).size.width >= 1200) ...[
-            const Icon(Icons.location_on_outlined,
-                color: Color(0xFF9E8FCC), size: 14),
+            Icon(Icons.location_on_outlined, color: Brand.muted, size: 14),
             const SizedBox(width: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
               child: Text(session.sucursal.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF9E8FCC), fontSize: 13)),
+                  style: GoogleFonts.poppins(color: Brand.muted, fontSize: 13)),
             ),
             const SizedBox(width: 20),
           ],
@@ -160,12 +165,11 @@ class _UserChip extends StatelessWidget {
           },
           child: Row(
             children: [
-              const Icon(Icons.logout_rounded,
-                  color: Color(0xFF6C5CE7), size: 18),
+              Icon(Icons.logout_rounded, color: Brand.primary, size: 18),
               const SizedBox(width: 10),
               Text('Cerrar sesión',
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF3D2D8A), fontSize: 14)),
+                  style:
+                      GoogleFonts.poppins(color: Brand.strong, fontSize: 14)),
             ],
           ),
         ),
@@ -173,7 +177,7 @@ class _UserChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFEDE9FF),
+          color: Brand.tint,
           borderRadius: BorderRadius.circular(50),
           border: Border.all(color: const Color(0xFFBFB0F0)),
         ),
@@ -182,7 +186,7 @@ class _UserChip extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 13,
-              backgroundColor: const Color(0xFF6C5CE7),
+              backgroundColor: Brand.primary,
               child: Text(
                 session.nombre.isNotEmpty
                     ? session.nombre[0].toUpperCase()
@@ -207,21 +211,21 @@ class _UserChip extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                          color: const Color(0xFF3D2D8A),
+                          color: Brand.strong,
                           fontSize: 13,
                           fontWeight: FontWeight.w500),
                     ),
                     Text(
                       session.rol.nombre,
-                      style: GoogleFonts.poppins(
-                          color: const Color(0xFF9E8FCC), fontSize: 11),
+                      style:
+                          GoogleFonts.poppins(color: Brand.muted, fontSize: 11),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: Color(0xFF9E8FCC), size: 16),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  color: Brand.muted, size: 16),
             ],
           ],
         ),
@@ -351,7 +355,7 @@ class _WideLayoutState extends State<_WideLayout>
                                     width: 20,
                                     height: 64,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF6C5CE7),
+                                      color: Brand.primary,
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                           color: Colors.white, width: 2),
@@ -385,115 +389,102 @@ class _WideLayoutState extends State<_WideLayout>
               },
             ),
           Expanded(
-            child: _section == 12
-                ? const CajaScreen(embedded: true)
-                : _section == 13
-                    ? const PriceListsScreen(embedded: true)
-                    : _section == 11
-                        ? const GoogleSheetSettingsScreen(embedded: true)
-                        : _section == 10
-                            ? const SalesReportScreen(embedded: true)
-                            : _section == 9
-                                ? const UsersScreen(embedded: true)
-                                : _section == 8
-                                    ? const ClientsScreen(embedded: true)
-                                    : _section == 7
-                                        ? const StockMovementsScreen(
-                                            embedded: true)
-                                        : _section == 6
-                                            ? const PrintersScreen(
+            child: _section == 19
+                ? const BrandSettingsScreen()
+                : _section == 18
+                    ? const InvoicesScreen()
+                    : _section == 15
+                        ? const CompanySettingsScreen()
+                        : _section == 16
+                            ? const PurchasesScreen()
+                            : _section == 17
+                                ? const SuppliersScreen()
+                                : _section == 14
+                                    ? const SalesScreen(
+                                        key: ValueKey('venta-directa'),
+                                        embedded: true,
+                                        directSale: true)
+                                    : _section == 12
+                                        ? const CajaScreen(embedded: true)
+                                        : _section == 13
+                                            ? const PriceListsScreen(
                                                 embedded: true)
-                                            : _section == 5
-                                                ? const SalesCatalogsScreen(
+                                            : _section == 11
+                                                ? const GoogleSheetSettingsScreen(
                                                     embedded: true)
-                                                : _section == 4
-                                                    ? const SalesScreen(
+                                                : _section == 10
+                                                    ? const SalesReportScreen(
                                                         embedded: true)
-                                                    : _section == 1
-                                                        ? _productEditorOpen
-                                                            ? ProductEditorScreen(
-                                                                key: ValueKey(
-                                                                    _editingProduct
-                                                                            ?.id ??
-                                                                        'new-product'),
-                                                                product:
-                                                                    _editingProduct,
-                                                                embedded: true,
-                                                                onCancel: () =>
-                                                                    setState(
-                                                                        () {
-                                                                  _productEditorOpen =
-                                                                      false;
-                                                                  _editingProduct =
-                                                                      null;
-                                                                }),
-                                                                onSaved:
-                                                                    (product) async {
-                                                                  try {
-                                                                    await context
-                                                                        .read<
-                                                                            ProductProvider>()
-                                                                        .save(
-                                                                            product);
-                                                                    if (!mounted)
-                                                                      return;
-                                                                    setState(
-                                                                        () {
-                                                                      _productEditorOpen =
-                                                                          false;
-                                                                      _editingProduct =
-                                                                          null;
-                                                                    });
-                                                                    ScaffoldMessenger.of(
-                                                                            context)
-                                                                        .showSnackBar(
-                                                                      const SnackBar(
-                                                                          content:
-                                                                              Text('Producto guardado correctamente')),
-                                                                    );
-                                                                  } catch (error) {
-                                                                    if (!mounted)
-                                                                      return;
-                                                                    ScaffoldMessenger.of(
-                                                                            context)
-                                                                        .showSnackBar(
-                                                                      SnackBar(
-                                                                        content: Text(error.toString().replaceFirst(
-                                                                            'Exception: ',
-                                                                            '')),
-                                                                      ),
-                                                                    );
-                                                                  }
-                                                                },
-                                                              )
-                                                            : ProductsScreen(
-                                                                embedded: true,
-                                                                onOpenEditor:
-                                                                    (product) =>
-                                                                        setState(
-                                                                            () {
-                                                                  _editingProduct =
-                                                                      product;
-                                                                  _productEditorOpen =
-                                                                      true;
-                                                                }),
-                                                              )
-                                                        : _section == 2
-                                                            ? const ProductGroupsScreen(
+                                                    : _section == 9
+                                                        ? const UsersScreen(
+                                                            embedded: true)
+                                                        : _section == 8
+                                                            ? const ClientsScreen(
                                                                 embedded: true)
-                                                            : _section == 3
-                                                                ? const SectorsScreen(
+                                                            : _section == 7
+                                                                ? const StockMovementsScreen(
                                                                     embedded:
                                                                         true)
-                                                                : SingleChildScrollView(
-                                                                    padding:
-                                                                        const EdgeInsets
-                                                                            .all(
-                                                                            32),
-                                                                    child: _HomeContent(
-                                                                        session:
-                                                                            widget.session),
-                                                                  ),
+                                                                : _section == 6
+                                                                    ? const PrintersScreen(
+                                                                        embedded:
+                                                                            true)
+                                                                    : _section ==
+                                                                            5
+                                                                        ? const SalesCatalogsScreen(
+                                                                            embedded:
+                                                                                true)
+                                                                        : _section ==
+                                                                                4
+                                                                            ? const SalesScreen(
+                                                                                key: ValueKey('salon'),
+                                                                                embedded: true)
+                                                                            : _section == 1
+                                                                                ? _productEditorOpen
+                                                                                    ? ProductEditorScreen(
+                                                                                        key: ValueKey(_editingProduct?.id ?? 'new-product'),
+                                                                                        product: _editingProduct,
+                                                                                        embedded: true,
+                                                                                        onCancel: () => setState(() {
+                                                                                          _productEditorOpen = false;
+                                                                                          _editingProduct = null;
+                                                                                        }),
+                                                                                        onSaved: (product) async {
+                                                                                          try {
+                                                                                            await context.read<ProductProvider>().save(product);
+                                                                                            if (!mounted) return;
+                                                                                            setState(() {
+                                                                                              _productEditorOpen = false;
+                                                                                              _editingProduct = null;
+                                                                                            });
+                                                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                                                              const SnackBar(content: Text('Producto guardado correctamente')),
+                                                                                            );
+                                                                                          } catch (error) {
+                                                                                            if (!mounted) return;
+                                                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                                                              SnackBar(
+                                                                                                content: Text(error.toString().replaceFirst('Exception: ', '')),
+                                                                                              ),
+                                                                                            );
+                                                                                          }
+                                                                                        },
+                                                                                      )
+                                                                                    : ProductsScreen(
+                                                                                        embedded: true,
+                                                                                        onOpenEditor: (product) => setState(() {
+                                                                                          _editingProduct = product;
+                                                                                          _productEditorOpen = true;
+                                                                                        }),
+                                                                                      )
+                                                                                : _section == 2
+                                                                                    ? const ProductGroupsScreen(embedded: true)
+                                                                                    : _section == 3
+                                                                                        ? const SectorsScreen(embedded: true)
+                                                                                        : SingleChildScrollView(
+                                                                                            padding: const EdgeInsets.all(32),
+                                                                                            child: _HomeContent(session: widget.session),
+                                                                                          ),
           ),
         ],
       )),
@@ -510,7 +501,9 @@ class _MainMenu extends StatelessWidget {
 
   static const sales = <int, String>{
     4: 'Salón',
+    14: 'Mostrador',
     12: 'Caja',
+    18: 'Comprobantes',
     7: 'Movimientos de stock',
     8: 'Clientes',
   };
@@ -521,7 +514,6 @@ class _MainMenu extends StatelessWidget {
     5: 'Descuentos y pagos',
     6: 'Impresoras',
     13: 'Listas de precios',
-    9: 'Usuarios',
   };
   static const statistics = <int, String>{
     10: 'Ventas · Listado de ventas',
@@ -534,7 +526,8 @@ class _MainMenu extends StatelessWidget {
       position: PopupMenuPosition.under,
       onSelected: onSelected,
       itemBuilder: (_) => entries.entries
-          .where((entry) => entry.key != 9 || session.canManageUsers)
+          .where((entry) =>
+              (entry.key != 9 && entry.key != 11) || session.canManageUsers)
           .map((entry) => PopupMenuItem<int>(
                 value: entry.key,
                 child: Row(children: [
@@ -547,15 +540,15 @@ class _MainMenu extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFEDE9FF) : Colors.transparent,
+          color: active ? Brand.tint : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 19, color: const Color(0xFF5C4D9B)),
+          Icon(icon, size: 19, color: Brand.strong),
           const SizedBox(width: 8),
           Text(label,
               style: TextStyle(
-                  color: const Color(0xFF3D2D8A),
+                  color: Brand.strong,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
           const SizedBox(width: 5),
           const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
@@ -575,15 +568,16 @@ class _MainMenu extends StatelessWidget {
             TextButton.icon(
                 onPressed: () => onSelected(0),
                 style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF3D2D8A),
-                    backgroundColor:
-                        section == 0 ? const Color(0xFFEDE9FF) : null,
+                    foregroundColor: Brand.strong,
+                    backgroundColor: section == 0 ? Brand.tint : null,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 18)),
                 icon: const Icon(Icons.home_rounded, size: 19),
                 label: const Text('Inicio')),
             const SizedBox(width: 6),
             _group('Ventas', Icons.point_of_sale_rounded, sales),
+            _group('Compras', Icons.local_shipping_outlined,
+                const {16: 'Comprobantes de compra', 17: 'Proveedores'}),
             if (session.canAccessMasters) ...[
               const SizedBox(width: 6),
               _group('Maestros', Icons.school_rounded, masters),
@@ -591,19 +585,13 @@ class _MainMenu extends StatelessWidget {
             if (session.canAccessMasters) ...[
               const SizedBox(width: 6),
               _group('Estadísticas', Icons.bar_chart_rounded, statistics),
-            ],
-            if (session.canManageUsers) ...[
               const SizedBox(width: 6),
-              TextButton.icon(
-                  onPressed: () => onSelected(11),
-                  style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF3D2D8A),
-                      backgroundColor:
-                          section == 11 ? const Color(0xFFEDE9FF) : null,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 18)),
-                  icon: const Icon(Icons.table_chart_outlined, size: 19),
-                  label: const Text('Google Sheets')),
+              _group('Configuración', Icons.settings_outlined, const {
+                15: 'Empresa y facturación',
+                19: 'Colores de la sucursal',
+                11: 'Google Sheets',
+                9: 'Usuarios',
+              }),
             ],
           ]),
         ),
@@ -630,9 +618,9 @@ class _Sidebar extends StatelessWidget {
         width: _WideLayoutState._kCollapsed +
             (_WideLayoutState._kExpanded - _WideLayoutState._kCollapsed) *
                 widthFactor,
-        decoration: const BoxDecoration(
-            color: Color(0xFF6C5CE7),
-            border: Border(right: BorderSide(color: Color(0xFF5A4BD1)))),
+        decoration: BoxDecoration(
+            color: Brand.primary,
+            border: Border(right: BorderSide(color: Brand.primaryDark))),
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
           children: [
@@ -653,6 +641,12 @@ class _Sidebar extends StatelessWidget {
                 active: section == 4,
                 showLabel: expanded,
                 onTap: () => onSectionChanged(4)),
+            _SidebarItem(
+                icon: Icons.point_of_sale_rounded,
+                label: 'Mostrador',
+                active: section == 14,
+                showLabel: expanded,
+                onTap: () => onSectionChanged(14)),
             _SidebarItem(
                 icon: Icons.point_of_sale_outlined,
                 label: 'Caja',
@@ -698,34 +692,36 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 2),
-      decoration: BoxDecoration(
-        color: active ? Colors.white.withOpacity(0.18) : Colors.transparent,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color:
+            active ? Colors.white.withValues(alpha: 0.18) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Tooltip(
-        message: showLabel ? '' : label,
-        child: ListTile(
-          onTap: onTap,
-          dense: true,
-          leading: Icon(
-            icon,
-            color: active ? Colors.white : Colors.white70,
-            size: 18,
+        clipBehavior: Clip.antiAlias,
+        child: Tooltip(
+          message: showLabel ? '' : label,
+          child: ListTile(
+            onTap: onTap,
+            dense: true,
+            leading: Icon(
+              icon,
+              color: active ? Colors.white : Colors.white70,
+              size: 18,
+            ),
+            title: showLabel
+                ? Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      color: active ? Colors.white : Colors.white70,
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  )
+                : null,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          title: showLabel
-              ? Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    color: active ? Colors.white : Colors.white70,
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                )
-              : null,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -745,7 +741,6 @@ class _HomeContentState extends State<_HomeContent> {
   late String? _imageUrl;
   bool _uploading = false;
   int _openTables = 0;
-  int _totalTables = 0;
 
   String? _resolveUrl(String? url) {
     if (url == null || url.isEmpty) return null;
@@ -761,6 +756,15 @@ class _HomeContentState extends State<_HomeContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadSalonSummary());
   }
 
+  @override
+  void didUpdateWidget(covariant _HomeContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.empresa.imagenUrl !=
+        widget.session.empresa.imagenUrl) {
+      _imageUrl = _resolveUrl(widget.session.empresa.imagenUrl);
+    }
+  }
+
   Future<void> _loadSalonSummary() async {
     try {
       final sectorProvider = context.read<SectorProvider>();
@@ -774,17 +778,15 @@ class _HomeContentState extends State<_HomeContent> {
       for (final sale in activeSales) {
         occupiedIds.add(sale.tableId);
       }
-      final allTables = sectorProvider.tables;
+      final allTables = sectorProvider.salonTables;
       setState(() {
-        _totalTables = allTables.length;
         _openTables =
             allTables.where((table) => occupiedIds.contains(table.id)).length;
       });
     } catch (_) {
       if (!mounted) return;
-      final allTables = context.read<SectorProvider>().tables;
+      final allTables = context.read<SectorProvider>().salonTables;
       setState(() {
-        _totalTables = allTables.length;
         _openTables = allTables
             .where((table) =>
                 table.status.toLowerCase() != 'libre' &&
@@ -798,9 +800,7 @@ class _HomeContentState extends State<_HomeContent> {
   Widget build(BuildContext context) {
     final empresa = widget.session.empresa;
     final isWide = MediaQuery.of(context).size.width >= 800;
-    final providerTableCount = context.watch<SectorProvider>().tables.length;
-    final totalTables =
-        providerTableCount > 0 ? providerTableCount : _totalTables;
+    final totalTables = context.watch<SectorProvider>().salonTables.length;
 
     return Container(
       padding: const EdgeInsets.all(28),
@@ -863,14 +863,14 @@ class _HomeContentState extends State<_HomeContent> {
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
+    if (!widget.session.canAccessMasters) return;
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
-      withData: true,
     );
-    if (result == null || result.files.isEmpty) return;
+    if (result.isEmpty) return;
 
-    final file = result.files.first;
-    if (file.bytes == null) return;
+    final file = result.first;
+    final bytes = await file.readAsBytes();
 
     setState(() => _uploading = true);
 
@@ -882,19 +882,16 @@ class _HomeContentState extends State<_HomeContent> {
       final request = http.MultipartRequest('POST', uri)
         ..headers.addAll({
           ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
+          'Authorization': 'Bearer ${widget.session.token}',
         })
         ..files.add(http.MultipartFile.fromBytes(
           'Imagen',
-          file.bytes!,
+          bytes,
           filename: file.name,
         ));
 
       final response = await request.send().timeout(ApiConfig.timeout);
       final responseBody = await response.stream.bytesToString();
-
-      // Log para debug
-      debugPrint('Upload status: ${response.statusCode}');
-      debugPrint('Upload body: $responseBody');
 
       if (!mounted) return;
 
@@ -903,6 +900,9 @@ class _HomeContentState extends State<_HomeContent> {
         String? newUrl;
         try {
           final json = jsonDecode(responseBody);
+          await context.read<AuthProvider>().updateCompany(
+              Map<String, dynamic>.from(json['data']), widget.session.token);
+          if (!mounted) return;
           final raw =
               json['data']?['imagenUrl'] ?? json['imagenUrl'] ?? json['data'];
           newUrl = _resolveUrl(raw?.toString());
@@ -957,7 +957,7 @@ class _LogoUpload extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0EEF8),
+              color: Brand.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: const Color(0xFFD6D0F0),
@@ -973,18 +973,18 @@ class _LogoUpload extends StatelessWidget {
                       headers: const {
                         ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue
                       },
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, __, ___) => Icon(
                         Icons.broken_image_outlined,
-                        color: Color(0xFFB0A8D8),
+                        color: Brand.muted,
                         size: 40,
                       ),
                     ),
                   )
                 : uploading
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF6C5CE7),
+                          color: Brand.primary,
                         ),
                       )
                     : Column(
@@ -992,14 +992,14 @@ class _LogoUpload extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.add_photo_alternate_outlined,
-                            color: const Color(0xFFB0A8D8),
+                            color: Brand.muted,
                             size: size * 0.28,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Subir logo',
                             style: GoogleFonts.poppins(
-                              color: const Color(0xFFB0A8D8),
+                              color: Brand.muted,
                               fontSize: 12,
                             ),
                           ),
@@ -1048,7 +1048,7 @@ class _EmpresaInfo extends StatelessWidget {
         Text(
           empresa.nombre,
           style: GoogleFonts.poppins(
-            color: const Color(0xFF2D2260),
+            color: Brand.ink,
             fontSize: 28,
             fontWeight: FontWeight.w800,
             height: 1.1,
@@ -1099,7 +1099,7 @@ class _SalonSummary extends StatelessWidget {
           icon: Icons.donut_small_rounded,
           label: 'Ocupación',
           value: '${occupation.round()}%',
-          color: const Color(0xFF6C5CE7),
+          color: Brand.primary,
         ),
       ],
     );
@@ -1133,11 +1133,10 @@ class _SalonMetric extends StatelessWidget {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
-                style: GoogleFonts.poppins(
-                    color: const Color(0xFF6B6589), fontSize: 11)),
+                style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 11)),
             Text(value,
                 style: GoogleFonts.poppins(
-                    color: const Color(0xFF2D2260),
+                    color: Brand.ink,
                     fontSize: 19,
                     fontWeight: FontWeight.w800)),
           ]),
@@ -1156,13 +1155,13 @@ class _DataChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: const Color(0xFF6C5CE7), size: 16),
+        Icon(icon, color: Brand.primary, size: 16),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             text,
             style: GoogleFonts.poppins(
-              color: const Color(0xFF6B6589),
+              color: Brand.subtle,
               fontSize: 14,
             ),
           ),

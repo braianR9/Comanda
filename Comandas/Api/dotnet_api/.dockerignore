@@ -1,0 +1,6 @@
+bin/
+obj/
+secrets/
+*.env
+src/appsettings.Local.json
+src/wwwroot/uploads/

@@ -6,6 +6,7 @@ import '../../models/restaurant_table.dart';
 import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sector_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class SectorsScreen extends StatefulWidget {
   final bool embedded;
@@ -20,7 +21,10 @@ class _SectorsScreenState extends State<SectorsScreen> {
   Sector? _layoutSector;
   final Map<int, List<_TableMock>> _tablesBySector = {};
   final Map<int, int> _visualSectorOrder = {};
-  List<Sector> get _sectors => context.read<SectorProvider>().sectors;
+
+  /// El sector de sistema "Mostrador" (venta directa) no se gestiona acá.
+  List<Sector> get _sectors =>
+      context.read<SectorProvider>().sectors.where((s) => !s.isSystem).toList();
 
   @override
   void initState() {
@@ -53,7 +57,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
                     child: Text(
                       'Sectores',
                       style: GoogleFonts.poppins(
-                        color: const Color(0xFF2D2260),
+                        color: Brand.ink,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                       ),
@@ -66,9 +70,9 @@ class _SectorsScreenState extends State<SectorsScreen> {
                   ),
                 ]),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Organizá los sectores y el orden en que se muestran.',
-                  style: TextStyle(color: Color(0xFF6B6589)),
+                  style: TextStyle(color: Brand.subtle),
                 ),
                 const SizedBox(height: 20),
                 Expanded(
@@ -78,7 +82,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
                     clipBehavior: Clip.antiAlias,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: Color(0xFFE1DDEF)),
+                      side: BorderSide(color: Brand.surface),
                     ),
                     child: provider.loading
                         ? const Center(child: CircularProgressIndicator())
@@ -308,12 +312,12 @@ class _SectorsScreenState extends State<SectorsScreen> {
                 children: [
                   Text('Distribución · ${sector.name}',
                       style: GoogleFonts.poppins(
-                        color: const Color(0xFF2D2260),
+                        color: Brand.ink,
                         fontSize: 23,
                         fontWeight: FontWeight.w800,
                       )),
-                  const Text('Arrastrá las mesas y tocá una para editarla.',
-                      style: TextStyle(color: Color(0xFF6B6589))),
+                  Text('Arrastrá las mesas y tocá una para editarla.',
+                      style: TextStyle(color: Brand.subtle)),
                 ],
               ),
             ),
@@ -1169,7 +1173,7 @@ class _LegendItem extends StatelessWidget {
         children: [
           Icon(icon, size: 17, color: const Color(0xFF77737E)),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Color(0xFF6B6589))),
+          Text(label, style: TextStyle(color: Brand.subtle)),
         ],
       );
 }

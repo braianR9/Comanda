@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'brand_colors.dart';
 
 class AppColors {
   // Primarios
@@ -29,13 +30,14 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accent,
-        primary: AppColors.accent,
+        seedColor: Brand.primary,
+        primary: Brand.primary,
+        onPrimary: Brand.onPrimary,
         surface: AppColors.surface,
         background: AppColors.background,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFFF1F1F1),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
@@ -43,7 +45,6 @@ class AppTheme {
           side: const BorderSide(color: Color(0xFFD2D2D2)),
         ),
       ),
-      textTheme: GoogleFonts.poppinsTextTheme(),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -59,7 +60,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.accent, width: 2),
+          borderSide: BorderSide(color: Brand.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -69,8 +70,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
+          backgroundColor: Brand.primary,
+          foregroundColor: Brand.onPrimary,
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

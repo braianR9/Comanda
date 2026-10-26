@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/printer_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class PrintersScreen extends StatefulWidget {
   final bool embedded;
@@ -29,7 +30,7 @@ class _PrintersScreenState extends State<PrintersScreen> {
         padding: const EdgeInsets.all(32),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(
+            Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -37,7 +38,7 @@ class _PrintersScreenState extends State<PrintersScreen> {
                         style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF302568))),
+                            color: Brand.ink)),
                     SizedBox(height: 4),
                     Text(
                         'Configurá dónde se imprimen las comandas y los tickets de venta.',
@@ -57,8 +58,7 @@ class _PrintersScreenState extends State<PrintersScreen> {
             Expanded(
                 child: Center(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.print_disabled_outlined,
-                  size: 48, color: Color(0xFF9E8FCC)),
+              Icon(Icons.print_disabled_outlined, size: 48, color: Brand.muted),
               const SizedBox(height: 12),
               Text(provider.error!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
@@ -157,7 +157,7 @@ class _PrinterCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE4E1EE))),
+          side: BorderSide(color: Brand.surface)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(children: [
@@ -165,13 +165,10 @@ class _PrinterCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                  color: printer.active
-                      ? const Color(0xFFEDE9FF)
-                      : Colors.grey.shade200,
+                  color: printer.active ? Brand.tint : Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(12)),
               child: Icon(Icons.print_rounded,
-                  color:
-                      printer.active ? const Color(0xFF6C5CE7) : Colors.grey)),
+                  color: printer.active ? Brand.primary : Colors.grey)),
           const SizedBox(width: 16),
           Expanded(
               child: Column(
@@ -183,10 +180,10 @@ class _PrinterCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(printer.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF302568))),
+                              color: Brand.ink)),
                       if (printer.isDefault)
                         const Chip(
                             label: Text('Predeterminada'),

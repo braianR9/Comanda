@@ -26,6 +26,7 @@ public class Order
     [Column("descuento_valor", TypeName = "decimal(18,2)")] public decimal? DescuentoValor { get; set; }
     [Column("version")] public long Version { get; set; } = 1;
     [Column("id_lista_precio")] public int? IdListaPrecio { get; set; }
+    [Column("id_cliente")] public int? CustomerId { get; set; }
     public Table Table { get; set; } = null!;
     public List<OrderItem> Items { get; set; } = [];
     public List<SalePayment> Payments { get; set; } = [];

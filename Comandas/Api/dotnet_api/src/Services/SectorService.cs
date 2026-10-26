@@ -22,7 +22,7 @@ public class SectorService
         return await query.OrderBy(s => s.Orden).ThenBy(s => s.Nombre).Select(s => new SectorDto
         {
             Id = s.Id, Name = s.Nombre, Description = s.Descripcion, Order = s.Orden,
-            Active = s.Activo, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion
+            Active = s.Activo, IsSystem = s.EsSistema, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion
         }).ToListAsync();
     }
 
@@ -30,7 +30,7 @@ public class SectorService
         .Where(s => s.IdEmpresa == company && s.Id == id).Select(s => new SectorDto
         {
             Id = s.Id, Name = s.Nombre, Description = s.Descripcion, Order = s.Orden,
-            Active = s.Activo, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion
+            Active = s.Activo, IsSystem = s.EsSistema, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion
         }).FirstOrDefaultAsync();
 
     public async Task<SectorDto> CreateAsync(int company, SectorRequest request)
@@ -78,5 +78,5 @@ public class SectorService
     }
     private async Task EnsureUniqueName(int company, string name, int? except) { if (await _context.Sectors.AnyAsync(s => s.IdEmpresa == company && s.Id != except && s.Nombre.ToLower() == name.ToLower())) throw new SectorException("Ya existe un sector con ese nombre.", 409); }
     private async Task<Sector> Entity(int company, int id) => await _context.Sectors.FirstOrDefaultAsync(s => s.IdEmpresa == company && s.Id == id) ?? throw new SectorException("Sector no encontrado.", 404);
-    private static SectorDto Map(Sector s) => new() { Id = s.Id, Name = s.Nombre, Description = s.Descripcion, Order = s.Orden, Active = s.Activo, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion };
+    private static SectorDto Map(Sector s) => new() { Id = s.Id, Name = s.Nombre, Description = s.Descripcion, Order = s.Orden, Active = s.Activo, IsSystem = s.EsSistema, CreatedAt = s.FechaCreacion, UpdatedAt = s.FechaModificacion };
 }

@@ -11,6 +11,7 @@ class RestaurantTable {
   final bool active;
   final double positionX;
   final double positionY;
+  final bool isMostrador;
 
   const RestaurantTable({
     required this.id,
@@ -25,6 +26,7 @@ class RestaurantTable {
     this.active = true,
     this.positionX = .44,
     this.positionY = .42,
+    this.isMostrador = false,
   });
 
   factory RestaurantTable.fromJson(Map<String, dynamic> json) =>
@@ -44,5 +46,6 @@ class RestaurantTable {
         active: json['active'] as bool? ?? true,
         positionX: (json['positionX'] as num?)?.toDouble() ?? .44,
         positionY: (json['positionY'] as num?)?.toDouble() ?? .42,
+        isMostrador: json['isMostrador'] as bool? ?? false,
       );
 }

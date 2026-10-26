@@ -1,0 +1,12 @@
+INSERT INTO empresas(id_empresa,nombre) VALUES(1,'Empresa de prueba'),(2,'Otra empresa');
+INSERT INTO sucursales(id_sucursal,id_empresa,nombre) VALUES(1,1,'Sucursal A'),(2,1,'Sucursal B'),(3,2,'Otra sucursal');
+INSERT INTO roles(id_rol,nombre) VALUES(1,'ADMIN'),(2,'EMPLEADO');
+INSERT INTO usuarios(id_usuario,id_empresa,id_sucursal,id_rol,nombre,apellido,email,password_hash) VALUES(1,1,1,1,'Ana','Control','ana@example.test','test'),(2,1,1,2,'Luis','Carga','luis@example.test','test');
+INSERT INTO rubros(id_rubro,id_empresa,nombre) VALUES(1,1,'Insumos'),(2,2,'Otros');
+INSERT INTO alicuotas(id_alicuota,id_empresa,nombre,descripcion,porcentaje) VALUES(1,1,'IVA','IVA',21),(2,2,'IVA','IVA',21);
+INSERT INTO productos(id_producto,id_empresa,codigo,nombre,tipo_producto,id_rubro,id_alicuota,costo_con_iva,precio_con_iva) VALUES(1,1,1,'Harina','ProductoSimple',1,1,100,200),(2,1,2,'Envases','ProductoSimple',1,1,100,200),(3,1,3,'Combo','ProductoCompuesto',1,1,100,200),(4,2,1,'Ajeno','ProductoSimple',2,2,100,200);
+INSERT INTO stock_productos(id_producto,id_sucursal,stock_actual,operacion_cantidad) VALUES(1,1,10,'Decimal'),(2,1,10,'Entero'),(1,2,50,'Decimal');
+CREATE ROLE foco_api LOGIN;
+GRANT USAGE ON SCHEMA public TO foco_api;
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO foco_api;
+GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO foco_api;

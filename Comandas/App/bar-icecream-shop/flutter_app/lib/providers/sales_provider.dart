@@ -268,6 +268,17 @@ class SalesProvider extends ChangeNotifier {
     ];
   }
 
+  /// Id de la mesa virtual de "Mostrador" (venta directa) de la sucursal
+  /// actual. El backend la crea sola la primera vez que se pide.
+  Future<int> getCounterTableId() async {
+    final response = await http
+        .get(Uri.parse('${ApiConfig.baseUrl}/api/pos/mostrador'),
+            headers: _headers)
+        .timeout(ApiConfig.timeout);
+    final data = _body(response)['data'] as Map<String, dynamic>;
+    return (data['tableId'] as num).toInt();
+  }
+
   Future<SaleSnapshot> applyDiscount(int saleId, int version,
           {int? discountId,
           required String name,

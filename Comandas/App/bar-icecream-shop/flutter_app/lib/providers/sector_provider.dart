@@ -17,6 +17,19 @@ class SectorProvider extends ChangeNotifier {
 
   List<Sector> get sectors => List.unmodifiable(_sectors);
   List<RestaurantTable> get tables => List.unmodifiable(_tables);
+  List<RestaurantTable> get salonTables {
+    final sectorIds = _sectors
+        .where((sector) => sector.active && !sector.isSystem)
+        .map((sector) => sector.id)
+        .toSet();
+    return _tables
+        .where((table) =>
+            table.active &&
+            !table.isMostrador &&
+            sectorIds.contains(table.sectorId))
+        .toList();
+  }
+
   bool get loading => _loading;
   String? get errorMessage => _errorMessage;
 

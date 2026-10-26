@@ -55,8 +55,7 @@ static class ScheduledPriceRegression
     }
     public static async Task Integration()
     {
-        using var config = JsonDocument.Parse(File.ReadAllText("../../../Api/dotnet_api/src/appsettings.json"));
-        var cs = config.RootElement.GetProperty("ConnectionStrings").GetProperty("DefaultConnection").GetString()!;
+        var cs = TestConfig.ConnectionString();
         if (new Npgsql.NpgsqlConnectionStringBuilder(cs).Host is not ("localhost" or "127.0.0.1" or "::1")) throw new Exception("Only local database may be tested.");
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(cs).Options);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -89,7 +88,8 @@ static class ScheduledPriceRegression
             // Editing base prices must not use the discounted price as the old value.
             await service.SetPriceAsync(company, list.Id, product.Id, 2000, "Prueba");
             Check((await Quote()).PrecioFinal == 1600 && await service.ResolveBasePriceAsync(product.Id, list.Id) == 2000, "Base edit remains separate from scheduled adjustment");
-            var orders = new OrderService(db, new ConfigurationBuilder().Build(), new StockMovementService(db), new CajaService(db), service);
+            var config = new ConfigurationBuilder().Build();
+            var orders = new OrderService(db, config, new StockMovementService(db), new CajaService(db), service, TestConfig.Invoices(db, config));
             var add = typeof(OrderService).GetMethod("AddOrMergeItem", BindingFlags.Instance | BindingFlags.NonPublic)!;
             var sale = new Order { IdEmpresa = company, IdListaPrecio = list.Id };
             await (Task)add.Invoke(orders, [sale, product.Id, 1m, null])!;

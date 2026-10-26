@@ -1,3 +1,4 @@
+import '../invoices/invoice_dialogs.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,11 +17,18 @@ import '../../providers/product_provider.dart';
 import '../../providers/sales_provider.dart';
 import '../../providers/sector_provider.dart';
 import '../auth/login_screen.dart';
+import '../../theme/brand_colors.dart';
 
 class SalesScreen extends StatefulWidget {
   final bool embedded;
 
-  const SalesScreen({super.key, this.embedded = false});
+  /// Modo venta directa (punto de venta sin mesa): abre directamente la
+  /// mesa virtual de "Mostrador" y permite pistolear productos por código
+  /// de barras. Al cobrar, queda lista para la siguiente venta.
+  final bool directSale;
+
+  const SalesScreen(
+      {super.key, this.embedded = false, this.directSale = false});
 
   @override
   State<SalesScreen> createState() => _SalesScreenState();
@@ -35,6 +43,10 @@ class _SalesScreenState extends State<SalesScreen> {
   bool _productsAsGrid = true;
   Timer? _occupationTimer;
   bool _operationInProgress = false;
+  String? _directSaleError;
+  final _barcodeController = TextEditingController();
+  final _barcodeFocus = FocusNode();
+  bool _barcodeLookupInProgress = false;
 
   @override
   void initState() {
@@ -46,27 +58,53 @@ class _SalesScreenState extends State<SalesScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final session = context.read<AuthProvider>().session!;
+      final products = context.read<ProductProvider>();
       context
           .read<SalesProvider>()
           .configure(token: session.token, userId: session.id);
       await Future.wait([
         context.read<SectorProvider>().load(token: session.token),
-        context.read<ProductProvider>().load(
-              session.idEmpresa,
-              token: session.token,
-            ),
+        // El orden por más vendidos se refresca cada vez que se entra a vender.
+        products
+            .load(session.idEmpresa, token: session.token)
+            .then((_) => products.refreshSalesCatalog()),
         context.read<CajaProvider>().load(session.token),
         context.read<PriceListProvider>().load(session.token),
       ]);
       if (!mounted) return;
       await _restoreActiveSales();
+      if (widget.directSale) await _initDirectSale();
     });
+  }
+
+  Future<void> _initDirectSale() async {
+    try {
+      final tableId = await context.read<SalesProvider>().getCounterTableId();
+      if (!mounted) return;
+      final sectors = context.read<SectorProvider>();
+      if (!sectors.tables.any((t) => t.id == tableId)) {
+        await sectors.load(token: context.read<AuthProvider>().session!.token);
+        if (!mounted) return;
+        if (!sectors.tables.any((t) => t.id == tableId))
+          throw Exception('No se pudo cargar Mostrador. Reintentá.');
+      }
+      setState(() {
+        _selectedTableId = tableId;
+        _directSaleError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() =>
+          _directSaleError = error.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   @override
   void dispose() {
     _occupationTimer?.cancel();
     _tableOpeningGuard?.cancel();
+    _barcodeController.dispose();
+    _barcodeFocus.dispose();
     super.dispose();
   }
 
@@ -75,7 +113,7 @@ class _SalesScreenState extends State<SalesScreen> {
       final salesProvider = context.read<SalesProvider>();
       final productProvider = context.read<ProductProvider>();
       final sales = await salesProvider.getActiveSales();
-      final products = productProvider.products;
+      final products = productProvider.salesCatalog;
       if (!mounted) return;
       setState(() {
         for (final sale in sales) {
@@ -107,7 +145,9 @@ class _SalesScreenState extends State<SalesScreen> {
   @override
   Widget build(BuildContext context) {
     final body = _selectedTableId == null
-        ? _buildTableSelection()
+        ? (widget.directSale
+            ? _buildDirectSaleLoading()
+            : _buildTableSelection())
         : _buildOrderWorkspace(_selectedTableId!);
     final guardedBody = Stack(children: [
       AbsorbPointer(absorbing: _operationInProgress, child: body),
@@ -128,9 +168,28 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
+  Widget _buildDirectSaleLoading() => SafeArea(
+        child: Center(
+          child: _directSaleError == null
+              ? const CircularProgressIndicator()
+              : Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_directSaleError!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                      onPressed: () {
+                        setState(() => _directSaleError = null);
+                        _initDirectSale();
+                      },
+                      child: const Text('Reintentar')),
+                ]),
+        ),
+      );
+
   /// Un empleado con sector asignado solo ve ese sector; sin asignación, ve todos.
   List<Sector> _visibleSectors(SectorProvider provider) {
-    final sectors = provider.sectors.where((item) => item.active).toList()
+    final sectors = provider.sectors
+        .where((item) => item.active && !item.isSystem)
+        .toList()
       ..sort((a, b) => a.order.compareTo(b.order));
     final assignedSectorId =
         context.read<AuthProvider>().session?.idSectorAsignado;
@@ -286,7 +345,8 @@ class _SalesScreenState extends State<SalesScreen> {
         .where((item) => item.id == table.sectorId)
         .firstOrNull;
     final order = _orders.putIfAbsent(tableId, () => _OrderDraft(tableId));
-    final products = context.watch<ProductProvider>().products.where((product) {
+    final products =
+        context.watch<ProductProvider>().salesCatalog.where((product) {
       final query = _productSearch.trim().toLowerCase();
       return product.active &&
           product.showSalon &&
@@ -304,7 +364,9 @@ class _SalesScreenState extends State<SalesScreen> {
             IconButton(
               onPressed: () => _leaveTable(order),
               icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Volver a las mesas',
+              tooltip: widget.directSale
+                  ? 'Salir de Mostrador'
+                  : 'Volver a las mesas',
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -313,11 +375,11 @@ class _SalesScreenState extends State<SalesScreen> {
                 children: [
                   Text(table.name,
                       style: GoogleFonts.poppins(
-                          color: const Color(0xFF2D2260),
+                          color: Brand.ink,
                           fontSize: 20,
                           fontWeight: FontWeight.w700)),
                   Text('${sector?.name ?? 'Sector'} · ${_status(order)}',
-                      style: const TextStyle(color: Color(0xFF6B6589))),
+                      style: TextStyle(color: Brand.subtle)),
                 ],
               ),
             ),
@@ -334,52 +396,80 @@ class _SalesScreenState extends State<SalesScreen> {
               ),
             ],
             const SizedBox(width: 8),
-            PopupMenuButton<String>(
-              tooltip: 'Acciones de mesa',
-              enabled: !order.editLocked,
-              onSelected: (value) {
-                if (value == 'move') _moveOrder(order);
-                if (value == 'join') _joinOrder(order);
-                if (value == 'clear') _clearOrder(order);
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                    value: 'move',
-                    enabled: order.joinedTableIds.isEmpty,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Cambiar de mesa'),
-                        if (order.joinedTableIds.isNotEmpty)
-                          const Text('No disponible con mesas unidas',
-                              style: TextStyle(fontSize: 12)),
-                      ],
-                    )),
-                PopupMenuItem(
-                    value: 'join',
-                    enabled: order.sent && !order.hasPendingChanges,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Unir mesas'),
-                        if (!order.sent || order.hasPendingChanges)
-                          const Text('Primero enviá el pedido o sus cambios',
-                              style: TextStyle(fontSize: 12)),
-                      ],
-                    )),
-                if (!order.sent && order.lines.isEmpty)
-                  const PopupMenuItem(
-                      value: 'clear', child: Text('Anular mesa')),
-              ],
-              child: const Padding(
-                padding: EdgeInsets.all(10),
-                child: Icon(Icons.more_vert_rounded),
+            if (!widget.directSale)
+              PopupMenuButton<String>(
+                tooltip: 'Acciones de mesa',
+                enabled: !order.editLocked,
+                onSelected: (value) {
+                  if (value == 'move') _moveOrder(order);
+                  if (value == 'join') _joinOrder(order);
+                  if (value == 'clear') _clearOrder(order);
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                      value: 'move',
+                      enabled: order.joinedTableIds.isEmpty,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Cambiar de mesa'),
+                          if (order.joinedTableIds.isNotEmpty)
+                            const Text('No disponible con mesas unidas',
+                                style: TextStyle(fontSize: 12)),
+                        ],
+                      )),
+                  PopupMenuItem(
+                      value: 'join',
+                      enabled: order.sent && !order.hasPendingChanges,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Unir mesas'),
+                          if (!order.sent || order.hasPendingChanges)
+                            const Text('Primero enviá el pedido o sus cambios',
+                                style: TextStyle(fontSize: 12)),
+                        ],
+                      )),
+                  if (!order.sent && order.lines.isEmpty)
+                    const PopupMenuItem(
+                        value: 'clear', child: Text('Anular mesa')),
+                ],
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Icon(Icons.more_vert_rounded),
+                ),
               ),
-            ),
           ]),
         ),
+        if (widget.directSale)
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+            color: Colors.white,
+            child: TextField(
+              controller: _barcodeController,
+              focusNode: _barcodeFocus,
+              autofocus: true,
+              enabled: !order.editLocked,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.qr_code_scanner_rounded),
+                labelText: 'Pistoleá o escribí el código de barras',
+                suffixIcon: _barcodeLookupInProgress
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2)))
+                    : null,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleBarcodeSubmit(order),
+            ),
+          ),
         Expanded(
           child: LayoutBuilder(builder: (context, constraints) {
             final compact = constraints.maxWidth < 850;
@@ -431,10 +521,8 @@ class _SalesScreenState extends State<SalesScreen> {
         children: [
           Text(title,
               style: GoogleFonts.poppins(
-                  color: const Color(0xFF2D2260),
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800)),
-          Text(subtitle, style: const TextStyle(color: Color(0xFF6B6589))),
+                  color: Brand.ink, fontSize: 26, fontWeight: FontWeight.w800)),
+          Text(subtitle, style: TextStyle(color: Brand.subtle)),
         ],
       );
 
@@ -443,15 +531,48 @@ class _SalesScreenState extends State<SalesScreen> {
 
   /// Salir sin enviar descarta lo cargado: la mesa queda como si no se hubiese tocado.
   void _leaveTable(_OrderDraft order) {
+    if (!order.sent) {
+      _orders.remove(order.tableId);
+    } else if (order.hasPendingChanges) {
+      order.restoreLastSent();
+    }
+    if (widget.directSale) {
+      // No hay grilla de mesas en venta directa: el botón "volver" sale del POS.
+      Navigator.of(context).maybePop();
+      return;
+    }
     setState(() {
-      if (!order.sent) {
-        _orders.remove(order.tableId);
-      } else if (order.hasPendingChanges) {
-        order.restoreLastSent();
-      }
       _selectedTableId = null;
       _productSearch = '';
     });
+  }
+
+  /// Busca el producto por código de barras y lo agrega al pedido; se usa
+  /// desde el campo de pistoleo de la venta directa.
+  Future<void> _handleBarcodeSubmit(_OrderDraft order) async {
+    final code = _barcodeController.text.trim();
+    _barcodeController.clear();
+    if (code.isEmpty || _barcodeLookupInProgress) {
+      _barcodeFocus.requestFocus();
+      return;
+    }
+    setState(() => _barcodeLookupInProgress = true);
+    try {
+      final product = await context.read<ProductProvider>().findByBarcode(code);
+      if (!mounted) return;
+      if (product == null || !product.active || !product.showSalon) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'No se encontró un producto activo con el código "$code".')));
+      } else {
+        await _addProduct(order, product);
+      }
+    } catch (error) {
+      _showApiError(error);
+    } finally {
+      if (mounted) setState(() => _barcodeLookupInProgress = false);
+      _barcodeFocus.requestFocus();
+    }
   }
 
   Future<void> _addProduct(_OrderDraft order, Product product) async {
@@ -714,11 +835,14 @@ class _SalesScreenState extends State<SalesScreen> {
     if (!mounted) return true;
     setState(() {
       _orders.removeWhere((_, value) => identical(value, order));
-      _selectedTableId = null;
+      // En venta directa no hay grilla de mesas: se queda en el mismo
+      // mostrador, listo para la próxima venta con un pedido nuevo y vacío.
+      if (!widget.directSale) _selectedTableId = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-          'Venta N.º ${snapshot.number}: ${snapshot.status}. La mesa quedó cerrada.'),
+      content: Text(widget.directSale
+          ? 'Venta N.º ${snapshot.number}: ${snapshot.status}.'
+          : 'Venta N.º ${snapshot.number}: ${snapshot.status}. La mesa quedó cerrada.'),
     ));
     return true;
   }
@@ -777,6 +901,13 @@ class _SalesScreenState extends State<SalesScreen> {
       }
       snapshot = await provider.checkout(snapshot.id, snapshot.version);
       _closeCompletedSale(order, snapshot);
+      if (mounted && snapshot.status == 'Finalizada') {
+        await offerInvoiceAfterCheckout(
+            context,
+            context.read<AuthProvider>().session!.token,
+            snapshot.id,
+            snapshot.number);
+      }
     } catch (error) {
       try {
         final latest = await provider.getSale(order.orderId!);
@@ -860,7 +991,7 @@ class _SalesScreenState extends State<SalesScreen> {
         final saleNumber = snapshot.number;
         setState(() {
           _orders.removeWhere((_, value) => identical(value, order));
-          _selectedTableId = null;
+          if (!widget.directSale) _selectedTableId = null;
           _productSearch = '';
         });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -891,7 +1022,7 @@ class _SalesScreenState extends State<SalesScreen> {
       if (!mounted) return;
       setState(() {
         order.markAsSent();
-        _selectedTableId = null;
+        if (!widget.directSale) _selectedTableId = null;
         _productSearch = '';
       });
       if (printError != null) {
@@ -1042,7 +1173,7 @@ class _SalesScreenState extends State<SalesScreen> {
       if (!mounted) return;
       setState(() {
         _orders.remove(order.tableId);
-        _selectedTableId = null;
+        if (!widget.directSale) _selectedTableId = null;
       });
     } catch (error) {
       if (order.sent && mounted) {
@@ -1410,8 +1541,8 @@ class _ProductOptionCard extends StatelessWidget {
                     _icon(),
                     const SizedBox(width: 11),
                     Expanded(child: _details()),
-                    const Icon(Icons.add_circle_outline_rounded,
-                        color: Color(0xFF6C5CE7)),
+                    Icon(Icons.add_circle_outline_rounded,
+                        color: Brand.primary),
                   ])
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1419,8 +1550,8 @@ class _ProductOptionCard extends StatelessWidget {
                       Row(children: [
                         _icon(),
                         const Spacer(),
-                        const Icon(Icons.add_circle_outline_rounded,
-                            size: 19, color: Color(0xFF6C5CE7)),
+                        Icon(Icons.add_circle_outline_rounded,
+                            size: 19, color: Brand.primary),
                       ]),
                       const SizedBox(height: 5),
                       Expanded(child: _details()),
@@ -1434,11 +1565,11 @@ class _ProductOptionCard extends StatelessWidget {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: const Color(0xFFEDE9FF),
+          color: Brand.tint,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.restaurant_menu_rounded,
-            size: 17, color: Color(0xFF6C5CE7)),
+        child:
+            Icon(Icons.restaurant_menu_rounded, size: 17, color: Brand.primary),
       );
 
   Widget _details() => Column(
@@ -1454,8 +1585,8 @@ class _ProductOptionCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Color(0xFF77718E), fontSize: 11)),
           Text('\$${product.price.toStringAsFixed(2)}',
-              style: const TextStyle(
-                  color: Color(0xFF6C5CE7), fontWeight: FontWeight.w700)),
+              style:
+                  TextStyle(color: Brand.primary, fontWeight: FontWeight.w700)),
         ],
       );
 }
@@ -1530,8 +1661,8 @@ class _OrderTicket extends StatelessWidget {
                                   line.comment!,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF6C5CE7),
+                                  style: TextStyle(
+                                    color: Brand.primary,
                                     fontSize: 12,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -1552,7 +1683,7 @@ class _OrderTicket extends StatelessWidget {
                             size: 20,
                             color: line.comment == null
                                 ? const Color(0xFF77718E)
-                                : const Color(0xFF6C5CE7),
+                                : Brand.primary,
                           ),
                         ),
                         IconButton(
@@ -1662,9 +1793,7 @@ class _OrderPhase extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              color: index == current
-                  ? const Color(0xFFEDE9FF)
-                  : const Color(0xFFF3F2F5),
+              color: index == current ? Brand.tint : const Color(0xFFF3F2F5),
               borderRadius: BorderRadius.circular(7),
             ),
             child: Text(labels[index],
@@ -1673,9 +1802,8 @@ class _OrderPhase extends StatelessWidget {
                   fontSize: 10,
                   fontWeight:
                       index == current ? FontWeight.w700 : FontWeight.w400,
-                  color: index == current
-                      ? const Color(0xFF5C4D9B)
-                      : const Color(0xFF817C8D),
+                  color:
+                      index == current ? Brand.strong : const Color(0xFF817C8D),
                 )),
           ),
         ),
@@ -1875,11 +2003,50 @@ class _CheckoutDialog extends StatefulWidget {
 
 class _CheckoutDialogState extends State<_CheckoutDialog> {
   late final List<_PaymentLine> payments;
+  final Map<_PaymentLine, TextEditingController> _amountControllers = {};
 
   @override
   void initState() {
     super.initState();
     payments = [_PaymentLine(widget.types.first)..amount = widget.total];
+    _amountControllers[payments.first] =
+        TextEditingController(text: widget.total.toStringAsFixed(2));
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _amountControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  int _cents(double value) => value.isFinite ? (value * 100).round() : 0;
+  double _remainingWithout([_PaymentLine? excluded]) =>
+      (_cents(widget.total) -
+          payments
+              .where((p) => p != excluded)
+              .fold<int>(0, (sum, p) => sum + _cents(p.amount))) /
+      100;
+
+  void _addPayment() {
+    final remaining = _remainingWithout();
+    final line = _PaymentLine(widget.types.first)
+      ..amount = remaining > 0 ? remaining : 0;
+    setState(() {
+      payments.add(line);
+      _amountControllers[line] = TextEditingController(
+          text: line.amount == 0 ? '' : line.amount.toStringAsFixed(2));
+    });
+  }
+
+  void _completePayment(_PaymentLine line) {
+    final remaining = _remainingWithout(line);
+    if (remaining <= 0) return;
+    setState(() {
+      line.amount = remaining;
+      _amountControllers[line]!.text = remaining.toStringAsFixed(2);
+    });
   }
 
   double get paid => payments.fold(0, (sum, item) => sum + item.amount);
@@ -1940,9 +2107,7 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: TextFormField(
-                            initialValue: payments[index].amount == 0
-                                ? ''
-                                : '${payments[index].amount}',
+                            controller: _amountControllers[payments[index]],
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
                             decoration: const InputDecoration(
@@ -1961,6 +2126,20 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                       ]),
+                      if (index > 0) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                            'Saldo luego de los medios anteriores: \$${((_cents(widget.total) - payments.take(index).fold<int>(0, (sum, p) => sum + _cents(p.amount))) / 100).toStringAsFixed(2)}'),
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: _remainingWithout(payments[index]) > 0
+                                  ? () => _completePayment(payments[index])
+                                  : null,
+                              child:
+                                  const Text('Completar saldo con este medio'),
+                            )),
+                      ],
                       const SizedBox(height: 6),
                       Text(payments[index].type.value == 0
                           ? 'Sin ajuste'
@@ -1971,12 +2150,16 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
                     ]),
               ),
             TextButton.icon(
-              onPressed: () => setState(
-                  () => payments.add(_PaymentLine(widget.types.first))),
+              onPressed: _addPayment,
               icon: const Icon(Icons.add_rounded),
               label: const Text('Agregar otro medio de pago'),
             ),
             const Divider(),
+            Text(
+                _remainingWithout() >= 0
+                    ? 'Falta asignar: \$${_remainingWithout().toStringAsFixed(2)}'
+                    : 'Importe excedido: \$${(-_remainingWithout()).toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
             if (!canConfirm)
               const Text(
                   'Los importes de cuenta deben ser positivos y sumar exactamente el saldo.'),

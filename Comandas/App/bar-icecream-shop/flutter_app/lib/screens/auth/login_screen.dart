@@ -1,3 +1,4 @@
+import '../../config/api_config.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../home/home_screen.dart';
+import '../../theme/brand_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -130,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildBrandSide() {
     return Container(
-      color: const Color(0xFF6C5CE7),
+      color: Brand.primary,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
         child: Column(
@@ -198,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen>
           style: GoogleFonts.poppins(
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF2D2260),
+            color: Brand.ink,
             letterSpacing: 3,
           ),
         ),
@@ -206,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen>
           'Gestioná tu negocio',
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: const Color(0xFF6B6589),
+            color: Brand.subtle,
           ),
         ),
       ],
@@ -218,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE4E1EE)),
+        border: Border.all(color: Brand.surface),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -240,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen>
                 style: GoogleFonts.poppins(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2D2260),
+                  color: Brand.ink,
                 ),
               ),
               const SizedBox(height: 6),
@@ -248,9 +250,19 @@ class _LoginScreenState extends State<LoginScreen>
                 'Accedé al panel de tu negocio',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: const Color(0xFF6B6589),
+                  color: Brand.subtle,
                 ),
               ),
+              // La API Key llega al compilar; sin ella la API rechaza todo.
+              if (ApiConfig.apiKeyValue.isEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Falta la API Key: ejecutá la app con '
+                  '--dart-define-from-file=config/local.json',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13, color: const Color(0xFFC62828)),
+                ),
+              ],
               const SizedBox(height: 32),
               _GlassField(
                 controller: _emailController,
@@ -292,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen>
                     _obscurePassword
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
-                    color: const Color(0xFF6B6589),
+                    color: Brand.subtle,
                     size: 20,
                   ),
                   onPressed: () =>
@@ -311,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Text(
                     '¿Olvidaste tu contraseña?',
                     style: GoogleFonts.poppins(
-                      color: const Color(0xFF6C5CE7),
+                      color: Brand.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -457,14 +469,14 @@ class _GlassField extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
-      style: GoogleFonts.poppins(color: const Color(0xFF2D2260), fontSize: 15),
+      style: GoogleFonts.poppins(color: Brand.ink, fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.poppins(
-          color: const Color(0xFF6B6589),
+          color: Brand.subtle,
           fontSize: 14,
         ),
-        prefixIcon: Icon(icon, color: const Color(0xFF9E8FCC), size: 20),
+        prefixIcon: Icon(icon, color: Brand.muted, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFFF8F7FC),
@@ -472,15 +484,15 @@ class _GlassField extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE4E1EE)),
+          borderSide: BorderSide(color: Brand.surface),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE4E1EE)),
+          borderSide: BorderSide(color: Brand.surface),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF6C5CE7), width: 1.5),
+          borderSide: BorderSide(color: Brand.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -513,8 +525,8 @@ class _GradientButton extends StatelessWidget {
           gradient: onPressed == null
               ? const LinearGradient(
                   colors: [Color(0xFFD8D5E3), Color(0xFFC5C1D4)])
-              : const LinearGradient(
-                  colors: [Color(0xFF6C5CE7), Color(0xFF8777E8)],
+              : LinearGradient(
+                  colors: [Brand.primary, Color(0xFF8777E8)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
@@ -523,7 +535,7 @@ class _GradientButton extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: const Color(0xFF6C5CE7).withOpacity(0.28),
+                    color: Brand.primary.withOpacity(0.28),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),

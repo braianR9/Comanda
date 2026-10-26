@@ -1,4 +1,7 @@
+import 'product_component.dart';
+
 class Product {
+  final List<ProductComponent>? components;
   final String id;
   final String name;
   final String category;
@@ -8,6 +11,7 @@ class Product {
   final String? imageBase64;
   final String? imageUrl;
   final String code;
+  final String barcode;
   final String description;
   final String type;
   final double cost;
@@ -26,6 +30,7 @@ class Product {
   final bool showDigitalMenu;
 
   const Product({
+    this.components,
     required this.id,
     required this.name,
     required this.category,
@@ -35,6 +40,7 @@ class Product {
     this.imageBase64,
     this.imageUrl,
     this.code = '',
+    this.barcode = '',
     this.description = '',
     this.type = 'Producto simple',
     this.cost = 0,
@@ -54,6 +60,7 @@ class Product {
   });
 
   Product copyWith({
+    List<ProductComponent>? components,
     String? name,
     String? category,
     String? subcategory,
@@ -62,6 +69,7 @@ class Product {
     String? imageBase64,
     String? imageUrl,
     String? code,
+    String? barcode,
     String? description,
     String? type,
     double? cost,
@@ -80,6 +88,7 @@ class Product {
     bool? showDigitalMenu,
   }) =>
       Product(
+        components: components ?? this.components,
         id: id,
         name: name ?? this.name,
         category: category ?? this.category,
@@ -89,6 +98,7 @@ class Product {
         imageBase64: imageBase64 ?? this.imageBase64,
         imageUrl: imageUrl ?? this.imageUrl,
         code: code ?? this.code,
+        barcode: barcode ?? this.barcode,
         description: description ?? this.description,
         type: type ?? this.type,
         cost: cost ?? this.cost,
@@ -108,6 +118,9 @@ class Product {
       );
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
+        components: (json['components'] as List?)
+            ?.map((e) => ProductComponent.fromJson(e as Map<String, dynamic>))
+            .toList(),
         id: json['id'].toString(),
         name: json['name'] as String,
         category: json['category'] as String,
@@ -117,6 +130,7 @@ class Product {
         imageBase64: json['imageBase64'] as String?,
         imageUrl: json['imageUrl'] as String?,
         code: json['code'] as String? ?? '',
+        barcode: json['barcode'] as String? ?? '',
         description: json['description'] as String? ?? '',
         type: json['type'] as String? ?? 'Producto simple',
         cost: (json['cost'] as num?)?.toDouble() ?? 0,
@@ -136,6 +150,8 @@ class Product {
       );
 
   Map<String, dynamic> toJson() => {
+        if (components != null)
+          'components': components!.map((c) => c.toJson()).toList(),
         'id': id,
         'name': name,
         'category': category,
@@ -145,6 +161,7 @@ class Product {
         'imageBase64': imageBase64,
         'imageUrl': imageUrl,
         'code': code,
+        'barcode': barcode,
         'description': description,
         'type': type,
         'cost': cost,

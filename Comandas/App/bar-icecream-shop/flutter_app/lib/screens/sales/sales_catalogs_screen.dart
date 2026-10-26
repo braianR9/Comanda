@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/sales_catalogs_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class SalesCatalogsScreen extends StatefulWidget {
   final bool embedded;
@@ -47,11 +48,11 @@ class _SalesCatalogsScreenState extends State<SalesCatalogsScreen>
                   children: [
                 Text('Descuentos y tipos de pago',
                     style: GoogleFonts.poppins(
-                        color: const Color(0xFF2D2260),
+                        color: Brand.ink,
                         fontSize: 25,
                         fontWeight: FontWeight.w800)),
-                const Text('Configuración de beneficios y medios de cobro.',
-                    style: TextStyle(color: Color(0xFF6B6589))),
+                Text('Configuración de beneficios y medios de cobro.',
+                    style: TextStyle(color: Brand.subtle)),
               ])),
           FilledButton.icon(
               onPressed: provider.loading ? null : _add,
@@ -199,8 +200,8 @@ class _CatalogTile extends StatelessWidget {
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             leading: CircleAvatar(
-                backgroundColor: const Color(0xFFEDE9FF),
-                child: Icon(icon, color: const Color(0xFF6C5CE7))),
+                backgroundColor: Brand.tint,
+                child: Icon(icon, color: Brand.primary)),
             title:
                 Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(

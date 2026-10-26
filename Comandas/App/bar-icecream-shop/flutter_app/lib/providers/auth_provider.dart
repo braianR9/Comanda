@@ -70,6 +70,16 @@ class AuthProvider extends ChangeNotifier {
     await prefs.setString(_kSessionKey, jsonEncode(s.toJson()));
   }
 
+  Future<void> updateCompany(Map<String, dynamic> company, String token) async {
+    final current = _session;
+    if (current == null ||
+        current.token != token ||
+        company['id'] != current.idEmpresa) return;
+    _session = UserSession.fromJson({...current.toJson(), 'empresa': company});
+    notifyListeners();
+    await _saveSession(_session!);
+  }
+
   Future<void> _clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kSessionKey);

@@ -9,8 +9,7 @@ static class LocalPaymentsIntegration
 {
     public static async Task Run()
     {
-        using var config = JsonDocument.Parse(File.ReadAllText("../../../Api/dotnet_api/src/appsettings.json"));
-        var cs = config.RootElement.GetProperty("ConnectionStrings").GetProperty("DefaultConnection").GetString()!;
+        var cs = TestConfig.ConnectionString();
         if (new Npgsql.NpgsqlConnectionStringBuilder(cs).Host is not ("localhost" or "127.0.0.1" or "::1"))
             throw new Exception("Only a local database may be tested.");
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(cs).Options);
@@ -37,7 +36,8 @@ static class LocalPaymentsIntegration
             var card = new Card { IdEmpresa = seed.IdEmpresa, Nombre = "Regression card " + Guid.NewGuid(), TipoAjuste = "Recargo", Porcentaje = 20, Activa = true };
             db.Orders.Add(sale); db.Cards.AddRange(cash, card);
             await db.SaveChangesAsync();
-            var service = new OrderService(db, new ConfigurationBuilder().Build(), new StockMovementService(db), new CajaService(db), new PriceListService(db));
+            var config = new ConfigurationBuilder().Build();
+            var service = new OrderService(db, config, new StockMovementService(db), new CajaService(db), new PriceListService(db), TestConfig.Invoices(db, config));
             var first = await service.AddPaymentsAsync(seed.IdEmpresa, seed.IdSucursal, seed.UsuarioId, sale.Id,
                 new AddPaymentsRequest([new PaymentRequest(null, 36, null, cash.Id, 40)], 1));
             Require(first.Total == 96 && first.PaymentAdjustment == -4 && first.Version == 2, "Partial discounted payment persisted");

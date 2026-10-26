@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/caja.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/caja_provider.dart';
+import '../../theme/brand_colors.dart';
 
 const _kRolesAutorizados = {'ADMIN', 'ENCARGADO'};
 
@@ -113,7 +114,7 @@ class _CajaScreenState extends State<CajaScreen> {
                     children: [
                       Text('Caja',
                           style: GoogleFonts.poppins(
-                              color: const Color(0xFF2D2260),
+                              color: Brand.ink,
                               fontSize: 26,
                               fontWeight: FontWeight.w800)),
                       const SizedBox(height: 20),
@@ -127,7 +128,7 @@ class _CajaScreenState extends State<CajaScreen> {
                       const SizedBox(height: 28),
                       Text('Historial de cajas',
                           style: GoogleFonts.poppins(
-                              color: const Color(0xFF2D2260),
+                              color: Brand.ink,
                               fontSize: 18,
                               fontWeight: FontWeight.w700)),
                       const SizedBox(height: 12),
@@ -135,8 +136,7 @@ class _CajaScreenState extends State<CajaScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Text('Todavía no hay cajas cerradas.',
-                              style: GoogleFonts.poppins(
-                                  color: const Color(0xFF9E8FCC))),
+                              style: GoogleFonts.poppins(color: Brand.muted)),
                         )
                       else
                         ...provider.history.map((caja) => _CajaHistoryTile(
@@ -215,8 +215,7 @@ class _CajaStatusCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Por medio de pago',
                 style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF2D2260))),
+                    fontWeight: FontWeight.w700, color: Brand.ink)),
             for (final item in caja!.detalle)
               _row(item.medioPago, '\$${item.total.toStringAsFixed(2)}'),
           ],
@@ -258,7 +257,7 @@ class _CajaStatusCard extends StatelessWidget {
                   style: GoogleFonts.poppins(color: const Color(0xFF6B6280)))),
           Text(value,
               style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700, color: const Color(0xFF2D2260))),
+                  fontWeight: FontWeight.w700, color: Brand.ink)),
         ]),
       );
 }
@@ -289,8 +288,7 @@ class _CajaHistoryTile extends StatelessWidget {
           subtitle: Text(
               'Abrió: ${caja.usuarioApertura}'
               '${caja.usuarioCierre != null ? ' · Cerró: ${caja.usuarioCierre}' : ''}',
-              style: GoogleFonts.poppins(
-                  fontSize: 12, color: const Color(0xFF9E8FCC))),
+              style: GoogleFonts.poppins(fontSize: 12, color: Brand.muted)),
           trailing: Text(
               caja.abierta
                   ? 'Abierta'
@@ -558,16 +556,14 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
           Expanded(
               child: Text(label,
                   style: GoogleFonts.poppins(
-                      color: highlight
-                          ? const Color(0xFF2D2260)
-                          : const Color(0xFF6B6280),
+                      color: highlight ? Brand.ink : const Color(0xFF6B6280),
                       fontWeight:
                           highlight ? FontWeight.w700 : FontWeight.w400))),
           Text(value,
               style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   fontSize: highlight ? 16 : 14,
-                  color: const Color(0xFF2D2260))),
+                  color: Brand.ink)),
         ]),
       );
 }

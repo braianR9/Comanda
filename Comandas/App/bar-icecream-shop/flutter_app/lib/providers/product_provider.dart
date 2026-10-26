@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/product.dart';
+import '../models/product_component.dart';
 import '../models/product_group.dart';
 import '../models/product_tax.dart';
 
 class ProductProvider extends ChangeNotifier {
   final List<Product> _products = [];
+  final List<Product> _salesCatalog = [];
   final List<ProductGroup> _groups = [];
   final List<ProductTax> _taxes = [];
   int? _companyId;
@@ -22,6 +24,9 @@ class ProductProvider extends ChangeNotifier {
   static const int pageSize = 10;
 
   List<Product> get products => List.unmodifiable(_products);
+
+  /// Catálogo completo para vender, ordenado del más vendido al menos vendido.
+  List<Product> get salesCatalog => List.unmodifiable(_salesCatalog);
   List<ProductGroup> get groups => List.unmodifiable(_groups);
   List<ProductTax> get taxes => List.unmodifiable(_taxes);
   bool get loading => _loading;
@@ -89,6 +94,41 @@ class ProductProvider extends ChangeNotifier {
       ..clear()
       ..addAll(
           items.map((item) => _productFromApi(item as Map<String, dynamic>)));
+  }
+
+  Future<void> _loadSalesCatalog() async {
+    final items = <Product>[];
+    var page = 1;
+    var totalPages = 1;
+    do {
+      final response = await http
+          .get(
+              _uri('/api/productos', {
+                'page': '$page',
+                'pageSize': '100',
+                'orden': 'vendidos',
+              }),
+              headers: _headers)
+          .timeout(ApiConfig.timeout);
+      final data = _body(response)['data'] as Map<String, dynamic>? ?? const {};
+      items.addAll((data['items'] as List<dynamic>? ?? const [])
+          .map((item) => _productFromApi(item as Map<String, dynamic>)));
+      totalPages = data['totalPages'] as int? ?? 1;
+      page++;
+    } while (page <= totalPages);
+    _salesCatalog
+      ..clear()
+      ..addAll(items);
+  }
+
+  /// Refresca el orden por ventas sin bloquear la pantalla.
+  Future<void> refreshSalesCatalog() async {
+    try {
+      await _loadSalesCatalog();
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Sales catalog load error: $error');
+    }
   }
 
   Future<void> loadProductsPage({required int page, String? text}) async {
@@ -159,6 +199,19 @@ class ProductProvider extends ChangeNotifier {
     return maxCode + 1;
   }
 
+  Future<List<ProductComponent>> searchSimpleComponents(String text) async {
+    final response = await http
+        .get(_uri('/api/productos/componentes-disponibles', {'texto': text}),
+            headers: _headers)
+        .timeout(ApiConfig.timeout);
+    return ((_body(response)['data'] as List?) ?? [])
+        .map((e) => ProductComponent(
+            productId: (e['id'] as num).toInt(),
+            name: e['nombre'] as String,
+            quantity: 1))
+        .toList();
+  }
+
   Future<void> save(Product product) async {
     final index = _products.indexWhere((item) => item.id == product.id);
     final creating = index == -1;
@@ -173,7 +226,11 @@ class ProductProvider extends ChangeNotifier {
       }
     }
     final payload = {
+      if (product.components != null)
+        'componentes': product.components!.map((c) => c.toJson()).toList(),
       'codigo': int.parse(product.code),
+      'codigoBarras':
+          product.barcode.trim().isEmpty ? null : product.barcode.trim(),
       'nombre': product.name,
       'descripcion': product.description,
       'tipoProducto': product.type.replaceAll(' ', ''),
@@ -242,6 +299,21 @@ class ProductProvider extends ChangeNotifier {
     _body(response);
     _products.removeWhere((item) => item.id == id);
     notifyListeners();
+  }
+
+  /// Resolución exacta por código de barras para el pistoleo del punto de venta.
+  /// Devuelve `null` si no hay ningún producto activo con ese código.
+  Future<Product?> findByBarcode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    final response = await http
+        .get(
+            _uri(
+                '/api/productos/codigo-barras/${Uri.encodeComponent(trimmed)}'),
+            headers: _headers)
+        .timeout(ApiConfig.timeout);
+    if (response.statusCode == 404) return null;
+    return _productFromApi(_body(response)['data'] as Map<String, dynamic>);
   }
 
   Future<ProductGroup> saveGroup(ProductGroup group) async {
@@ -322,8 +394,12 @@ class ProductProvider extends ChangeNotifier {
     final tax = json['alicuota'] as Map<String, dynamic>?;
     final stock = json['stock'] as Map<String, dynamic>?;
     return Product(
+      components: (json['componentes'] as List?)
+          ?.map((e) => ProductComponent.fromJson(e as Map<String, dynamic>))
+          .toList(),
       id: json['id'].toString(),
       code: json['codigo']?.toString() ?? '',
+      barcode: json['codigoBarras']?.toString() ?? '',
       name: json['nombre']?.toString() ?? '',
       category: rubro?['nombre']?.toString() ?? '',
       subcategory: sub?['nombre']?.toString() ?? '',

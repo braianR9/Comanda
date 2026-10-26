@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class ClientsScreen extends StatefulWidget {
   final bool embedded;
@@ -54,12 +55,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
                             children: [
                           Text('Clientes',
                               style: GoogleFonts.poppins(
-                                  color: const Color(0xFF2D2260),
+                                  color: Brand.ink,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800)),
-                          const Text(
-                              'Datos comerciales y condición frente al IVA.',
-                              style: TextStyle(color: Color(0xFF6B6589))),
+                          Text('Datos comerciales y condición frente al IVA.',
+                              style: TextStyle(color: Brand.subtle)),
                         ])),
                     FilledButton.icon(
                         onPressed: () => _openForm(),
@@ -110,8 +110,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                                                         horizontal: 18,
                                                         vertical: 5),
                                                 leading: CircleAvatar(
-                                                    backgroundColor:
-                                                        const Color(0xFFEDE9FF),
+                                                    backgroundColor: Brand.tint,
                                                     child: Text(c.name.isEmpty
                                                         ? '?'
                                                         : c.name[0]

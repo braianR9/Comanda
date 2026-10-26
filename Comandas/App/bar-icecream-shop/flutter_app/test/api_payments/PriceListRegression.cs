@@ -42,8 +42,7 @@ static class PriceListRegression
     }
     public static async Task Integration()
     {
-        using var config = JsonDocument.Parse(File.ReadAllText("../../../Api/dotnet_api/src/appsettings.json"));
-        var cs = config.RootElement.GetProperty("ConnectionStrings").GetProperty("DefaultConnection").GetString()!;
+        var cs = TestConfig.ConnectionString();
         if (new Npgsql.NpgsqlConnectionStringBuilder(cs).Host is not ("localhost" or "127.0.0.1" or "::1"))
             throw new Exception("Only the local database may be tested.");
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(cs).Options);

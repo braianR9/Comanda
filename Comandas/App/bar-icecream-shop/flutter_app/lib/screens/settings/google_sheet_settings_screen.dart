@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/google_sheet_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class GoogleSheetSettingsScreen extends StatefulWidget {
   final bool embedded;
@@ -69,20 +70,20 @@ class _GoogleSheetSettingsScreenState extends State<GoogleSheetSettingsScreen> {
           children: [
             Text('Google Sheets',
                 style: GoogleFonts.poppins(
-                    color: const Color(0xFF2D2260),
+                    color: Brand.ink,
                     fontSize: 25,
                     fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
                 'Cada venta finalizada se agrega como una fila nueva a la planilla configurada.',
-                style: TextStyle(color: Color(0xFF6B6589))),
+                style: TextStyle(color: Brand.subtle)),
             const SizedBox(height: 20),
             Card(
               margin: EdgeInsets.zero,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
-                side: const BorderSide(color: Color(0xFFE7E3F4)),
+                side: BorderSide(color: Brand.surface),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -98,10 +99,10 @@ class _GoogleSheetSettingsScreenState extends State<GoogleSheetSettingsScreen> {
                             style: TextStyle(color: Colors.red)),
                       ),
                     if (!provider.loading && provider.enabled) ...[
-                      const Text(
+                      Text(
                           '1. Abrí o creá tu planilla en Google Sheets.\n'
                           '2. Compartila (con permiso de Editor) con este email:',
-                          style: TextStyle(color: Color(0xFF6B6589))),
+                          style: TextStyle(color: Brand.subtle)),
                       const SizedBox(height: 8),
                       Row(children: [
                         Expanded(
@@ -119,8 +120,8 @@ class _GoogleSheetSettingsScreenState extends State<GoogleSheetSettingsScreen> {
                           ),
                       ]),
                       const SizedBox(height: 8),
-                      const Text('3. Pegá acá el link o el ID de esa planilla.',
-                          style: TextStyle(color: Color(0xFF6B6589))),
+                      Text('3. Pegá acá el link o el ID de esa planilla.',
+                          style: TextStyle(color: Brand.subtle)),
                       const SizedBox(height: 16),
                     ],
                     if (provider.loading)

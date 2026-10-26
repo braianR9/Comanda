@@ -4,6 +4,24 @@ using System.Globalization;
 using BarIceCreamShop.Api.Models;
 using BarIceCreamShop.Api.Services;
 
+if (args.Contains("--test-afip"))
+{
+    await AfipRegression.Run(live: args.Contains("--live"));
+    return;
+}
+
+if (args.Contains("--test-purchases"))
+{
+    await PurchasesRegression.Run();
+    return;
+}
+
+if (args.Contains("--test-product-components"))
+{
+    await ProductComponentsRegression.Run();
+    return;
+}
+
 if (args.Contains("--test-scheduled-prices"))
 {
     ScheduledPriceRegression.Calendar();
@@ -61,8 +79,7 @@ if (args.Contains("--test-local-payments"))
 if (args.Contains("--migrate-local-payments") || args.Contains("--check-local-payments"))
 {
     var apiRoot = Path.GetFullPath("../../../Api/dotnet_api");
-    using var config = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(apiRoot, "src/appsettings.json")));
-    var connectionString = config.RootElement.GetProperty("ConnectionStrings").GetProperty("DefaultConnection").GetString()!;
+    var connectionString = TestConfig.ConnectionString(apiRoot);
     var settings = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
     if (settings.Host is not ("localhost" or "127.0.0.1" or "::1")) throw new Exception("Only the configured local database may be migrated by this command.");
     await using var connection = new Npgsql.NpgsqlConnection(connectionString);
@@ -139,6 +156,22 @@ var receiptSale = new Order { Numero = 99, Total = 108, Subtotal = 100,
         new SalePayment { PaymentTypeName = "Efectivo", BaseAmount = 40, Amount = 36, AdjustmentAmount = -4, AdjustmentType = "Descuento", Percentage = 10 },
         new SalePayment { PaymentTypeName = "Tarjeta", BaseAmount = 60, Amount = 72, AdjustmentAmount = 12, AdjustmentType = "Recargo", Percentage = 20 }
     ] };
-var receipt = System.Text.Encoding.ASCII.GetString((byte[])printMethod.Invoke(null, [receiptSale, "Local", "", null, null, "Mozo"])!);
+var receipt = System.Text.Encoding.ASCII.GetString((byte[])printMethod.Invoke(null, [receiptSale, "Local", "", null, null, "Mozo", null, null, false])!);
 Check(receipt.Contains("DESC. PAGO Efectivo 10%") && receipt.Contains("RECARGO Tarjeta 20%"), "Receipt identifies payment discounts and surcharges");
 Check(receipt.Contains("108,00") && receipt.Contains("36,00") && receipt.Contains("72,00"), "Receipt prints adjusted total and each payment amount");
+var fiscalInvoice = new Invoice { Status = "Autorizado", Type = AfipCodes.FacturaB, PointOfSale = 3, Number = 15, Date = new DateOnly(2026, 10, 22),
+    Cae = "75123456789012", CaeExpiresAt = new DateOnly(2026, 11, 1), Total = 108, Net = 89.26m, Vat = 18.74m,
+    DocType = AfipCodes.DocSinIdentificar, ReceiverVatCondition = AfipCodes.CondConsumidorFinal, Environment = "Homologacion",
+    VatJson = "[{\"id\":5,\"rate\":21,\"baseAmount\":89.26,\"amount\":18.74}]" };
+var fiscalBilling = new BillingSettings { LegalName = "Heladeria Prueba SRL", Cuit = "20111111112", TaxCondition = "Responsable Inscripto" };
+var fiscal = System.Text.Encoding.ASCII.GetString((byte[])printMethod.Invoke(null, [receiptSale, "Local", "", null, null, "Mozo", fiscalInvoice, fiscalBilling, false])!);
+Check(fiscal.Contains("FACTURA B") && fiscal.Contains("00003-00000015") && fiscal.Contains("CAE: 75123456789012"), "Fiscal ticket prints type, number and CAE");
+Check(fiscal.Contains("IVA contenido") && fiscal.Contains("18,74") && !fiscal.Contains("NO VALIDO COMO FACTURA"), "Fiscal ticket shows contained VAT (Ley 27.743)");
+Check(fiscal.Contains("afip.gob.ar/fe/qr/?p=") && fiscal.Contains("HOMOLOGACION"), "Fiscal ticket embeds AFIP QR and test-environment warning");
+var creditNote = new Invoice { Status = "Autorizado", Type = AfipCodes.NotaCreditoB, PointOfSale = 3, Number = 2, Date = new DateOnly(2026, 10, 23),
+    Cae = "75123456789099", CaeExpiresAt = new DateOnly(2026, 11, 2), Total = 108, Net = 89.26m, Vat = 18.74m,
+    DocType = AfipCodes.DocSinIdentificar, ReceiverVatCondition = AfipCodes.CondConsumidorFinal, Environment = "Homologacion",
+    VatJson = fiscalInvoice.VatJson, Reason = "Devolucion", AssociatedLabel = "Factura B 00003-00000015" };
+var noteTicket = System.Text.Encoding.ASCII.GetString((byte[])printMethod.Invoke(null, [receiptSale, "Local", "", null, null, "Mozo", creditNote, fiscalBilling, true])!);
+Check(noteTicket.Contains("NOTA DE CREDITO B") && noteTicket.Contains("Anula: Factura B 00003-00000015") && noteTicket.Contains("Motivo: Devolucion"), "Credit note ticket shows annulled invoice and reason");
+Check(noteTicket.Contains("REIMPRESION") && noteTicket.Contains("IVA contenido") && !fiscal.Contains("REIMPRESION"), "Reprints are marked; original prints are not");

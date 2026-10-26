@@ -8,7 +8,7 @@ namespace BarIceCreamShop.Api.Services;
 
 public sealed class SaleException(string message, int statusCode = 400) : Exception(message) { public int StatusCode { get; } = statusCode; }
 
-public class OrderService(AppDbContext context, IConfiguration configuration, StockMovementService stockMovements, CajaService cajaService, PriceListService priceLists)
+public class OrderService(AppDbContext context, IConfiguration configuration, StockMovementService stockMovements, CajaService cajaService, PriceListService priceLists, InvoiceService invoices)
 {
     private static readonly string[] ActiveStates = ["Abierta", "EnPedido", "PedidoEnviado", "ConCambios"];
 
@@ -33,9 +33,9 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         try { priceListId = await priceLists.ResolveSaleListIdAsync(company, branch, request.PriceListId); }
         catch (PriceListException e) { throw new SaleException(e.Message, e.StatusCode); }
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        await ValidateFreeTable(company, branch, request.TableId, null);
+        var table = await ValidateFreeTable(company, branch, request.TableId, null);
         var sale = new Order { IdEmpresa = company, IdSucursal = branch, Numero = await NextNumber(company, false, tx), TableId = request.TableId, MozoId = request.WaiterId, Estado = "EnPedido", FechaApertura = DateTime.UtcNow, UsuarioId = user, Version = 1, IdListaPrecio = priceListId };
-        (await context.Tables.FirstAsync(t => t.Id == request.TableId)).Status = "Ocupada";
+        if (!table.EsMostrador) table.Status = "Ocupada";
         context.Orders.Add(sale); await context.SaveChangesAsync();
         foreach (var item in request.Items) await AddOrMergeItem(sale, item.ProductId, item.Quantity, item.Comment);
         Recalculate(sale); await context.SaveChangesAsync(); await tx.CommitAsync(); return (await GetAsync(company, branch, sale.Id))!;
@@ -76,7 +76,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
             sale.Estado = "Cancelada";
             sale.FechaCierre = DateTime.UtcNow;
             sale.Version++;
-            sale.Table.Status = "Libre";
+            if (!sale.Table.EsMostrador) sale.Table.Status = "Libre";
             foreach (var joined in sale.JoinedTables)
                 (await context.Tables.FirstAsync(t => t.Id == joined.TableId)).Status = "Libre";
         }
@@ -203,16 +203,8 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         if (sale.Commands.Count == 0 || HasPendingKitchenChanges(sale)) throw new SaleException("Debe enviar la comanda y sus cambios antes de cobrar.", 409);
         if (Money(sale.Payments.Sum(p => p.Amount)) != sale.Total) throw new SaleException("La suma de los pagos debe coincidir exactamente con el total.", 409);
         await stockMovements.ApplySaleAsync(sale, user);
-        sale.Estado = "Finalizada"; sale.FechaCierre = DateTime.UtcNow; sale.UsuarioCobroId = user; sale.Version++; sale.Table.Status = "Libre";
+        sale.Estado = "Finalizada"; sale.FechaCierre = DateTime.UtcNow; sale.UsuarioCobroId = user; sale.Version++; if (!sale.Table.EsMostrador) sale.Table.Status = "Libre";
         foreach (var joined in sale.JoinedTables) { var table = await context.Tables.FirstAsync(t => t.Id == joined.TableId); table.Status = "Libre"; }
-        context.PrintJobs.Add(new PrintJob
-        {
-            OrderId = sale.Id,
-            PrinterId = configuration["PrinterSettings:QueueName"] ?? "Printer_POS_80C",
-            CreatedAt = DateTime.UtcNow,
-            Status = "Pendiente",
-            JobType = "TicketVenta"
-        });
         if (await context.Sucursales.AsNoTracking().AnyAsync(s => s.Id == branch && s.GoogleSheetId != null))
             context.GoogleSheetJobs.Add(new GoogleSheetJob
             {
@@ -221,7 +213,10 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
                 Status = "Pendiente",
                 CreatedAt = DateTime.UtcNow,
             });
-        await context.SaveChangesAsync(); await tx.CommitAsync(); return (await GetAsync(company, branch, id))!;
+        await context.SaveChangesAsync(); await tx.CommitAsync();
+        // Fuera de la transacción: con facturación automática el ticket sale con CAE; si AFIP falla, sale igual.
+        await invoices.AfterCheckoutAsync(company, branch, user, id);
+        return (await GetAsync(company, branch, id))!;
     }
 
     public async Task<SaleDto> CancelAsync(int company, int branch, int id, long? version, int? userId = null)
@@ -252,7 +247,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
                 CreatedAt = DateTime.UtcNow, Status = "Pendiente", JobType = "Comanda"
             });
         }
-        sale.Estado = "Cancelada"; sale.FechaCierre = DateTime.UtcNow; sale.Version++; sale.Table.Status = "Libre";
+        sale.Estado = "Cancelada"; sale.FechaCierre = DateTime.UtcNow; sale.Version++; if (!sale.Table.EsMostrador) sale.Table.Status = "Libre";
         foreach (var joined in sale.JoinedTables)
             (await context.Tables.FirstAsync(t => t.Id == joined.TableId)).Status = "Libre";
         await context.SaveChangesAsync(); await tx.CommitAsync();
@@ -263,8 +258,8 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     {
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable); var sale = await Editable(company, branch, id, request.Version);
         if (sale.JoinedTables.Count > 0) throw new SaleException("No se puede cambiar de mesa una cuenta con mesas unidas.", 409);
-        await ValidateFreeTable(company, branch, request.TableId, id);
-        sale.Table.Status = "Libre"; var target = await context.Tables.FirstAsync(t => t.Id == request.TableId); target.Status = "Ocupada"; sale.TableId = request.TableId; Changed(sale); await context.SaveChangesAsync(); await tx.CommitAsync(); return (await GetAsync(company, branch, id))!;
+        var target = await ValidateFreeTable(company, branch, request.TableId, id);
+        if (!sale.Table.EsMostrador) sale.Table.Status = "Libre"; if (!target.EsMostrador) target.Status = "Ocupada"; sale.TableId = request.TableId; Changed(sale); await context.SaveChangesAsync(); await tx.CommitAsync(); return (await GetAsync(company, branch, id))!;
     }
 
     public async Task<SaleDto> JoinAsync(int company, int branch, int id, JoinTableRequest request)
@@ -321,7 +316,14 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     }
     private async Task<Order> Require(int company, int branch, int id) => await BaseQuery().FirstOrDefaultAsync(v => v.Id == id && v.IdEmpresa == company && v.IdSucursal == branch) ?? throw new SaleException("Venta no encontrada.", 404);
     private IQueryable<Order> BaseQuery(bool tracking = false) { var q = context.Orders.Include(v => v.Table).ThenInclude(t => t.Sector).Include(v => v.Items).Include(v => v.Payments).Include(v => v.Commands).ThenInclude(c => c.Lines).Include(v => v.JoinedTables).AsQueryable(); return tracking ? q : q.AsNoTracking(); }
-    private async Task ValidateFreeTable(int company, int branch, int tableId, int? except) { if (!await context.Tables.AnyAsync(t => t.Id == tableId && t.IdEmpresa == company && t.IdSucursal == branch && t.Activo)) throw new SaleException("Mesa no encontrada o inactiva.", 404); if (await context.Orders.AnyAsync(v => v.IdEmpresa == company && v.IdSucursal == branch && v.TableId == tableId && v.Id != except && ActiveStates.Contains(v.Estado)) || await context.SaleJoinedTables.AnyAsync(j => j.TableId == tableId && context.Orders.Any(v => v.Id == j.OrderId && ActiveStates.Contains(v.Estado)))) throw new SaleException("La mesa ya tiene una venta activa.", 409); }
+    private async Task<Table> ValidateFreeTable(int company, int branch, int tableId, int? except)
+    {
+        var table = await context.Tables.FirstOrDefaultAsync(t => t.Id == tableId && t.IdEmpresa == company && t.IdSucursal == branch && t.Activo)
+            ?? throw new SaleException("Mesa no encontrada o inactiva.", 404);
+        if (table.EsMostrador) return table; // Admite varias ventas simultáneas (venta directa).
+        if (await context.Orders.AnyAsync(v => v.IdEmpresa == company && v.IdSucursal == branch && v.TableId == tableId && v.Id != except && ActiveStates.Contains(v.Estado)) || await context.SaleJoinedTables.AnyAsync(j => j.TableId == tableId && context.Orders.Any(v => v.Id == j.OrderId && ActiveStates.Contains(v.Estado)))) throw new SaleException("La mesa ya tiene una venta activa.", 409);
+        return table;
+    }
     private static bool HasPendingKitchenChanges(Order sale)
     {
         var sent = sale.Commands.OrderBy(c => c.Fecha).ThenBy(c => c.Id)

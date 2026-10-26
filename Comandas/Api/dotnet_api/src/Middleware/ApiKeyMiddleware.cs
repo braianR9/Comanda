@@ -3,7 +3,6 @@ namespace BarIceCreamShop.Api.Middleware
     public class ApiKeyMiddleware
     {
         private readonly RequestDelegate _next;
-        private const string ApiKeyHeaderName = "focoKey";
 
         public ApiKeyMiddleware(RequestDelegate next)
         {
@@ -19,7 +18,8 @@ namespace BarIceCreamShop.Api.Middleware
                 return;
             }
 
-            if (!context.Request.Headers.TryGetValue(ApiKeyHeaderName, out var extractedApiKey))
+            var headerName = configuration["ApiKey:HeaderName"] ?? "focoKey";
+            if (!context.Request.Headers.TryGetValue(headerName, out var extractedApiKey))
             {
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
@@ -27,13 +27,13 @@ namespace BarIceCreamShop.Api.Middleware
                 {
                     Codigo = 401,
                     Data = (object?)null,
-                    Error = "API Key requerida. Incluye el header 'X-Api-Key'."
+                    Error = $"API Key requerida. Incluí el header '{headerName}'."
                 });
                 return;
             }
 
             var apiKey = configuration["ApiKey:Value"];
-            if (!apiKey!.Equals(extractedApiKey))
+            if (string.IsNullOrEmpty(apiKey) || !apiKey.Equals(extractedApiKey))
             {
                 context.Response.StatusCode = 403;
                 context.Response.ContentType = "application/json";

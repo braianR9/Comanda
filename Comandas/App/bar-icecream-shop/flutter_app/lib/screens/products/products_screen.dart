@@ -8,6 +8,7 @@ import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import 'product_editor_screen.dart';
+import '../../theme/brand_colors.dart';
 
 class ProductsScreen extends StatefulWidget {
   final bool embedded;
@@ -69,7 +70,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       child: Text(
                         'Mis productos',
                         style: GoogleFonts.poppins(
-                          color: const Color(0xFF2D2260),
+                          color: Brand.ink,
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                         ),
@@ -194,13 +195,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        foregroundColor: const Color(0xFF3D2D8A),
+        foregroundColor: Brand.strong,
         title: Text('Mis productos',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openProductForm(),
-        backgroundColor: const Color(0xFF6C5CE7),
+        backgroundColor: Brand.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: Text('Nuevo producto',
@@ -272,14 +273,14 @@ class _EmptyProducts extends StatelessWidget {
           Icon(
               hasSearch ? Icons.search_off_rounded : Icons.inventory_2_outlined,
               size: 64,
-              color: const Color(0xFFB0A8D8)),
+              color: Brand.muted),
           const SizedBox(height: 16),
           Text(
               hasSearch
                   ? 'No encontramos productos'
                   : 'Todavía no hay productos',
               style: GoogleFonts.poppins(
-                  color: const Color(0xFF3D2D8A),
+                  color: Brand.strong,
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -288,7 +289,7 @@ class _EmptyProducts extends StatelessWidget {
                   ? 'Probá con otra búsqueda.'
                   : 'Creá el primero desde el botón “Nuevo producto”.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: const Color(0xFF6B6589))),
+              style: GoogleFonts.poppins(color: Brand.subtle)),
         ]),
       );
 }
@@ -306,15 +307,13 @@ class _ApiError extends StatelessWidget {
           const SizedBox(height: 14),
           Text('No se pudieron cargar los productos',
               style: GoogleFonts.poppins(
-                  color: const Color(0xFF2D2260),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700)),
+                  color: Brand.ink, fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: Text(message,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(color: const Color(0xFF6B6589))),
+                style: GoogleFonts.poppins(color: Brand.subtle)),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -346,8 +345,7 @@ class _PaginationBar extends StatelessWidget {
     final to = (currentPage * pageSize).clamp(0, totalItems);
     return Row(children: [
       Text('$from–$to de $totalItems',
-          style: GoogleFonts.poppins(
-              color: const Color(0xFF6B6589), fontSize: 12)),
+          style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 12)),
       const Spacer(),
       IconButton(
         tooltip: 'Página anterior',
@@ -358,12 +356,12 @@ class _PaginationBar extends StatelessWidget {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFEDE9FF),
+          color: Brand.tint,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text('$currentPage de ${totalPages < 1 ? 1 : totalPages}',
             style: GoogleFonts.poppins(
-                color: const Color(0xFF3D2D8A),
+                color: Brand.strong,
                 fontSize: 12,
                 fontWeight: FontWeight.w600)),
       ),
@@ -397,7 +395,7 @@ class _ProductsTable extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE7E3F4)),
+          side: BorderSide(color: Brand.surface),
         ),
         clipBehavior: Clip.antiAlias,
         child: Scrollbar(
@@ -510,16 +508,16 @@ class _ProductImage extends StatelessWidget {
         fit: BoxFit.cover,
         headers: const {ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue},
         errorBuilder: (_, __, ___) =>
-            const Icon(Icons.broken_image_outlined, color: Color(0xFFB0A8D8)),
+            Icon(Icons.broken_image_outlined, color: Brand.muted),
       );
     } else {
-      image = const Icon(Icons.icecream_rounded, color: Color(0xFF6C5CE7));
+      image = Icon(Icons.icecream_rounded, color: Brand.primary);
     }
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFEDE9FF),
+        color: Brand.tint,
         borderRadius: BorderRadius.circular(10),
       ),
       clipBehavior: Clip.antiAlias,
@@ -546,7 +544,7 @@ class _ProductCard extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFE7E3F4)),
+          side: BorderSide(color: Brand.surface),
         ),
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -556,11 +554,9 @@ class _ProductCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFEDE9FF),
-                    borderRadius: BorderRadius.circular(12)),
+                    color: Brand.tint, borderRadius: BorderRadius.circular(12)),
                 child: product.imageBase64 == null && product.imageUrl == null
-                    ? const Icon(Icons.icecream_rounded,
-                        color: Color(0xFF6C5CE7))
+                    ? Icon(Icons.icecream_rounded, color: Brand.primary)
                     : product.imageBase64 == null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),
@@ -583,9 +579,9 @@ class _ProductCard extends StatelessWidget {
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (_, __, ___) => Icon(
                                 Icons.broken_image_outlined,
-                                color: Color(0xFF6C5CE7),
+                                color: Brand.primary,
                               ),
                             ),
                           ),
@@ -604,17 +600,16 @@ class _ProductCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                    color: const Color(0xFF2D2260),
+                    color: Brand.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w700)),
             Text(product.category,
-                style: GoogleFonts.poppins(
-                    color: const Color(0xFF6B6589), fontSize: 12)),
+                style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 12)),
             const Spacer(),
             Row(children: [
               Text('\$ ${product.price.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
-                      color: const Color(0xFF6C5CE7),
+                      color: Brand.primary,
                       fontSize: 17,
                       fontWeight: FontWeight.w700)),
               const Spacer(),

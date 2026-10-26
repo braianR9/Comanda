@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using BarIceCreamShop.Api.Data;
 using BarIceCreamShop.Api.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +13,7 @@ namespace BarIceCreamShop.Api.Controllers
     }
 
     [Route("api/empresas")]
-    [ApiController]
+    [ApiController, Authorize]
     public class EmpresasController : ControllerBase
     {
         private const long MaxImageSize = 5 * 1024 * 1024;
@@ -30,6 +32,8 @@ namespace BarIceCreamShop.Api.Controllers
             int id,
             [FromForm] UploadEmpresaImagenRequest request)
         {
+            if (User.FindFirstValue("id_empresa") != id.ToString() || User.FindFirstValue("rol_nombre") is not ("ADMIN" or "ENCARGADO"))
+                return StatusCode(403, ApiResponse<Empresa>.Fail("No tenés permiso para cambiar esta imagen.", 403));
             var imagen = request.Imagen;
 
             if (imagen == null || imagen.Length == 0)

@@ -8,6 +8,7 @@ public class Producto
     [Column("id_producto")] public int Id { get; set; }
     [Column("id_empresa")] public int IdEmpresa { get; set; }
     [Column("codigo")] public int Codigo { get; set; }
+    [Column("codigo_barras")] public string? CodigoBarras { get; set; }
     [Column("nombre")] public string Nombre { get; set; } = string.Empty;
     [Column("descripcion")] public string? Descripcion { get; set; }
     [Column("tipo_producto")] public string TipoProducto { get; set; } = "ProductoSimple";

@@ -16,13 +16,18 @@ import 'providers/price_list_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'theme/app_theme.dart';
+import 'theme/brand_colors.dart';
 
-void main() {
-  runApp(const BarApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final brand = BrandProvider();
+  await brand.restoreLast();
+  runApp(BarApp(brand: brand));
 }
 
 class BarApp extends StatelessWidget {
-  const BarApp({super.key});
+  final BrandProvider brand;
+  const BarApp({super.key, required this.brand});
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +46,19 @@ class BarApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GoogleSheetProvider()),
         ChangeNotifierProvider(create: (_) => CajaProvider()),
         ChangeNotifierProvider(create: (_) => PriceListProvider()),
+        // Color de la sucursal: se aplica al iniciar sesión o cambiar de sucursal.
+        ChangeNotifierProxyProvider<AuthProvider, BrandProvider>(
+          create: (_) => brand,
+          update: (_, auth, brand) => brand!..useSession(auth.session),
+        ),
       ],
-      child: MaterialApp(
-        title: 'Foco',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: const _AppEntry(),
+      child: Consumer<BrandProvider>(
+        builder: (_, brand, __) => MaterialApp(
+          title: 'Foco',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          home: const _AppEntry(),
+        ),
       ),
     );
   }

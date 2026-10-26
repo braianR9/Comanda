@@ -9,6 +9,7 @@ public class ProductListDto
 {
     public int Id { get; set; }
     public int Codigo { get; set; }
+    public string? CodigoBarras { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string TipoProducto { get; set; } = string.Empty;
     public ReferenciaDto Rubro { get; set; } = null!;
@@ -20,6 +21,7 @@ public class ProductListDto
 
 public class ProductDetailDto : ProductListDto
 {
+    public List<ProductComponentDto> Componentes { get; set; } = [];
     public string? Descripcion { get; set; }
     public AlicuotaReferenciaDto Alicuota { get; set; } = null!;
     public decimal CostoSinIva { get; set; }
@@ -41,7 +43,9 @@ public class ProductDetailDto : ProductListDto
 
 public class CreateProductRequest
 {
+    public List<ProductComponentRequest>? Componentes { get; set; }
     [Required, MaxLength(200)] public string Nombre { get; set; } = string.Empty;
+    [MaxLength(50)] public string? CodigoBarras { get; set; }
     [MaxLength(2000)] public string? Descripcion { get; set; }
     [Required, MaxLength(50)] public string TipoProducto { get; set; } = "ProductoSimple";
     [Range(1, int.MaxValue)] public int IdRubro { get; set; }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/sales_report_provider.dart';
 import '../../providers/sector_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class SalesReportScreen extends StatefulWidget {
   final bool embedded;
@@ -94,17 +93,17 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         throw Exception(
             'La exportación todavía no está disponible en la versión web.');
       }
-      final path = await FilePicker.platform.saveFile(
+      final uri = await FilePicker.saveFile(
         dialogTitle: 'Guardar listado de ventas',
         fileName: 'listado-ventas.xlsx',
+        bytes: bytes,
         type: FileType.custom,
         allowedExtensions: const ['xlsx'],
       );
-      if (path == null || !mounted) return;
-      await File(path).writeAsBytes(bytes);
+      if (uri == null || !mounted) return;
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Listado exportado en $path')));
+          .showSnackBar(SnackBar(content: Text('Listado exportado en $uri')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -136,11 +135,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 children: [
                   Text('Detalle de productos vendidos por pedido',
                       style: GoogleFonts.poppins(
-                          color: const Color(0xFF2D2260),
+                          color: Brand.ink,
                           fontSize: 22,
                           fontWeight: FontWeight.w800)),
-                  const Text('Estadísticas · Ventas · Listado de ventas',
-                      style: TextStyle(color: Color(0xFF6B6589))),
+                  Text('Estadísticas · Ventas · Listado de ventas',
+                      style: TextStyle(color: Brand.subtle)),
                 ],
               ),
             ),
@@ -282,7 +281,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                             clipBehavior: Clip.antiAlias,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
-                              side: const BorderSide(color: Color(0xFFE7E3F4)),
+                              side: BorderSide(color: Brand.surface),
                             ),
                             child: Scrollbar(
                               thumbVisibility: true,

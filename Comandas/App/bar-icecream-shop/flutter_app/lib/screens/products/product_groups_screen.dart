@@ -6,6 +6,7 @@ import '../../models/product_group.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import 'product_editor_screen.dart';
+import '../../theme/brand_colors.dart';
 
 class ProductGroupsScreen extends StatefulWidget {
   final bool embedded;
@@ -53,14 +54,14 @@ class _ProductGroupsScreenState extends State<ProductGroupsScreen> {
               children: [
                 Text('Rubros y subrubros',
                     style: GoogleFonts.poppins(
-                      color: const Color(0xFF2D2260),
+                      color: Brand.ink,
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                     )),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Seleccioná un rubro para ver y administrar sus subrubros.',
-                  style: TextStyle(color: Color(0xFF6B6589)),
+                  style: TextStyle(color: Brand.subtle),
                 ),
                 const SizedBox(height: 20),
                 if (provider.loading && provider.groups.isEmpty)
@@ -168,7 +169,7 @@ class _GroupPanel extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE1DDEF)),
+          side: BorderSide(color: Brand.surface),
         ),
         child: Column(children: [
           Padding(
@@ -179,7 +180,7 @@ class _GroupPanel extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                        color: const Color(0xFF2D2260),
+                        color: Brand.ink,
                         fontSize: 17,
                         fontWeight: FontWeight.w700)),
               ),
@@ -210,16 +211,16 @@ class _GroupPanel extends StatelessWidget {
                       final active = item.id == selectedId;
                       return ListTile(
                         selected: active,
-                        selectedTileColor: const Color(0xFFEDE9FF),
+                        selectedTileColor: Brand.tint,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                         leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFF0EEF8),
+                          backgroundColor: Brand.surface,
                           child: Icon(
                               item.isSubgroup
                                   ? Icons.subdirectory_arrow_right_rounded
                                   : Icons.category_rounded,
-                              color: const Color(0xFF6C5CE7)),
+                              color: Brand.primary),
                         ),
                         title: Text(item.name),
                         subtitle: item.description.isEmpty

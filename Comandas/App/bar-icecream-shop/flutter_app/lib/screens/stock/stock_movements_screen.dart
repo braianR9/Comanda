@@ -6,6 +6,7 @@ import '../../models/product.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/stock_movement_provider.dart';
+import '../../theme/brand_colors.dart';
 
 class StockMovementsScreen extends StatefulWidget {
   final bool embedded;
@@ -56,11 +57,11 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                             children: [
                           Text('Movimientos de stock',
                               style: GoogleFonts.poppins(
-                                  color: const Color(0xFF2D2260),
+                                  color: Brand.ink,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800)),
-                          const Text('Ingresos y salidas de mercadería.',
-                              style: TextStyle(color: Color(0xFF6B6589))),
+                          Text('Ingresos y salidas de mercadería.',
+                              style: TextStyle(color: Brand.subtle)),
                         ])),
                     FilledButton.icon(
                         onPressed: () => _add(products),

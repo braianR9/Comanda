@@ -282,7 +282,7 @@ class _PrinterDialogState extends State<_PrinterDialog> {
                           const InputDecoration(labelText: 'Tipo de conexión'),
                       items: const [
                         DropdownMenuItem(
-                            value: 'Cups', child: Text('USB / cola CUPS')),
+                            value: 'Cups', child: Text('USB / impresora del sistema')),
                         DropdownMenuItem(value: 'Red', child: Text('Red (IP)'))
                       ],
                       onChanged: (value) =>

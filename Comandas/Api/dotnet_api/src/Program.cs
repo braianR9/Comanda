@@ -52,7 +52,9 @@ builder.Services.AddScoped<TableService>();
 builder.Services.AddScoped<PrinterService>();
 builder.Services.AddScoped<PrinterConfigurationService>();
 builder.Services.AddSingleton<PrinterTransport>();
-builder.Services.AddHostedService<PrintJobWorker>();
+// En la nube Workers:PrintJobs=false: imprime el agente local del comercio, que lee la misma cola.
+if (builder.Configuration.GetValue("Workers:PrintJobs", true))
+    builder.Services.AddHostedService<PrintJobWorker>();
 builder.Services.AddScoped<SectorService>();
 builder.Services.AddScoped<ProductoService>();
 builder.Services.AddScoped<CatalogosService>();
@@ -70,7 +72,8 @@ builder.Services.AddScoped<AfipCredentialService>();
 builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<GoogleSheetsService>();
-builder.Services.AddHostedService<GoogleSheetSyncWorker>();
+if (builder.Configuration.GetValue("Workers:GoogleSheets", true))
+    builder.Services.AddHostedService<GoogleSheetSyncWorker>();
 
 // ─── Controllers ────────────────────────────────────────────────────────────
 builder.Services.AddControllers()

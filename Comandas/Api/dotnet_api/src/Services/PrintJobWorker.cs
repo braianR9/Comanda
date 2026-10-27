@@ -55,8 +55,15 @@ public sealed class PrintJobWorker : BackgroundService
         var configurations = scope.ServiceProvider.GetRequiredService<PrinterConfigurationService>();
         var transport = scope.ServiceProvider.GetRequiredService<PrinterTransport>();
 
-        var job = await db.PrintJobs
-            .Where(x => x.Status == "Pendiente")
+        var pending = db.PrintJobs.Where(x => x.Status == "Pendiente");
+        // El agente de cada local (PrintAgent:SucursalId) solo toma los trabajos de su sucursal.
+        if (_configuration.GetValue<int?>("PrintAgent:SucursalId") is int agentBranch)
+            pending = pending.Where(x =>
+                db.Orders.Any(o => o.Id == x.OrderId && o.IdSucursal == agentBranch)
+                || db.Cajas.Any(c => c.Id == x.CajaId && c.IdSucursal == agentBranch)
+                || (x.JobType == "Prueba" && db.PrinterConfigurations.Any(p => p.Id == x.PrinterConfigurationId && p.IdSucursal == agentBranch)));
+
+        var job = await pending
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -71,7 +78,14 @@ public sealed class PrintJobWorker : BackgroundService
             byte[] ticket;
             int companyId, branchId;
 
-            if (job.CajaId.HasValue)
+            if (job.JobType == "Prueba")
+            {
+                var printerName = await db.PrinterConfigurations.AsNoTracking()
+                    .Where(x => x.Id == job.PrinterConfigurationId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+                companyId = 0; branchId = 0;
+                ticket = PrinterTransport.BuildTestTicket(printerName);
+            }
+            else if (job.CajaId.HasValue)
             {
                 var caja = await db.Cajas.AsNoTracking()
                     .Include(x => x.UsuarioApertura)

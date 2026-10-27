@@ -1,0 +1,12 @@
+// Publicación de la web en app.focobr.net (Cloudflare Workers).
+//   flutter build web --release --dart-define-from-file=config/prod.json
+//   npx wrangler deploy
+{
+  "name": "foco-app",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "build/web",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "app.focobr.net", "custom_domain": true }]
+}

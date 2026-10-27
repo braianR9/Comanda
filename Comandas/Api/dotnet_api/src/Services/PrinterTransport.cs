@@ -12,7 +12,11 @@ public sealed class PrinterTransport
         if (printer.TipoConexion == "Cups")
         {
             if (string.IsNullOrWhiteSpace(printer.NombreCola)) throw new InvalidOperationException("La impresora no tiene una cola CUPS configurada.");
-            await SendToCupsAsync(printer.NombreCola, content, cancellationToken);
+            // En Windows la "cola" es el nombre de la impresora instalada en el sistema.
+            if (OperatingSystem.IsWindows())
+                WindowsRawPrinter.Send(printer.NombreCola, content);
+            else
+                await SendToCupsAsync(printer.NombreCola, content, cancellationToken);
             return;
         }
         if (printer.TipoConexion == "Red")
@@ -28,11 +32,11 @@ public sealed class PrinterTransport
         throw new InvalidOperationException("Tipo de conexión de impresora no soportado.");
     }
 
-    public Task TestAsync(PrinterConfiguration printer, CancellationToken cancellationToken = default)
-    {
-        var text = Encoding.ASCII.GetBytes($"\u001b@\u001b!\bPRUEBA DE IMPRESION\n{RemoveDiacritics(printer.Nombre)}\nConexion correcta\n\n\n\u001bd\u0005\u001dV\0");
-        return SendAsync(printer, text, cancellationToken);
-    }
+    public Task TestAsync(PrinterConfiguration printer, CancellationToken cancellationToken = default) =>
+        SendAsync(printer, BuildTestTicket(printer.Nombre), cancellationToken);
+
+    public static byte[] BuildTestTicket(string printerName) =>
+        Encoding.ASCII.GetBytes($"\u001b@\u001b!\bPRUEBA DE IMPRESION\n{RemoveDiacritics(printerName)}\nConexion correcta\n\n\n\u001bd\u0005\u001dV\0");
 
     private static async Task SendToCupsAsync(string queueName, byte[] content, CancellationToken cancellationToken)
     {

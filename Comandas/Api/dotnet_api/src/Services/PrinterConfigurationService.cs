@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BarIceCreamShop.Api.Services;
 
-public sealed class PrinterConfigurationService(AppDbContext db, PrinterTransport transport)
+public sealed class PrinterConfigurationService(AppDbContext db, PrinterTransport transport, IConfiguration configuration)
 {
     public async Task<List<PrinterConfigurationDto>> ListAsync(int company, int branch, bool includeInactive) =>
         await db.PrinterConfigurations.AsNoTracking()
@@ -40,8 +40,15 @@ public sealed class PrinterConfigurationService(AppDbContext db, PrinterTranspor
     public async Task<PrinterConfigurationDto> SetStatusAsync(int company, int branch, int id, bool active)
     { var value = await Require(company, branch, id); value.Activa = active; if (!active) value.Predeterminada = false; value.FechaModificacion = DateTime.UtcNow; await db.SaveChangesAsync(); return ToDto(value); }
 
-    public async Task TestAsync(int company, int branch, int id, CancellationToken cancellationToken)
-    { var value = await Require(company, branch, id); if (!value.Activa) throw new SaleException("La impresora está inactiva.", 409); await transport.TestAsync(value, cancellationToken); }
+    /// Imprime la prueba directo si esta API tiene la impresora a su alcance; si no (nube), la encola
+    /// para el agente local. Devuelve true cuando quedó encolada.
+    public async Task<bool> TestAsync(int company, int branch, int id, CancellationToken cancellationToken)
+    {
+        var value = await Require(company, branch, id); if (!value.Activa) throw new SaleException("La impresora está inactiva.", 409);
+        if (configuration.GetValue("Workers:PrintJobs", true)) { await transport.TestAsync(value, cancellationToken); return false; }
+        db.PrintJobs.Add(new PrintJob { PrinterConfigurationId = value.Id, PrinterId = value.NombreCola ?? value.Nombre, CreatedAt = DateTime.UtcNow, Status = "Pendiente", JobType = "Prueba" });
+        await db.SaveChangesAsync(cancellationToken); return true;
+    }
 
     public async Task<PrinterConfiguration?> ResolveAsync(int company, int branch, string usage) =>
         await db.PrinterConfigurations.AsNoTracking().Where(x => x.IdEmpresa == company && x.IdSucursal == branch && x.Activa && (x.Uso == usage || x.Uso == "Ambos"))

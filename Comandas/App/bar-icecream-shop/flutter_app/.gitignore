@@ -44,6 +44,7 @@ app.*.map.json
 
 # Configuración local (URL y API Key)
 /config/local.json
+/config/prod.json
 
 # wrangler files
 .wrangler

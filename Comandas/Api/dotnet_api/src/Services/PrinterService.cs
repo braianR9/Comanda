@@ -34,6 +34,14 @@ namespace BarIceCreamShop.Api.Services
             printJob.Status = "Pendiente";
             // Cualquier otro valor recibido (p.ej. "Command" del cliente legado) se normaliza a "Comanda".
             printJob.JobType = ValidJobTypes.Contains(printJob.JobType) ? printJob.JobType : "Comanda";
+            if (printJob.JobType == "Comanda" && printJob.OrderId is int orderId)
+            {
+                var sale = await _context.Orders.AsNoTracking().Where(v => v.Id == orderId)
+                    .Select(v => new { v.IdEmpresa, v.IdSucursal }).SingleAsync();
+                var jobs = await PrintJobQueue.AddComandaAsync(_context, printJob, sale.IdEmpresa, sale.IdSucursal);
+                await _context.SaveChangesAsync();
+                return jobs[0];
+            }
             _context.PrintJobs.Add(printJob);
             await _context.SaveChangesAsync();
             return printJob;

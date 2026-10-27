@@ -242,10 +242,10 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
                 }).ToList()
             };
             context.KitchenCommands.Add(command);
-            context.PrintJobs.Add(new PrintJob {
+            await PrintJobQueue.AddComandaAsync(context, new PrintJob {
                 OrderId = sale.Id, PrinterId = configuration["PrinterSettings:QueueName"] ?? "Printer_POS_80C",
                 CreatedAt = DateTime.UtcNow, Status = "Pendiente", JobType = "Comanda"
-            });
+            }, company, branch);
         }
         sale.Estado = "Cancelada"; sale.FechaCierre = DateTime.UtcNow; sale.Version++; if (!sale.Table.EsMostrador) sale.Table.Status = "Libre";
         foreach (var joined in sale.JoinedTables)

@@ -1,4 +1,5 @@
 import '../utils/api_response.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -32,13 +33,14 @@ class SaleItemSnapshot {
   final double unitPrice;
   final int quantity;
   final String? comment;
-  const SaleItemSnapshot(
-      {required this.id,
-      required this.productId,
-      required this.name,
-      required this.unitPrice,
-      required this.quantity,
-      this.comment});
+  const SaleItemSnapshot({
+    required this.id,
+    required this.productId,
+    required this.name,
+    required this.unitPrice,
+    required this.quantity,
+    this.comment,
+  });
 }
 
 class SaleSnapshot {
@@ -58,22 +60,23 @@ class SaleSnapshot {
   final SaleCatalogItem? discount;
   final int? priceListId;
 
-  const SaleSnapshot(
-      {required this.id,
-      required this.number,
-      required this.version,
-      required this.itemIds,
-      required this.tableId,
-      required this.status,
-      required this.items,
-      required this.joinedTableIds,
-      required this.openedAt,
-      this.total = 0,
-      this.paidAmount = 0,
-      this.paymentCount = 0,
-      this.paymentAdjustment = 0,
-      this.discount,
-      this.priceListId});
+  const SaleSnapshot({
+    required this.id,
+    required this.number,
+    required this.version,
+    required this.itemIds,
+    required this.tableId,
+    required this.status,
+    required this.items,
+    required this.joinedTableIds,
+    required this.openedAt,
+    this.total = 0,
+    this.paidAmount = 0,
+    this.paymentCount = 0,
+    this.paymentAdjustment = 0,
+    this.discount,
+    this.priceListId,
+  });
 
   factory SaleSnapshot.fromJson(Map<String, dynamic> json) => SaleSnapshot(
         id: (json['id'] as num).toInt(),
@@ -87,9 +90,10 @@ class SaleSnapshot {
         paidAmount: (json['payments'] as List? ?? const [])
             .whereType<Map<String, dynamic>>()
             .fold<double>(
-                0,
-                (sum, payment) =>
-                    sum + ((payment['amount'] as num?)?.toDouble() ?? 0)),
+              0,
+              (sum, payment) =>
+                  sum + ((payment['amount'] as num?)?.toDouble() ?? 0),
+            ),
         discount: json['discount'] is Map<String, dynamic>
             ? SaleCatalogItem(
                 (json['discount']['id'] as num?)?.toInt() ?? 0,
@@ -143,6 +147,55 @@ class SalesProvider extends ChangeNotifier {
         if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
       };
 
+  Future<void> requireOpenCash() async {
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/cajas/actual'),
+          headers: _headers,
+        )
+        .timeout(ApiConfig.timeout);
+    if (_body(response)['data'] == null) {
+      throw Exception(
+          'No hay una caja abierta en esta sucursal. Caja o Admin debe abrirla para tomar pedidos o cobrar.');
+    }
+  }
+
+  Future<SaleSnapshot> changeItemPrice(
+    int saleId,
+    int itemId,
+    int version,
+    double price,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse(
+            '${ApiConfig.baseUrl}/api/sales/$saleId/items/$itemId/price',
+          ),
+          headers: _headers,
+          body: jsonEncode({'unitPrice': price, 'version': version}),
+        )
+        .timeout(ApiConfig.timeout);
+    return _sale(response);
+  }
+
+  Future<void> validateStock(List<SaleLine> lines) async {
+    final response = await http
+        .post(
+          Uri.parse('${ApiConfig.baseUrl}/api/sales/validate-stock'),
+          headers: _headers,
+          body: jsonEncode([
+            for (final line in lines)
+              {
+                'productId': int.parse(line.product.id),
+                'quantity': line.quantity,
+                'comment': line.comment,
+              },
+          ]),
+        )
+        .timeout(ApiConfig.timeout);
+    _body(response);
+  }
+
   Future<SaleSnapshot> createSale({
     required int tableId,
     required List<SaleLine> lines,
@@ -150,14 +203,16 @@ class SalesProvider extends ChangeNotifier {
     int? priceListId,
   }) async {
     final response = await http
-        .post(Uri.parse('${ApiConfig.baseUrl}/api/sales'),
-            headers: _headers,
-            body: jsonEncode({
-              'tableId': tableId,
-              'waiterId': waiterId,
-              'priceListId': priceListId,
-              'items': [for (final line in lines) _linePayload(line)],
-            }))
+        .post(
+          Uri.parse('${ApiConfig.baseUrl}/api/sales'),
+          headers: _headers,
+          body: jsonEncode({
+            'tableId': tableId,
+            'waiterId': waiterId,
+            'priceListId': priceListId,
+            'items': [for (final line in lines) _linePayload(line)],
+          }),
+        )
         .timeout(ApiConfig.timeout);
     return _sale(response);
   }
@@ -199,7 +254,8 @@ class SalesProvider extends ChangeNotifier {
     final response = await http
         .post(
           Uri.parse(
-              '${ApiConfig.baseUrl}/api/sales/$saleId/send-command?version=$version'),
+            '${ApiConfig.baseUrl}/api/sales/$saleId/send-command?version=$version',
+          ),
           headers: _headers,
         )
         .timeout(ApiConfig.timeout);
@@ -210,9 +266,7 @@ class SalesProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> enqueueCommandPrint({
-    required int saleId,
-  }) async {
+  Future<void> enqueueCommandPrint({required int saleId}) async {
     final printersResponse = await http
         .get(Uri.parse('${ApiConfig.baseUrl}/api/printers'), headers: _headers)
         .timeout(ApiConfig.timeout);
@@ -233,33 +287,39 @@ class SalesProvider extends ChangeNotifier {
     final printer =
         printers.where((item) => item['isDefault'] == true).firstOrNull ??
             printers.first;
-    _body(await http
-        .post(
-          Uri.parse('${ApiConfig.baseUrl}/api/Printer'),
-          headers: _headers,
-          body: jsonEncode({
-            'orderId': saleId,
-            'printerId': printer['queueName']?.toString(),
-            'printerConfigurationId': (printer['id'] as num).toInt(),
-            'jobType': 'Command',
-            'createdAt': DateTime.now().toUtc().toIso8601String(),
-            'status': 'Pending',
-          }),
-        )
-        .timeout(ApiConfig.timeout));
+    _body(
+      await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/api/Printer'),
+            headers: _headers,
+            body: jsonEncode({
+              'orderId': saleId,
+              'printerId': printer['queueName']?.toString(),
+              'printerConfigurationId': (printer['id'] as num).toInt(),
+              'jobType': 'Command',
+              'createdAt': DateTime.now().toUtc().toIso8601String(),
+              'status': 'Pending',
+            }),
+          )
+          .timeout(ApiConfig.timeout),
+    );
   }
 
-  Future<SaleSnapshot> getSale(int saleId) async => _sale(await http
-      .get(
-        Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId'),
-        headers: _headers,
-      )
-      .timeout(ApiConfig.timeout));
+  Future<SaleSnapshot> getSale(int saleId) async => _sale(
+        await http
+            .get(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId'),
+              headers: _headers,
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<List<SaleSnapshot>> getActiveSales() async {
     final response = await http
-        .get(Uri.parse('${ApiConfig.baseUrl}/api/sales/active'),
-            headers: _headers)
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/sales/active'),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     final values = _body(response)['data'] as List? ?? const [];
     return [
@@ -272,34 +332,48 @@ class SalesProvider extends ChangeNotifier {
   /// actual. El backend la crea sola la primera vez que se pide.
   Future<int> getCounterTableId() async {
     final response = await http
-        .get(Uri.parse('${ApiConfig.baseUrl}/api/pos/mostrador'),
-            headers: _headers)
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/pos/mostrador'),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     final data = _body(response)['data'] as Map<String, dynamic>;
     return (data['tableId'] as num).toInt();
   }
 
-  Future<SaleSnapshot> applyDiscount(int saleId, int version,
-          {int? discountId,
-          required String name,
-          required String type,
-          required double value}) async =>
-      _sale(await http
-          .post(Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/discount'),
+  Future<SaleSnapshot> applyDiscount(
+    int saleId,
+    int version, {
+    int? discountId,
+    required String name,
+    required String type,
+    required double value,
+  }) async =>
+      _sale(
+        await http
+            .post(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/discount'),
               headers: _headers,
               body: jsonEncode({
                 'discountId': discountId,
                 'name': name,
                 'type': type,
                 'value': value,
-                'version': version
-              }))
-          .timeout(ApiConfig.timeout));
+                'version': version,
+              }),
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<SaleSnapshot> addPayments(
-          int saleId, int version, List<SalePaymentInput> payments) async =>
-      _sale(await http
-          .post(Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/payments'),
+    int saleId,
+    int version,
+    List<SalePaymentInput> payments,
+  ) async =>
+      _sale(
+        await http
+            .post(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/payments'),
               headers: _headers,
               body: jsonEncode({
                 'payments': [
@@ -307,12 +381,14 @@ class SalesProvider extends ChangeNotifier {
                     {
                       'cardId': payment.cardId,
                       'baseAmount': payment.baseAmount,
-                      'amount': payment.amount
-                    }
+                      'amount': payment.amount,
+                    },
                 ],
-                'version': version
-              }))
-          .timeout(ApiConfig.timeout));
+                'version': version,
+              }),
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<SaleSnapshot> checkout(int saleId, int version) =>
       _postAction('/api/sales/$saleId/checkout?version=$version');
@@ -324,17 +400,27 @@ class SalesProvider extends ChangeNotifier {
   Future<SaleSnapshot> joinTable(int saleId, int tableId, int version) =>
       _tableAction(saleId, 'join-table', tableId, version);
 
-  Future<SaleSnapshot> _postAction(String endpoint) async => _sale(await http
-      .post(Uri.parse('${ApiConfig.baseUrl}$endpoint'), headers: _headers)
-      .timeout(ApiConfig.timeout));
+  Future<SaleSnapshot> _postAction(String endpoint) async => _sale(
+        await http
+            .post(Uri.parse('${ApiConfig.baseUrl}$endpoint'), headers: _headers)
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<SaleSnapshot> _tableAction(
-          int saleId, String action, int tableId, int version) async =>
-      _sale(await http
-          .post(Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/$action'),
+    int saleId,
+    String action,
+    int tableId,
+    int version,
+  ) async =>
+      _sale(
+        await http
+            .post(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/$action'),
               headers: _headers,
-              body: jsonEncode({'tableId': tableId, 'version': version}))
-          .timeout(ApiConfig.timeout));
+              body: jsonEncode({'tableId': tableId, 'version': version}),
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<List<SaleCatalogItem>> paymentTypes() =>
       _catalog('/api/sales-catalogs/cards');
@@ -372,33 +458,50 @@ class SalesProvider extends ChangeNotifier {
   }
 
   Future<SaleSnapshot> _addItem(int saleId, SaleLine line) async => _sale(
-      await http
-          .post(Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/items'),
-              headers: _headers, body: jsonEncode(_linePayload(line)))
-          .timeout(ApiConfig.timeout));
+        await http
+            .post(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/items'),
+              headers: _headers,
+              body: jsonEncode(_linePayload(line)),
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Future<SaleSnapshot> _updateItem(
-          int saleId, int itemId, SaleLine line, int version) async =>
-      _sale(await http
-          .put(
-            Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/items/$itemId'),
-            headers: _headers,
-            body: jsonEncode({
-              'quantity': line.quantity,
-              'comment': _comment(line.comment),
-              'version': version
-            }),
-          )
-          .timeout(ApiConfig.timeout));
+    int saleId,
+    int itemId,
+    SaleLine line,
+    int version,
+  ) async =>
+      _sale(
+        await http
+            .put(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/items/$itemId'),
+              headers: _headers,
+              body: jsonEncode({
+                'quantity': line.quantity,
+                'comment': _comment(line.comment),
+                'version': version,
+              }),
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
-  Future<SaleSnapshot> _deleteItem(int saleId, int itemId, int version) async =>
-      _sale(await http
-          .delete(
-            Uri.parse(
-                '${ApiConfig.baseUrl}/api/sales/$saleId/items/$itemId?version=$version'),
-            headers: _headers,
-          )
-          .timeout(ApiConfig.timeout));
+  Future<SaleSnapshot> _deleteItem(
+    int saleId,
+    int itemId,
+    int version,
+  ) async =>
+      _sale(
+        await http
+            .delete(
+              Uri.parse(
+                '${ApiConfig.baseUrl}/api/sales/$saleId/items/$itemId?version=$version',
+              ),
+              headers: _headers,
+            )
+            .timeout(ApiConfig.timeout),
+      );
 
   Map<String, dynamic> _linePayload(SaleLine line) => {
         'productId': int.parse(line.product.id),
@@ -418,9 +521,11 @@ class SalesProvider extends ChangeNotifier {
     final decoded = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) throw const UnauthorizedException();
-      throw Exception(decoded['error']?.toString() ??
-          decoded['title']?.toString() ??
-          'Error del servidor (${response.statusCode}).');
+      throw Exception(
+        decoded['error']?.toString() ??
+            decoded['title']?.toString() ??
+            'Error del servidor (${response.statusCode}).',
+      );
     }
     return decoded;
   }

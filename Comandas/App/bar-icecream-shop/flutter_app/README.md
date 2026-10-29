@@ -1,8 +1,22 @@
-# Bar and Ice Cream Shop Flutter Application
+# focobr
 
 This Flutter application serves as the front-end for a bar and ice cream shop, connecting to a .NET API for backend services. The app features a user-friendly login interface, configuration for tables in sectors, and integration with a command printer.
 
 ## Features
+
+En **Productos → Importar Excel → Descargar plantilla Excel** se descarga
+`assets/templates/plantilla_productos_focobr.xlsx`, incluido en la app sin consultar
+a la API. Completá la hoja **Productos**; **Ejemplos** e **Instrucciones** son de
+referencia y no se importan. Admite hasta 2000 productos y 5 MB por archivo.
+Las columnas son Código, Nombre, Costo, Precio, Rubro, Subrubro, Alicuota y Activo.
+Costo y Precio incluyen IVA; Alicuota es el porcentaje numérico (por ejemplo 21).
+
+Para regenerar y comprobar la plantilla desde esta carpeta:
+`dotnet run --project test/api_payments -- --write-product-template`.
+Para comprobar el asset existente sin modificarlo:
+`dotnet run --project test/api_payments -- --test-product-template`.
+Estas comprobaciones usan el lector real de la API y no acceden a la base de datos.
+Prueba de descarga y diseño adaptable: `flutter test test/product_import_template_test.dart`.
 
 - **User Authentication**: Secure login interface for users.
 - **Table Management**: View and manage tables organized by sectors.

@@ -643,7 +643,10 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
               'Alarma de stock mínimo', minimumAlarm, (v) => minimumAlarm = v),
           _check(
               'Comprobar stock al vender', checkOnSale, (v) => checkOnSale = v)
-        ])
+        ]),
+        const SizedBox(height: 8),
+        const Text(
+            'El stock se comprueba al agregar el producto o aumentar su cantidad en el pedido.'),
       ]);
 
   Widget _description() => TextFormField(

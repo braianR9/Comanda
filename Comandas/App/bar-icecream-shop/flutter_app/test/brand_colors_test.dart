@@ -1,5 +1,5 @@
-import 'package:bar_icecream_shop/models/user_session.dart';
-import 'package:bar_icecream_shop/theme/brand_colors.dart';
+import 'package:focobr/models/user_session.dart';
+import 'package:focobr/theme/brand_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

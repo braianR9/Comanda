@@ -19,6 +19,9 @@ namespace BarIceCreamShop.Api.Data
         public DbSet<PurchaseItem> PurchaseItems { get; set; }
         public DbSet<PurchaseAudit> PurchaseAudits { get; set; }
         public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<SystemEvent> SystemEvents { get; set; }
+        public DbSet<SaleVoid> SaleVoids { get; set; }
+        public DbSet<SaleRefund> SaleRefunds { get; set; }
         public DbSet<Empresa> Empresas { get; set; }
         public DbSet<Sucursal> Sucursales { get; set; }
         public DbSet<Rol> Roles { get; set; }
@@ -87,6 +90,8 @@ namespace BarIceCreamShop.Api.Data
             modelBuilder.Entity<Table>().HasIndex(t => new { t.IdSucursal, t.Nombre }).IsUnique();
             modelBuilder.Entity<Table>().HasOne(t => t.Sector).WithMany().HasForeignKey(t => t.SectorId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<Order>().HasKey(v => v.Id);
+            modelBuilder.Entity<SaleVoid>().Property(v => v.OrderId).ValueGeneratedNever();
+            modelBuilder.Entity<SaleRefund>().HasOne<SaleVoid>().WithMany().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<Order>().HasIndex(v => new { v.IdEmpresa, v.Numero }).IsUnique();
             modelBuilder.Entity<Order>().Property(v => v.Version).IsConcurrencyToken();
             modelBuilder.Entity<Order>().HasOne(v => v.Table).WithMany().HasForeignKey(v => v.TableId).OnDelete(DeleteBehavior.Restrict);
@@ -112,6 +117,7 @@ namespace BarIceCreamShop.Api.Data
             modelBuilder.Entity<PrintJob>().HasOne<Caja>().WithMany().HasForeignKey(p => p.CajaId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<PrinterConfiguration>().HasKey(p => p.Id);
             modelBuilder.Entity<Producto>().HasKey(p => p.Id);
+            modelBuilder.Entity<Producto>().HasIndex(p => new { p.IdEmpresa, p.CodigoImportacion }).IsUnique();
             modelBuilder.Entity<Rubro>().HasKey(r => r.Id);
             modelBuilder.Entity<SubRubro>().HasKey(s => s.Id);
             modelBuilder.Entity<Alicuota>().HasKey(a => a.Id);

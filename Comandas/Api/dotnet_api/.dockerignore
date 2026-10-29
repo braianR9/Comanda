@@ -4,3 +4,7 @@ secrets/
 *.env
 src/appsettings.Local.json
 src/wwwroot/uploads/
+.systems-owner-credentials.txt
+.systems-owner-credentials.txt.*.tmp
+src/appsettings.Local.json.*.tmp
+logs/

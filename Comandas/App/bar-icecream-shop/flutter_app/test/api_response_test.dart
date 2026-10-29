@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:bar_icecream_shop/utils/api_response.dart';
+import 'package:focobr/utils/api_response.dart';
 
 void main() {
   test('decodes normal API responses', () {

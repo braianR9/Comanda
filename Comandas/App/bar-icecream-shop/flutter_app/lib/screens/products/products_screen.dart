@@ -8,6 +8,7 @@ import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import 'product_editor_screen.dart';
+import 'product_import_dialog.dart';
 import '../../theme/brand_colors.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -75,6 +76,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Importar Excel',
+                      onPressed: provider.loading
+                          ? null
+                          : () => showDialog<void>(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) =>
+                                    ProductImportDialog(provider: provider),
+                              ),
+                      icon: const Icon(Icons.upload_file_rounded),
                     ),
                     FilledButton.icon(
                       onPressed: () => _openProductForm(),
@@ -376,7 +389,7 @@ class _PaginationBar extends StatelessWidget {
   }
 }
 
-class _ProductsTable extends StatelessWidget {
+class _ProductsTable extends StatefulWidget {
   final List<Product> products;
   final ValueChanged<Product> onEdit;
   final void Function(Product product, bool active) onToggle;
@@ -389,6 +402,19 @@ class _ProductsTable extends StatelessWidget {
   });
 
   @override
+  State<_ProductsTable> createState() => _ProductsTableState();
+}
+
+class _ProductsTableState extends State<_ProductsTable> {
+  final _horizontalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Card(
         margin: EdgeInsets.zero,
         color: Colors.white,
@@ -399,12 +425,17 @@ class _ProductsTable extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Scrollbar(
+          controller: _horizontalController,
           thumbVisibility: true,
+          notificationPredicate: (notification) =>
+              notification.metrics.axis == Axis.horizontal,
           child: SingleChildScrollView(
+            controller: _horizontalController,
             scrollDirection: Axis.horizontal,
             child: SizedBox(
               width: 1100,
               child: ListView(
+                primary: false,
                 children: [
                   DataTable(
                     headingRowColor:
@@ -423,7 +454,7 @@ class _ProductsTable extends StatelessWidget {
                       DataColumn(label: Text('Estado')),
                       DataColumn(label: Text('')),
                     ],
-                    rows: products
+                    rows: widget.products
                         .map((product) => DataRow(cells: [
                               DataCell(
                                   _ProductImage(product: product, size: 38)),
@@ -444,12 +475,13 @@ class _ProductsTable extends StatelessWidget {
                               DataCell(Text(product.subcategory)),
                               DataCell(Switch(
                                 value: product.active,
-                                onChanged: (value) => onToggle(product, value),
+                                onChanged: (value) =>
+                                    widget.onToggle(product, value),
                               )),
                               DataCell(PopupMenuButton<String>(
                                 onSelected: (value) => value == 'edit'
-                                    ? onEdit(product)
-                                    : onDelete(product),
+                                    ? widget.onEdit(product)
+                                    : widget.onDelete(product),
                                 itemBuilder: (_) => const [
                                   PopupMenuItem(
                                       value: 'edit', child: Text('Editar')),

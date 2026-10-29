@@ -45,7 +45,10 @@ namespace BarIceCreamShop.Api.Models
 
     public class LoginRequestDto
     {
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.EmailAddress,
+         System.ComponentModel.DataAnnotations.MaxLength(150)]
         public string Email { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.MaxLength(256)]
         public string Password { get; set; } = string.Empty;
     }
 

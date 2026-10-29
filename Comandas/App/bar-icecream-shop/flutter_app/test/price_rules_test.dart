@@ -1,7 +1,7 @@
-import 'package:bar_icecream_shop/models/price_list.dart';
-import 'package:bar_icecream_shop/providers/price_list_provider.dart';
-import 'package:bar_icecream_shop/providers/product_provider.dart';
-import 'package:bar_icecream_shop/screens/price_lists/price_rules_screen.dart';
+import 'package:focobr/models/price_list.dart';
+import 'package:focobr/providers/price_list_provider.dart';
+import 'package:focobr/providers/product_provider.dart';
+import 'package:focobr/screens/price_lists/price_rules_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';

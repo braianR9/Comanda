@@ -10,10 +10,10 @@ public class PurchasesController(PurchaseService purchases, CompanySettingsServi
     private int Company => int.Parse(User.FindFirstValue("id_empresa")!);
     private int Branch => int.Parse(User.FindFirstValue("id_sucursal")!);
     private int Actor => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    private bool Manager => User.FindFirstValue("rol_nombre") is "ADMIN" or "ENCARGADO";
+    private bool Manager => User.FindFirstValue("rol_nombre") is "ADMIN" or "CAJA" or "ENCARGADO";
     private async Task<IActionResult> Run(Func<Task<object>> action, bool manager = false)
     {
-        if (manager && !Manager) return StatusCode(403, ApiResponse<object>.Fail("Requiere ADMIN o ENCARGADO.", 403));
+        if (manager && !Manager) return StatusCode(403, ApiResponse<object>.Fail("Requiere ADMIN o CAJA.", 403));
         try { return Ok(ApiResponse<object>.Ok(await action())); }
         catch (PurchaseException e) { return StatusCode(e.StatusCode, ApiResponse<object>.Fail(e.Message, e.StatusCode)); }
         catch (SaleException e) { return StatusCode(e.StatusCode, ApiResponse<object>.Fail(e.Message, e.StatusCode)); }

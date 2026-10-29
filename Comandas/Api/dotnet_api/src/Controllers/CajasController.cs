@@ -9,16 +9,18 @@ namespace BarIceCreamShop.Api.Controllers;
 [ApiController, Authorize, Route("api/cajas")]
 public class CajasController(CajaService service) : ControllerBase
 {
-    private static readonly string[] RolesAutorizados = ["ADMIN", "ENCARGADO"];
+    private static readonly string[] RolesAutorizados = ["ADMIN", "CAJA", "ENCARGADO"];
 
     [HttpGet("actual")]
     public async Task<ActionResult<ApiResponse<CajaDto?>>> Actual() =>
         Ok(ApiResponse<CajaDto?>.Ok(await service.GetActualAsync(Company, Branch)));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<CajaDto>>>> Historial([FromQuery] int take = 20) =>
         await Run(() => service.HistorialAsync(Company, Branch, take));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ApiResponse<CajaDto>>> Get(int id)
     {

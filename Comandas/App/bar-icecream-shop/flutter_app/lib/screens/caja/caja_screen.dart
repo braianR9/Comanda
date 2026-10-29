@@ -6,7 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/caja_provider.dart';
 import '../../theme/brand_colors.dart';
 
-const _kRolesAutorizados = {'ADMIN', 'ENCARGADO'};
+const _kRolesAutorizados = {'ADMIN', 'CAJA', 'ENCARGADO'};
 
 class CajaScreen extends StatefulWidget {
   final bool embedded;
@@ -224,8 +224,8 @@ class _CajaStatusCard extends StatelessWidget {
         if (!canManage)
           Text(
               abierta
-                  ? 'No podés cerrar la caja: pedile a un encargado o admin.'
-                  : 'No podés abrir la caja: pedile a un encargado o admin.',
+                  ? 'No podés cerrar la caja: pedile a Caja o a un admin.'
+                  : 'No podés abrir la caja: pedile a Caja o a un admin.',
               style: GoogleFonts.poppins(
                   color: Colors.orange.shade800, fontSize: 13))
         else

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BarIceCreamShop.Api.Security;
 using BarIceCreamShop.Api.Data;
 using BarIceCreamShop.Api.Models;
 using BarIceCreamShop.Api.Services;
@@ -14,21 +15,34 @@ public class SalesController(OrderService service) : ControllerBase
     [HttpGet("active")] public async Task<ActionResult<ApiResponse<List<SaleDto>>>> Active() => Ok(ApiResponse<List<SaleDto>>.Ok(await service.ActiveAsync(Company, Branch)));
     [HttpGet("{id:int}")] public async Task<ActionResult<ApiResponse<SaleDto>>> Get(int id) { var v = await service.GetAsync(Company, Branch, id); return v == null ? NotFound(ApiResponse<SaleDto>.NotFound("Venta no encontrada.")) : Ok(ApiResponse<SaleDto>.Ok(v)); }
     [HttpGet("by-table/{tableId:int}")] public async Task<ActionResult<ApiResponse<SaleDto>>> ByTable(int tableId) { var v = await service.ByTableAsync(Company, Branch, tableId); return v == null ? NotFound(ApiResponse<SaleDto>.NotFound("La mesa no tiene una venta activa.")) : Ok(ApiResponse<SaleDto>.Ok(v)); }
-    [HttpPost] public async Task<ActionResult<ApiResponse<SaleDto>>> Create(CreateSaleRequest r) => await Run(() => service.CreateAsync(Company, Branch, UserId, r), 201);
+    [HttpPost("validate-stock")]
+    public async Task<ActionResult<ApiResponse<object>>> ValidateStock(List<SaleItemRequest> items) =>
+        await Run<object>(async () => { await service.ValidateStockAsync(Company, Branch, items); return new { valido = true }; });
+    [HttpPost] public async Task<ActionResult<ApiResponse<SaleDto>>> Create(CreateSaleRequest r) => await Run(() => service.CreateAsync(Company, Branch, UserId, SalePermissions.CanCollect(User) ? r : r with { PriceListId = null }), 201);
     [HttpPost("{id:int}/items")] public async Task<ActionResult<ApiResponse<SaleDto>>> AddItem(int id, SaleItemRequest r) => await Run(() => service.AddItemAsync(Company, Branch, id, r));
     [HttpPut("{id:int}/items/{itemId:int}")] public async Task<ActionResult<ApiResponse<SaleDto>>> UpdateItem(int id, int itemId, UpdateSaleItemRequest r) => await Run(() => service.UpdateItemAsync(Company, Branch, id, itemId, r));
     [HttpDelete("{id:int}/items/{itemId:int}")] public async Task<ActionResult<ApiResponse<SaleDto>>> DeleteItem(int id, int itemId, [FromQuery] long? version) => await Run(() => service.DeleteItemAsync(Company, Branch, id, itemId, version));
     [HttpPost("{id:int}/send-command")] public async Task<ActionResult<ApiResponse<CommandDto>>> SendCommand(int id, [FromQuery] long? version) => await Run(() => service.SendCommandAsync(Company, Branch, UserId, id, version), 201);
     [HttpGet("{id:int}/commands")] public async Task<ActionResult<ApiResponse<List<CommandDto>>>> Commands(int id) => await Run(() => service.CommandsAsync(Company, Branch, id));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/discount")] public async Task<ActionResult<ApiResponse<SaleDto>>> Discount(int id, ApplyDiscountRequest r) => await Run(() => service.ApplyDiscountAsync(Company, Branch, id, r));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpDelete("{id:int}/discount")] public async Task<ActionResult<ApiResponse<SaleDto>>> RemoveDiscount(int id, [FromQuery] long? version) => await Run(() => service.RemoveDiscountAsync(Company, Branch, id, version));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}/price-list")] public async Task<ActionResult<ApiResponse<SaleDto>>> PriceList(int id, ChangeSalePriceListRequest r) => await Run(() => service.ChangePriceListAsync(Company, Branch, id, r));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
+    [HttpPut("{id:int}/items/{itemId:int}/price")]
+    public async Task<ActionResult<ApiResponse<SaleDto>>> ItemPrice(int id, int itemId, ChangeSaleItemPriceRequest request) =>
+        await Run(() => service.ChangeItemPriceAsync(Company, Branch, id, itemId, request));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/payments")] public async Task<ActionResult<ApiResponse<SaleDto>>> Payments(int id, AddPaymentsRequest r) => await Run(() => service.AddPaymentsAsync(Company, Branch, UserId, id, r));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/checkout")] public async Task<ActionResult<ApiResponse<SaleDto>>> Checkout(int id, [FromQuery] long? version) => await Run(() => service.CheckoutAsync(Company, Branch, UserId, id, version));
     [HttpPost("{id:int}/cancel")] public async Task<ActionResult<ApiResponse<SaleDto>>> Cancel(int id, [FromQuery] long? version) => await Run(() => service.CancelAsync(Company, Branch, id, version, UserId));
     [HttpPost("{id:int}/move-table")] public async Task<ActionResult<ApiResponse<SaleDto>>> Move(int id, MoveTableRequest r) => await Run(() => service.MoveAsync(Company, Branch, id, r));
     [HttpPost("{id:int}/join-table")] public async Task<ActionResult<ApiResponse<SaleDto>>> Join(int id, JoinTableRequest r) => await Run(() => service.JoinAsync(Company, Branch, id, r));
     [HttpGet("{id:int}/customer-ticket")] public async Task<ActionResult<ApiResponse<object>>> Ticket(int id) => await Run(() => service.CustomerTicketAsync(Company, Branch, id));
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpGet("{id:int}/receipt")] public async Task<ActionResult<ApiResponse<object>>> Receipt(int id) => await Run(() => service.ReceiptAsync(Company, Branch, id));
 
     private int Company => Claim("id_empresa"); private int Branch => Claim("id_sucursal"); private int UserId => Claim(ClaimTypes.NameIdentifier);
@@ -98,6 +112,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return value is null ? NotFound(ApiResponse<DiscountCatalogDto>.NotFound("Descuento no encontrado.")) : Ok(ApiResponse<DiscountCatalogDto>.Ok(value));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPost("discounts")]
     public async Task<ActionResult<ApiResponse<DiscountCatalogDto>>> CreateDiscount(DiscountRequest request)
     {
@@ -111,6 +126,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return StatusCode(201, ApiResponse<DiscountCatalogDto>.Ok(DiscountDto(value), 201));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPut("discounts/{id:int}")]
     public async Task<ActionResult<ApiResponse<DiscountCatalogDto>>> UpdateDiscount(int id, DiscountRequest request)
     {
@@ -125,6 +141,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync(); return Ok(ApiResponse<DiscountCatalogDto>.Ok(DiscountDto(value)));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPatch("discounts/{id:int}/status")]
     public async Task<ActionResult<ApiResponse<DiscountCatalogDto>>> DiscountStatus(int id, SalesCatalogStatusRequest request)
     {
@@ -134,6 +151,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return Ok(ApiResponse<DiscountCatalogDto>.Ok(DiscountDto(value)));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpDelete("discounts/{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteDiscount(int id)
     {
@@ -160,6 +178,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return value is null ? NotFound(ApiResponse<CardDto>.NotFound("Tarjeta no encontrada.")) : Ok(ApiResponse<CardDto>.Ok(value));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPost("cards")]
     public async Task<ActionResult<ApiResponse<CardDto>>> CreateCard(CardRequest request)
     {
@@ -175,6 +194,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return StatusCode(201, ApiResponse<CardDto>.Ok(CardDto(value), 201));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPut("cards/{id:int}")]
     public async Task<ActionResult<ApiResponse<CardDto>>> UpdateCard(int id, CardRequest request)
     {
@@ -191,6 +211,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync(); return Ok(ApiResponse<CardDto>.Ok(CardDto(value)));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPatch("cards/{id:int}/status")]
     public async Task<ActionResult<ApiResponse<CardDto>>> CardStatus(int id, SalesCatalogStatusRequest request)
     {
@@ -200,6 +221,7 @@ public class SalesCatalogsController(AppDbContext db) : ControllerBase
         return Ok(ApiResponse<CardDto>.Ok(CardDto(value)));
     }
 
+    [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpDelete("cards/{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteCard(int id)
     {

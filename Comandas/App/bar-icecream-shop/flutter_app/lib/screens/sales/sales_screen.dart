@@ -345,6 +345,8 @@ class _SalesScreenState extends State<SalesScreen> {
         .where((item) => item.id == table.sectorId)
         .firstOrNull;
     final order = _orders.putIfAbsent(tableId, () => _OrderDraft(tableId));
+    final canCheckout =
+        context.watch<AuthProvider>().session?.canCheckout ?? false;
     final products =
         context.watch<ProductProvider>().salesCatalog.where((product) {
       final query = _productSearch.trim().toLowerCase();
@@ -388,7 +390,8 @@ class _SalesScreenState extends State<SalesScreen> {
               icon: const Icon(Icons.person_outline_rounded),
               label: Text(order.waiter ?? 'Sin mozo'),
             ),
-            if (context.watch<PriceListProvider>().activeLists.length > 1) ...[
+            if (canCheckout &&
+                context.watch<PriceListProvider>().activeLists.length > 1) ...[
               const SizedBox(width: 8),
               _PriceListSelector(
                 order: order,
@@ -485,18 +488,26 @@ class _SalesScreenState extends State<SalesScreen> {
             );
             final ticket = _OrderTicket(
               order: order,
+              canCheckout: canCheckout,
+              onEditPrice: canCheckout &&
+                      order.sent &&
+                      !order.hasPendingChanges &&
+                      !order.editLocked
+                  ? (line) => _editLinePrice(order, line)
+                  : null,
               onIncrease: (line) => _changeQuantity(order, line, 1),
               onDecrease: (line) => _changeQuantity(order, line, -1),
               onRemove: (line) => _removeLine(order, line),
               onComment: (line) => _editLineComment(order, line),
-              onDiscount:
-                  order.editLocked || (order.sent && order.hasPendingChanges)
-                      ? null
-                      : () => _applyDiscount(order),
+              onDiscount: !canCheckout ||
+                      order.editLocked ||
+                      (order.sent && order.hasPendingChanges)
+                  ? null
+                  : () => _applyDiscount(order),
               onSend: !order.editLocked && order.canSend
                   ? () => _sendOrder(order, table)
                   : null,
-              onCheckout: order.sent && !order.hasPendingChanges
+              onCheckout: canCheckout && order.sent && !order.hasPendingChanges
                   ? () => _checkout(order)
                   : null,
             );
@@ -583,6 +594,8 @@ class _SalesScreenState extends State<SalesScreen> {
         final existing = order.lines
             .where((line) => line.product.id == product.id)
             .firstOrNull;
+        await _validateSelection(order, product, (existing?.quantity ?? 0) + 1);
+        if (!mounted) return;
         if (existing != null) {
           setState(() => existing.quantity++);
           return;
@@ -638,9 +651,34 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
-  void _changeQuantity(_OrderDraft order, _OrderLine line, int delta) {
+  Future<void> _validateSelection(
+          _OrderDraft order, Product product, int quantity) =>
+      context.read<SalesProvider>().validateStock([
+        for (final line in order.lines)
+          (
+            product: line.product,
+            quantity: line.product.id == product.id ? quantity : line.quantity,
+            comment: line.comment
+          ),
+        if (!order.lines.any((line) => line.product.id == product.id))
+          (product: product, quantity: quantity, comment: null),
+      ]);
+
+  Future<void> _changeQuantity(
+      _OrderDraft order, _OrderLine line, int delta) async {
     if (_operationInProgress || order.editLocked) return;
     final nextQuantity = line.quantity + delta;
+    if (delta > 0) {
+      await _runOrderOperation(order, () async {
+        try {
+          await _validateSelection(order, line.product, nextQuantity);
+          if (mounted) setState(() => line.quantity = nextQuantity);
+        } catch (error) {
+          _showApiError(error);
+        }
+      });
+      return;
+    }
     if (delta < 0 &&
         order.sent &&
         (nextQuantity < (order.sentQuantities[line.product.id] ?? 0) ||
@@ -766,6 +804,7 @@ class _SalesScreenState extends State<SalesScreen> {
       _runOrderOperation(order, () => _applyDiscountImpl(order));
 
   Future<void> _applyDiscountImpl(_OrderDraft order) async {
+    if (!(context.read<AuthProvider>().session?.canCheckout ?? false)) return;
     try {
       final provider = context.read<SalesProvider>();
       final catalogs = await provider.discounts();
@@ -806,6 +845,40 @@ class _SalesScreenState extends State<SalesScreen> {
       _showApiError(error);
     }
   }
+
+  Future<void> _editLinePrice(_OrderDraft order, _OrderLine line) =>
+      _runOrderOperation(order, () async {
+        if (!(context.read<AuthProvider>().session?.canCheckout ?? false) ||
+            !order.sent ||
+            order.hasPendingChanges) {
+          return;
+        }
+        final provider = context.read<SalesProvider>();
+        final price = await showDialog<double>(
+            context: context,
+            builder: (_) => _UnitPriceDialog(
+                name: line.product.name, price: line.product.price));
+        if (price == null || !mounted) return;
+        try {
+          final itemId = order.serverItemIds[line.product.id];
+          if (itemId == null) {
+            throw Exception('Recargá la mesa para editar este precio.');
+          }
+          final snapshot = await provider.changeItemPrice(
+              order.orderId!, itemId, order.serverVersion, price);
+          if (mounted) {
+            setState(() => _restoreCheckoutSnapshot(order, snapshot));
+          }
+        } catch (error) {
+          try {
+            final snapshot = await provider.getSale(order.orderId!);
+            if (mounted && !_closeCompletedSale(order, snapshot)) {
+              setState(() => _restoreCheckoutSnapshot(order, snapshot));
+            }
+          } catch (_) {}
+          _showApiError(error);
+        }
+      });
 
   Future<void> _checkout(_OrderDraft order) =>
       _runOrderOperation(order, () => _checkoutImpl(order),
@@ -848,9 +921,11 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   Future<void> _checkoutImpl(_OrderDraft order) async {
+    if (!(context.read<AuthProvider>().session?.canCheckout ?? false)) return;
     if (!order.sent || order.hasPendingChanges) return;
     final provider = context.read<SalesProvider>();
     try {
+      await provider.requireOpenCash();
       var snapshot = await provider.getSale(order.orderId!);
       if (!mounted || _closeCompletedSale(order, snapshot)) return;
       final changed = snapshot.version != order.serverVersion;
@@ -926,14 +1001,11 @@ class _SalesScreenState extends State<SalesScreen> {
   Future<void> _sendOrderImpl(_OrderDraft order, RestaurantTable table) async {
     if (!order.canSend) return;
     final firstSend = !order.sent;
-    if (firstSend && !context.read<CajaProvider>().isOpen) {
-      _showApiError(Exception(
-          'No hay una caja abierta en esta sucursal. Abrí la caja antes de vender.'));
-      return;
-    }
     final ticketRows = order.ticketRows(firstSend: firstSend);
     final provider = context.read<SalesProvider>();
     try {
+      await provider.requireOpenCash();
+      if (!mounted) return;
       final accepted = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -1593,6 +1665,8 @@ class _ProductOptionCard extends StatelessWidget {
 
 class _OrderTicket extends StatelessWidget {
   final _OrderDraft order;
+  final bool canCheckout;
+  final ValueChanged<_OrderLine>? onEditPrice;
   final ValueChanged<_OrderLine> onIncrease;
   final ValueChanged<_OrderLine> onDecrease;
   final ValueChanged<_OrderLine> onRemove;
@@ -1603,6 +1677,8 @@ class _OrderTicket extends StatelessWidget {
 
   const _OrderTicket({
     required this.order,
+    required this.canCheckout,
+    this.onEditPrice,
     required this.onIncrease,
     required this.onDecrease,
     required this.onRemove,
@@ -1622,7 +1698,7 @@ class _OrderTicket extends StatelessWidget {
               style: GoogleFonts.poppins(
                   fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 5),
-          _OrderPhase(order: order),
+          _OrderPhase(order: order, canCheckout: canCheckout),
           if (order.pendingAnnulments.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -1655,7 +1731,19 @@ class _OrderTicket extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600)),
-                              Text('\$${line.total.toStringAsFixed(2)}'),
+                              Row(children: [
+                                Flexible(
+                                    child: Text(
+                                        '\$${line.total.toStringAsFixed(2)}')),
+                                if (onEditPrice != null)
+                                  IconButton(
+                                    tooltip: 'Editar precio para esta cuenta',
+                                    visualDensity: VisualDensity.compact,
+                                    iconSize: 18,
+                                    onPressed: () => onEditPrice!(line),
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                              ]),
                               if (line.comment != null)
                                 Text(
                                   line.comment!,
@@ -1731,7 +1819,7 @@ class _OrderTicket extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           // El descuento se define recién al enviar/cobrar, no mientras se toma el pedido.
-          if (order.sent) ...[
+          if (canCheckout && order.sent) ...[
             OutlinedButton.icon(
               onPressed: onDiscount,
               icon: const Icon(Icons.discount_outlined),
@@ -1742,20 +1830,20 @@ class _OrderTicket extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           if (!order.sent || order.hasPendingChanges)
-            FilledButton.icon(
+            _SendOrderButton(
               onPressed: onSend,
-              icon: Icon(order.sent
-                  ? Icons.sync_alt_rounded
-                  : Icons.receipt_long_outlined),
-              label: Text(order.sent ? 'Enviar cambios' : 'Pedido terminado'),
+              hasBeenSent: order.sent,
             )
-          else
+          else if (canCheckout)
             FilledButton.icon(
               onPressed: onCheckout,
               icon: const Icon(Icons.payments_outlined),
               label:
                   Text(order.editLocked ? 'Completar cobro' : 'Cobrar cuenta'),
-            ),
+            )
+          else
+            const Text('Pedido enviado. Caja se encarga del cobro.',
+                textAlign: TextAlign.center),
         ]),
       );
 
@@ -1775,9 +1863,173 @@ class _OrderTicket extends StatelessWidget {
       );
 }
 
+/// Highlights the next action only while the order can actually be sent.
+class _SendOrderButton extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final bool hasBeenSent;
+  const _SendOrderButton({required this.onPressed, required this.hasBeenSent});
+
+  @override
+  State<_SendOrderButton> createState() => _SendOrderButtonState();
+}
+
+class _SendOrderButtonState extends State<_SendOrderButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SendOrderButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    if (widget.onPressed != null && !MediaQuery.disableAnimationsOf(context)) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else {
+      _pulse.stop();
+      _pulse.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) {
+          final attention = widget.onPressed != null &&
+              !MediaQuery.disableAnimationsOf(context);
+          final value = Curves.easeInOut.transform(_pulse.value);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Transform.scale(
+              scale: attention ? 0.97 + 0.03 * value : 1,
+              child: Opacity(
+                opacity: attention ? 0.72 + 0.28 * value : 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: attention
+                        ? [
+                            BoxShadow(
+                              color: Brand.primary
+                                  .withValues(alpha: 0.16 + 0.2 * value),
+                              blurRadius: 5 + 10 * value,
+                              spreadRadius: 2 * value,
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: FilledButton.icon(
+                    onPressed: widget.onPressed,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(60),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 16),
+                      textStyle: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w800),
+                      backgroundColor: Brand.primary,
+                      foregroundColor: Brand.onPrimary,
+                      iconSize: 26,
+                    ),
+                    icon: Icon(widget.hasBeenSent
+                        ? Icons.sync_alt_rounded
+                        : Icons.receipt_long_outlined),
+                    label: Text(widget.hasBeenSent
+                        ? 'Enviar cambios'
+                        : 'Pedido terminado'),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+class _UnitPriceDialog extends StatefulWidget {
+  final String name;
+  final double price;
+  const _UnitPriceDialog({required this.name, required this.price});
+  @override
+  State<_UnitPriceDialog> createState() => _UnitPriceDialogState();
+}
+
+class _UnitPriceDialogState extends State<_UnitPriceDialog> {
+  final _form = GlobalKey<FormState>();
+  late final _price =
+      TextEditingController(text: widget.price.toStringAsFixed(2));
+  @override
+  void dispose() {
+    _price.dispose();
+    super.dispose();
+  }
+
+  double? get value => double.tryParse(_price.text.trim().replaceAll(',', '.'));
+  void _save() {
+    if (_form.currentState!.validate()) {
+      Navigator.pop(context, (value! * 100).round() / 100);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Precio para esta cuenta'),
+        content: SizedBox(
+            width: 340,
+            child: Form(
+                key: _form,
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.name),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                          controller: _price,
+                          autofocus: true,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: const InputDecoration(
+                              labelText: 'Precio unitario', prefixText: '\$ '),
+                          validator: (_) => value == null ||
+                                  !value!.isFinite ||
+                                  value! < 0 ||
+                                  value! >= 1e16
+                              ? 'Ingresá un precio válido.'
+                              : null,
+                          onFieldSubmitted: (_) => _save()),
+                      const SizedBox(height: 12),
+                      const Text(
+                          'Se aplica a todas las unidades de este renglón. El precio del catálogo no cambia.'),
+                    ]))),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          FilledButton(onPressed: _save, child: const Text('Guardar precio'))
+        ],
+      );
+}
+
 class _OrderPhase extends StatelessWidget {
   final _OrderDraft order;
-  const _OrderPhase({required this.order});
+  final bool canCheckout;
+  const _OrderPhase({required this.order, required this.canCheckout});
 
   @override
   Widget build(BuildContext context) {
@@ -1786,7 +2038,7 @@ class _OrderPhase extends StatelessWidget {
         : order.hasPendingChanges
             ? 1
             : 2;
-    const labels = ['Tomar pedido', 'Cambios', 'Cobrar'];
+    final labels = ['Tomar pedido', 'Cambios', canCheckout ? 'Cobrar' : 'Caja'];
     return Row(children: [
       for (var index = 0; index < labels.length; index++) ...[
         Expanded(

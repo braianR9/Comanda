@@ -21,6 +21,66 @@ public class ProductosController : ControllerBase
         _environment = environment;
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
+    [HttpPost("importar")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ApiResponse<ProductImportResult>>> Import(
+        IFormFile archivo, [FromForm] bool confirmar = false, [FromQuery] bool progreso = false)
+    {
+        var company = GetCompanyId();
+        var branch = GetBranchId();
+        if (company == null || branch == null)
+            return Unauthorized(ApiResponse<ProductImportResult>.Fail("El token no contiene empresa y sucursal válidas.", 401));
+        if (archivo == null || archivo.Length == 0 || archivo.Length > 5 * 1024 * 1024 ||
+            !Path.GetExtension(archivo.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(ApiResponse<ProductImportResult>.Fail("Seleccione un archivo .xlsx de hasta 5 MB."));
+        ProductImportResult result;
+        // Parse separately so invalid workbook errors never mask database failures.
+        using var buffer = new MemoryStream();
+        await archivo.CopyToAsync(buffer);
+        if (progreso)
+        {
+            Response.ContentType = "application/x-ndjson; charset=utf-8";
+            Response.Headers.CacheControl = "no-cache, no-transform";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>()?.DisableBuffering();
+            async Task Send(object message)
+            {
+                HttpContext.RequestAborted.ThrowIfCancellationRequested();
+                await Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(message,
+                    new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)) + "\n",
+                    HttpContext.RequestAborted);
+                await Response.Body.FlushAsync(HttpContext.RequestAborted);
+            }
+            try
+            {
+                buffer.Position = 0;
+                result = await _service.ImportWorkbookAsync(company.Value, branch.Value, buffer, confirmar,
+                    p => Send(new { tipo = "progreso", p.Etapa, p.Procesados, p.Total }));
+                await Send(new { tipo = "resultado", data = result });
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ProductosController>>()
+                    .LogError(ex, "Error al importar productos para empresa {Company}", company);
+                if (!HttpContext.RequestAborted.IsCancellationRequested)
+                    await Send(new { tipo = "error", error = ex is ProductoException ? ex.Message
+                        : "No se pudo completar la importación. Revisá el archivo y la conexión con la base de datos." });
+            }
+            return new EmptyResult();
+        }
+        try { buffer.Position = 0; ProductoService.ReadProductWorkbook(buffer); }
+        catch (ProductoException ex) { return Error<ProductImportResult>(ex); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        { return BadRequest(ApiResponse<ProductImportResult>.Fail("El archivo no es un Excel válido o está dañado.")); }
+        buffer.Position = 0;
+        try { result = await _service.ImportWorkbookAsync(company.Value, branch.Value, buffer, confirmar); }
+        catch (ProductoException ex) { return Error<ProductImportResult>(ex); }
+        return Ok(ApiResponse<ProductImportResult>.Ok(result));
+    }
+
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PagedResult<ProductListDto>>>> GetAll(
         [FromQuery] string? texto, [FromQuery] int? idRubro, [FromQuery] int? idSubRubro,
@@ -65,6 +125,7 @@ public class ProductosController : ControllerBase
             : Ok(ApiResponse<ProductDetailDto>.Ok(product));
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost]
     public async Task<ActionResult<ApiResponse<ProductDetailDto>>> Create(CreateProductRequest request)
     {
@@ -80,6 +141,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<ProductDetailDto>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ApiResponse<ProductDetailDto>>> Update(int id, UpdateProductRequest request)
     {
@@ -91,6 +153,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<ProductDetailDto>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPatch("{id:int}/estado")]
     public async Task<ActionResult<ApiResponse<object>>> SetStatus(int id, UpdateProductStatusRequest request)
     {
@@ -104,6 +167,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<object>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
     {
@@ -117,6 +181,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<object>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/imagen")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ApiResponse<ProductDetailDto>>> UploadImage(int id, [FromForm] UploadProductImageRequest request)
@@ -149,6 +214,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<ProductDetailDto>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpDelete("{id:int}/imagen")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteImage(int id)
     {
@@ -182,6 +248,7 @@ public class ProductosController : ControllerBase
         catch (ProductoException ex) { return Error<ProductStockDto>(ex); }
     }
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}/stock/{idSucursal:int}")]
     public async Task<ActionResult<ApiResponse<ProductStockDto>>> UpsertStock(int id, int idSucursal, ProductStockRequest request)
     {

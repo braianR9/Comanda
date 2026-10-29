@@ -41,7 +41,8 @@ import '../../theme/brand_colors.dart';
 /// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal.
 Set<int> _allowedSections(UserSession session) => {
       0,
-      4, 7, 8, 12, 14, 16, 17, 18, // Ventas: todos los roles.
+      4, 14, // Empleados: tomar y modificar pedidos.
+      if (session.canCheckout) ...{7, 8, 12, 16, 17, 18},
       if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19},
       if (session.canManageUsers) ...{9, 11},
     };
@@ -526,8 +527,7 @@ class _MainMenu extends StatelessWidget {
       position: PopupMenuPosition.under,
       onSelected: onSelected,
       itemBuilder: (_) => entries.entries
-          .where((entry) =>
-              (entry.key != 9 && entry.key != 11) || session.canManageUsers)
+          .where((entry) => _allowedSections(session).contains(entry.key))
           .map((entry) => PopupMenuItem<int>(
                 value: entry.key,
                 child: Row(children: [
@@ -576,8 +576,9 @@ class _MainMenu extends StatelessWidget {
                 label: const Text('Inicio')),
             const SizedBox(width: 6),
             _group('Ventas', Icons.point_of_sale_rounded, sales),
-            _group('Compras', Icons.local_shipping_outlined,
-                const {16: 'Comprobantes de compra', 17: 'Proveedores'}),
+            if (session.canCheckout)
+              _group('Compras', Icons.local_shipping_outlined,
+                  const {16: 'Comprobantes de compra', 17: 'Proveedores'}),
             if (session.canAccessMasters) ...[
               const SizedBox(width: 6),
               _group('Maestros', Icons.school_rounded, masters),
@@ -647,12 +648,13 @@ class _Sidebar extends StatelessWidget {
                 active: section == 14,
                 showLabel: expanded,
                 onTap: () => onSectionChanged(14)),
-            _SidebarItem(
-                icon: Icons.point_of_sale_outlined,
-                label: 'Caja',
-                active: section == 12,
-                showLabel: expanded,
-                onTap: () => onSectionChanged(12)),
+            if (session.canCheckout)
+              _SidebarItem(
+                  icon: Icons.point_of_sale_outlined,
+                  label: 'Caja',
+                  active: section == 12,
+                  showLabel: expanded,
+                  onTap: () => onSectionChanged(12)),
             if (session.canAccessMasters)
               _SidebarItem(
                   icon: Icons.inventory_2_rounded,
@@ -660,18 +662,20 @@ class _Sidebar extends StatelessWidget {
                   active: section == 1,
                   showLabel: expanded,
                   onTap: () => onSectionChanged(1)),
-            _SidebarItem(
-                icon: Icons.people_alt_rounded,
-                label: 'Clientes',
-                active: section == 8,
-                showLabel: expanded,
-                onTap: () => onSectionChanged(8)),
-            _SidebarItem(
-                icon: Icons.swap_vert_rounded,
-                label: 'Movimientos de stock',
-                active: section == 7,
-                showLabel: expanded,
-                onTap: () => onSectionChanged(7)),
+            if (session.canCheckout)
+              _SidebarItem(
+                  icon: Icons.people_alt_rounded,
+                  label: 'Clientes',
+                  active: section == 8,
+                  showLabel: expanded,
+                  onTap: () => onSectionChanged(8)),
+            if (session.canCheckout)
+              _SidebarItem(
+                  icon: Icons.swap_vert_rounded,
+                  label: 'Movimientos de stock',
+                  active: section == 7,
+                  showLabel: expanded,
+                  onTap: () => onSectionChanged(7)),
           ],
         ),
       );

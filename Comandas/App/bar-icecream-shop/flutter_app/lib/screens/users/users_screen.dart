@@ -71,7 +71,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                   color: Brand.ink,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800)),
-                          Text('Empleados, encargados y administradores.',
+                          Text('Empleados, caja y administradores.',
                               style: TextStyle(color: Brand.subtle)),
                         ])),
                     FilledButton.icon(

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/user_session.dart';
+import '../utils/client_diagnostics.dart';
 
 enum AuthStatus { idle, loading, authenticated, error }
 
@@ -37,6 +38,7 @@ class AuthProvider extends ChangeNotifier {
           return false;
         }
         _session = restored;
+        ClientDiagnostics.token = restored.token;
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -57,6 +59,7 @@ class AuthProvider extends ChangeNotifier {
       final payload = jsonDecode(
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       ) as Map<String, dynamic>;
+      if (payload['session_stamp'] is! String) return true;
       final expiresAt = (payload['exp'] as num?)?.toInt();
       if (expiresAt == null) return true;
       return DateTime.now().millisecondsSinceEpoch ~/ 1000 >= expiresAt - 30;
@@ -105,6 +108,7 @@ class AuthProvider extends ChangeNotifier {
 
       if (response.statusCode == 200 && codigo == 200) {
         _session = UserSession.fromJson(body['data'] as Map<String, dynamic>);
+        ClientDiagnostics.token = _session!.token;
         _status = AuthStatus.authenticated;
         await _saveSession(_session!);
       } else {
@@ -127,6 +131,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void logout() {
+    ClientDiagnostics.token = null;
     _clearSession();
     _status = AuthStatus.idle;
     _session = null;

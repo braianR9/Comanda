@@ -84,7 +84,8 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
             .Skip((page - 1) * size).Take(size)
             .Select(o => new
             {
-                o.Id, o.Numero, o.FechaCierre, o.Total, table = o.Table.Nombre, o.UsuarioCobroId,
+                o.Id, o.Numero, o.FechaCierre, o.Total, o.Version, table = o.Table.Nombre, o.UsuarioCobroId,
+                canVoid = !db.Invoices.Any(i => i.OrderId == o.Id && i.Status != "Rechazado"),
                 lastAttempt = db.Invoices.Where(x => x.OrderId == o.Id).OrderByDescending(x => x.Id)
                     .Select(x => new { x.Status, x.Messages, x.CreatedAt, x.UserId, x.CreditNoteId }).FirstOrDefault(),
             }).ToListAsync();
@@ -95,6 +96,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
             items = rows.Select(r => new
             {
                 saleId = r.Id, saleNumber = r.Numero, closedAt = r.FechaCierre, r.Total, r.table,
+                version = r.Version, r.canVoid,
                 cashier = names.GetValueOrDefault(r.UsuarioCobroId ?? 0, ""),
                 lastAttempt = r.lastAttempt == null ? null : new
                 {
@@ -137,6 +139,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
     /// Factura una venta finalizada. Si quedó un intento sin confirmar, primero lo verifica en AFIP.
     public async Task<InvoiceDto> InvoiceSaleAsync(int company, int branch, int user, int saleId, InvoiceRequest request, bool print = true)
     {
+        await using var fiscalLock = await SaleFiscalLock.AcquireAsync(db, saleId);
         var sale = await RequireSale(company, branch, saleId);
         if (sale.Estado != "Finalizada") throw new InvoiceException("Solo se facturan ventas cobradas.", 409);
         var billing = await RequireBilling(company);

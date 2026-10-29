@@ -3,6 +3,7 @@ WORKDIR /src
 COPY BarIceCreamShop.Api.csproj .
 RUN dotnet restore
 COPY src/ src/
+COPY database/add_systems_admin.sql database/add_systems_admin.sql
 RUN dotnet publish BarIceCreamShop.Api.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

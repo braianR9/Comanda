@@ -1,7 +1,12 @@
 import '../utils/api_response.dart';
+import '../utils/product_import_stream.dart';
+
+import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../models/product.dart';
 import '../models/product_component.dart';
@@ -35,25 +40,28 @@ class ProductProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get totalItems => _totalItems;
   Map<String, String> get imageHeaders => {
-        ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
-        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
-      };
+    ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
+    if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+  };
 
   String resolveImageUrl(String url) =>
       url.startsWith('http://') || url.startsWith('https://')
-          ? url
-          : '${ApiConfig.baseUrl}$url';
+      ? url
+      : '${ApiConfig.baseUrl}$url';
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: query);
 
   Map<String, String> get _headers => {
-        ...ApiConfig.headers,
-        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
-      };
+    ...ApiConfig.headers,
+    if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+  };
 
-  Future<void> load(int companyId,
-      {String token = '', bool force = false}) async {
+  Future<void> load(
+    int companyId, {
+    String token = '',
+    bool force = false,
+  }) async {
     final tokenChanged = _token != token;
     _token = token;
     if (_companyId == companyId && _loaded && !force && !tokenChanged) return;
@@ -78,12 +86,13 @@ class ProductProvider extends ChangeNotifier {
   Future<void> _loadProducts({required int page, String? text}) async {
     final response = await http
         .get(
-            _uri('/api/productos', {
-              'page': '$page',
-              'pageSize': '$pageSize',
-              if (text != null && text.trim().isNotEmpty) 'texto': text.trim(),
-            }),
-            headers: _headers)
+          _uri('/api/productos', {
+            'page': '$page',
+            'pageSize': '$pageSize',
+            if (text != null && text.trim().isNotEmpty) 'texto': text.trim(),
+          }),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     final data = _body(response)['data'] as Map<String, dynamic>? ?? const {};
     final items = data['items'] as List<dynamic>? ?? const [];
@@ -93,7 +102,8 @@ class ProductProvider extends ChangeNotifier {
     _products
       ..clear()
       ..addAll(
-          items.map((item) => _productFromApi(item as Map<String, dynamic>)));
+        items.map((item) => _productFromApi(item as Map<String, dynamic>)),
+      );
   }
 
   Future<void> _loadSalesCatalog() async {
@@ -103,16 +113,20 @@ class ProductProvider extends ChangeNotifier {
     do {
       final response = await http
           .get(
-              _uri('/api/productos', {
-                'page': '$page',
-                'pageSize': '100',
-                'orden': 'vendidos',
-              }),
-              headers: _headers)
+            _uri('/api/productos', {
+              'page': '$page',
+              'pageSize': '100',
+              'orden': 'vendidos',
+            }),
+            headers: _headers,
+          )
           .timeout(ApiConfig.timeout);
       final data = _body(response)['data'] as Map<String, dynamic>? ?? const {};
-      items.addAll((data['items'] as List<dynamic>? ?? const [])
-          .map((item) => _productFromApi(item as Map<String, dynamic>)));
+      items.addAll(
+        (data['items'] as List<dynamic>? ?? const []).map(
+          (item) => _productFromApi(item as Map<String, dynamic>),
+        ),
+      );
       totalPages = data['totalPages'] as int? ?? 1;
       page++;
     } while (page <= totalPages);
@@ -158,7 +172,8 @@ class ProductProvider extends ChangeNotifier {
       _groups.add(parent);
       for (final child in json['subRubros'] as List<dynamic>? ?? const []) {
         _groups.add(
-            _groupFromApi(child as Map<String, dynamic>, parentId: parent.id));
+          _groupFromApi(child as Map<String, dynamic>, parentId: parent.id),
+        );
       }
     }
   }
@@ -170,8 +185,9 @@ class ProductProvider extends ChangeNotifier {
     final items = _body(response)['data'] as List<dynamic>? ?? const [];
     _taxes
       ..clear()
-      ..addAll(items
-          .map((item) => ProductTax.fromJson(item as Map<String, dynamic>)));
+      ..addAll(
+        items.map((item) => ProductTax.fromJson(item as Map<String, dynamic>)),
+      );
   }
 
   Future<Product> getById(String id) async {
@@ -185,15 +201,18 @@ class ProductProvider extends ChangeNotifier {
   Future<int> fetchNextProductCode() async {
     final size = _totalItems > 0 ? _totalItems : pageSize;
     final response = await http
-        .get(_uri('/api/productos', {'page': '1', 'pageSize': '$size'}),
-            headers: _headers)
+        .get(
+          _uri('/api/productos', {'page': '1', 'pageSize': '$size'}),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     final data = _body(response)['data'] as Map<String, dynamic>? ?? const {};
     final items = data['items'] as List<dynamic>? ?? const [];
     var maxCode = 0;
     for (final item in items) {
       final code = int.tryParse(
-          (item as Map<String, dynamic>)['codigo']?.toString() ?? '');
+        (item as Map<String, dynamic>)['codigo']?.toString() ?? '',
+      );
       if (code != null && code > maxCode) maxCode = code;
     }
     return maxCode + 1;
@@ -201,15 +220,76 @@ class ProductProvider extends ChangeNotifier {
 
   Future<List<ProductComponent>> searchSimpleComponents(String text) async {
     final response = await http
-        .get(_uri('/api/productos/componentes-disponibles', {'texto': text}),
-            headers: _headers)
+        .get(
+          _uri('/api/productos/componentes-disponibles', {'texto': text}),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     return ((_body(response)['data'] as List?) ?? [])
-        .map((e) => ProductComponent(
+        .map(
+          (e) => ProductComponent(
             productId: (e['id'] as num).toInt(),
             name: e['nombre'] as String,
-            quantity: 1))
+            quantity: 1,
+          ),
+        )
         .toList();
+  }
+
+  Future<Map<String, dynamic>> importWorkbook(
+    Uint8List bytes,
+    String name, {
+    bool confirm = false,
+    void Function(Map<String, dynamic>)? onProgress,
+  }) async {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            _uri('/api/productos/importar', {'progreso': 'true'}),
+          )
+          ..headers.addAll(imageHeaders)
+          ..fields['confirmar'] = '$confirm'
+          ..files.add(
+            http.MultipartFile.fromBytes('archivo', bytes, filename: name),
+          );
+    final client = http.Client();
+    Map<String, dynamic>? result;
+    onProgress?.call({'etapa': 'envio'});
+    try {
+      final response = await client
+          .send(request)
+          .timeout(const Duration(minutes: 2));
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          !(response.headers['content-type'] ?? '').contains(
+            'application/x-ndjson',
+          )) {
+        // Older API versions still return the complete JSON response.
+        final buffered = await http.Response.fromStream(response)
+            .timeout(const Duration(minutes: 2));
+        result = _body(buffered)['data'] as Map<String, dynamic>;
+      } else {
+        result = await readProductImportEvents(
+          response.stream,
+          onProgress: onProgress,
+        );
+      }
+    } on TimeoutException {
+      throw Exception(
+        confirm
+            ? 'El servidor dejó de responder. Volvé a seleccionar el archivo para comprobar si se importó antes de reintentar.'
+            : 'El servidor no respondió al validar el Excel. Revisá que la API esté disponible y volvé a intentar.',
+      );
+    } finally {
+      client.close();
+    }
+    if (confirm && (result['importados'] as num? ?? 0) > 0) {
+      onProgress?.call({'etapa': 'catalogo'});
+      _loaded = false;
+      _salesCatalog.clear();
+      await load(_companyId!, token: _token, force: true);
+    }
+    return result;
   }
 
   Future<void> save(Product product) async {
@@ -229,8 +309,9 @@ class ProductProvider extends ChangeNotifier {
       if (product.components != null)
         'componentes': product.components!.map((c) => c.toJson()).toList(),
       'codigo': int.parse(product.code),
-      'codigoBarras':
-          product.barcode.trim().isEmpty ? null : product.barcode.trim(),
+      'codigoBarras': product.barcode.trim().isEmpty
+          ? null
+          : product.barcode.trim(),
       'nombre': product.name,
       'descripcion': product.description,
       'tipoProducto': product.type.replaceAll(' ', ''),
@@ -260,18 +341,29 @@ class ProductProvider extends ChangeNotifier {
     };
     final response = creating
         ? await http
-            .post(_uri('/api/productos'),
-                headers: _headers, body: jsonEncode(payload))
-            .timeout(ApiConfig.timeout)
+              .post(
+                _uri('/api/productos'),
+                headers: _headers,
+                body: jsonEncode(payload),
+              )
+              .timeout(ApiConfig.timeout)
         : await http
-            .put(_uri('/api/productos/${product.id}'),
-                headers: _headers, body: jsonEncode(payload))
-            .timeout(ApiConfig.timeout);
-    var saved =
-        _productFromApi(_body(response)['data'] as Map<String, dynamic>);
+              .put(
+                _uri('/api/productos/${product.id}'),
+                headers: _headers,
+                body: jsonEncode(payload),
+              )
+              .timeout(ApiConfig.timeout);
+    var saved = _productFromApi(
+      _body(response)['data'] as Map<String, dynamic>,
+    );
     if (product.imageBase64 != null && product.imageBase64!.isNotEmpty) {
-      saved = _productFromApi(await _uploadRaw(
-          '/api/productos/${saved.id}/imagen', product.imageBase64!));
+      saved = _productFromApi(
+        await _uploadRaw(
+          '/api/productos/${saved.id}/imagen',
+          product.imageBase64!,
+        ),
+      );
     }
     if (creating) {
       _products.add(saved);
@@ -283,8 +375,11 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> setActive(Product product, bool active) async {
     final response = await http
-        .patch(_uri('/api/productos/${product.id}/estado'),
-            headers: _headers, body: jsonEncode({'activo': active}))
+        .patch(
+          _uri('/api/productos/${product.id}/estado'),
+          headers: _headers,
+          body: jsonEncode({'activo': active}),
+        )
         .timeout(ApiConfig.timeout);
     _body(response);
     final index = _products.indexWhere((item) => item.id == product.id);
@@ -308,9 +403,9 @@ class ProductProvider extends ChangeNotifier {
     if (trimmed.isEmpty) return null;
     final response = await http
         .get(
-            _uri(
-                '/api/productos/codigo-barras/${Uri.encodeComponent(trimmed)}'),
-            headers: _headers)
+          _uri('/api/productos/codigo-barras/${Uri.encodeComponent(trimmed)}'),
+          headers: _headers,
+        )
         .timeout(ApiConfig.timeout);
     if (response.statusCode == 404) return null;
     return _productFromApi(_body(response)['data'] as Map<String, dynamic>);
@@ -333,15 +428,18 @@ class ProductProvider extends ChangeNotifier {
     final response = await http
         .post(_uri(path), headers: _headers, body: jsonEncode(payload))
         .timeout(ApiConfig.timeout);
-    var saved = _groupFromApi(_body(response)['data'] as Map<String, dynamic>,
-        parentId: group.parentId);
+    var saved = _groupFromApi(
+      _body(response)['data'] as Map<String, dynamic>,
+      parentId: group.parentId,
+    );
     if (group.imageBase64 != null && group.imageBase64!.isNotEmpty) {
       saved = _groupFromApi(
         await _uploadRaw(
-            saved.isSubgroup
-                ? '/api/subrubros/${saved.id}/imagen'
-                : '/api/rubros/${saved.id}/imagen',
-            group.imageBase64!),
+          saved.isSubgroup
+              ? '/api/subrubros/${saved.id}/imagen'
+              : '/api/rubros/${saved.id}/imagen',
+          group.imageBase64!,
+        ),
         parentId: group.parentId,
       );
     }
@@ -352,16 +450,19 @@ class ProductProvider extends ChangeNotifier {
 
   Future<ProductTax> saveTax(ProductTax tax) async {
     final response = await http
-        .post(_uri('/api/alicuotas'),
-            headers: _headers,
-            body: jsonEncode({
-              'nombre': tax.name,
-              'descripcion': tax.description,
-              'porcentaje': tax.percentage,
-            }))
+        .post(
+          _uri('/api/alicuotas'),
+          headers: _headers,
+          body: jsonEncode({
+            'nombre': tax.name,
+            'descripcion': tax.description,
+            'porcentaje': tax.percentage,
+          }),
+        )
         .timeout(ApiConfig.timeout);
-    final saved =
-        ProductTax.fromJson(_body(response)['data'] as Map<String, dynamic>);
+    final saved = ProductTax.fromJson(
+      _body(response)['data'] as Map<String, dynamic>,
+    );
     _taxes.add(saved);
     notifyListeners();
     return saved;
@@ -371,19 +472,28 @@ class ProductProvider extends ChangeNotifier {
     final request = http.MultipartRequest('POST', _uri(path))
       ..headers[ApiConfig.apiKeyHeader] = ApiConfig.apiKeyValue
       ..headers.addAll(
-          _token.isEmpty ? const {} : {'Authorization': 'Bearer $_token'})
-      ..files.add(http.MultipartFile.fromBytes('Imagen', base64Decode(base64),
-          filename: 'imagen.png'));
+        _token.isEmpty ? const {} : {'Authorization': 'Bearer $_token'},
+      )
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'Imagen',
+          base64Decode(base64),
+          filename: 'imagen.png',
+        ),
+      );
     final response = await http.Response.fromStream(
-        await request.send().timeout(ApiConfig.timeout));
+      await request.send().timeout(ApiConfig.timeout),
+    );
     return _body(response)['data'] as Map<String, dynamic>;
   }
 
   Map<String, dynamic> _body(http.Response response) {
     final body = decodeApiResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(body['error']?.toString() ??
-          'Error del servidor (${response.statusCode}).');
+      throw Exception(
+        body['error']?.toString() ??
+            'Error del servidor (${response.statusCode}).',
+      );
     }
     return body;
   }

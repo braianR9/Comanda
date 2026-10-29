@@ -22,7 +22,11 @@ public class CajaService(AppDbContext context)
     // Usado por otros servicios (ventas) para bloquear operaciones sin caja abierta.
     public async Task RequireOpenAsync(int company, int branch)
     {
-        var open = await context.Cajas.AnyAsync(c => c.IdEmpresa == company && c.IdSucursal == branch && c.Estado == "Abierta");
+        var open = context.Database.CurrentTransaction == null
+            ? await context.Cajas.AnyAsync(c => c.IdEmpresa == company && c.IdSucursal == branch && c.Estado == "Abierta")
+            : (await context.Cajas.FromSqlInterpolated(
+                $"SELECT * FROM cajas WHERE id_empresa={company} AND id_sucursal={branch} AND estado='Abierta' FOR UPDATE")
+                .AsNoTracking().FirstOrDefaultAsync()) != null;
         if (!open) throw new CajaException("No hay una caja abierta en esta sucursal. Abrí la caja para poder vender.", 409);
     }
 
@@ -52,9 +56,25 @@ public class CajaService(AppDbContext context)
 
     public async Task<CajaDto> CerrarAsync(int company, int branch, int user, int id, CerrarCajaRequest request)
     {
-        var caja = await context.Cajas.FirstOrDefaultAsync(c => c.Id == id && c.IdEmpresa == company && c.IdSucursal == branch)
-            ?? throw new CajaException("Caja no encontrada.", 404);
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync() : null;
+        // Creation of orders and recording of payments lock the same cash row.
+        // Check pending accounts after acquiring this lock so closing cannot race them.
+        var caja = await context.Cajas.FromSqlInterpolated(
+            $"SELECT * FROM cajas WHERE id_caja={id} AND id_empresa={company} AND id_sucursal={branch} FOR UPDATE")
+            .FirstOrDefaultAsync() ?? throw new CajaException("Caja no encontrada.", 404);
         if (caja.Estado != "Abierta") throw new CajaException("Esta caja ya está cerrada.", 409);
+
+        var pending = await context.Orders.AsNoTracking()
+            .Where(o => o.IdEmpresa == company && o.IdSucursal == branch &&
+                (o.Estado == "Abierta" || o.Estado == "EnPedido" || o.Estado == "PedidoEnviado" || o.Estado == "ConCambios"))
+            .OrderBy(o => o.Numero)
+            .Select(o => new { o.Numero, Mesa = o.Table.Nombre }).Take(6).ToListAsync();
+        if (pending.Count > 0)
+        {
+            var names = string.Join(", ", pending.Take(5).Select(o => $"{o.Mesa} (venta {o.Numero})"));
+            throw new CajaException($"No se puede cerrar la caja: hay cuentas pendientes en {names}{(pending.Count > 5 ? ", …" : "")}. Cobralas o anulalas antes de cerrar.", 409);
+        }
 
         var cierre = DateTime.UtcNow;
         var totals = await ComputeTotalsAsync(caja, cierre);
@@ -76,6 +96,7 @@ public class CajaService(AppDbContext context)
             context.CajaCierreDetalles.Add(new CajaCierreDetalle { CajaId = caja.Id, MedioPago = item.MedioPago, Total = item.Total });
 
         await context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         var reloaded = await Query(company).FirstAsync(c => c.Id == caja.Id);
         return await MapAsync(reloaded);
     }
@@ -132,6 +153,18 @@ public class CajaService(AppDbContext context)
             .GroupBy(p => p.PaymentTypeName)
             .Select(g => new CajaMedioPagoDto { MedioPago = g.Key, Total = g.Sum(p => p.Amount) })
             .ToListAsync();
+
+        var refunds = await (from r in context.SaleRefunds.AsNoTracking()
+            join v in context.SaleVoids on r.OrderId equals v.OrderId
+            where v.CashId == caja.Id && v.Date <= hasta
+            group r by r.PaymentTypeName into g
+            select new { Method = g.Key, Amount = g.Sum(r => r.Amount) }).ToListAsync();
+        foreach (var refund in refunds)
+        {
+            var method = pagos.FirstOrDefault(p => p.MedioPago == refund.Method);
+            if (method == null) pagos.Add(new CajaMedioPagoDto { MedioPago = refund.Method, Total = -refund.Amount });
+            else method.Total -= refund.Amount;
+        }
 
         var movimientos = await context.CajaMovimientos.AsNoTracking()
             .Where(m => m.CajaId == caja.Id && m.Fecha <= hasta).ToListAsync();

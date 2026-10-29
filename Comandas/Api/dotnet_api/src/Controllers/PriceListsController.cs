@@ -13,22 +13,27 @@ public class PriceListsController(PriceListService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<List<PriceListDto>>>> GetAll() =>
         await Run(() => service.ListAsync(Company));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost]
     public async Task<ActionResult<ApiResponse<PriceListDto>>> Create(CreatePriceListRequest request) =>
         await Run(() => service.CreateAsync(Company, request), 201);
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ApiResponse<PriceListDto>>> Rename(int id, UpdatePriceListRequest request) =>
         await Run(() => service.RenameAsync(Company, id, request));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPatch("{id:int}/estado")]
     public async Task<ActionResult<ApiResponse<PriceListDto>>> SetStatus(int id, PriceListStatusRequest request) =>
         await Run(() => service.SetActiveAsync(Company, id, request.Activa));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPatch("{id:int}/predeterminada")]
     public async Task<ActionResult<ApiResponse<PriceListDto>>> SetDefault(int id) =>
         await Run(() => service.SetDefaultAsync(Company, id));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(int id) =>
         await Run(async () => { await service.DeleteAsync(Company, id); return (object)new { id }; });
@@ -39,18 +44,22 @@ public class PriceListsController(PriceListService service) : ControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 30) =>
         await Run(() => service.GetPricesAsync(Company, id, idRubro, idSubRubro, texto, page, pageSize));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}/precios/{productId:int}")]
     public async Task<ActionResult<ApiResponse<ProductPriceDto>>> SetPrice(int id, int productId, SetProductPriceRequest request) =>
         await Run(() => service.SetPriceAsync(Company, id, productId, request.Precio, Actor));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/precios/vista-previa-masiva")]
     public async Task<ActionResult<ApiResponse<List<BulkPricePreviewItem>>>> PreviewBulk(int id, BulkPriceOperationRequest request) =>
         await Run(() => service.PreviewBulkAsync(Company, id, request));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/precios/aplicar-masivo")]
     public async Task<ActionResult<ApiResponse<object>>> ApplyBulk(int id, BulkPriceOperationRequest request) =>
         await Run(async () => (object)new { actualizados = await service.ApplyBulkAsync(Company, id, request, Actor) });
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("planilla")]
     public async Task<ActionResult<ApiResponse<object>>> SaveGrid(SavePriceGridRequest request) =>
         await Run(async () => (object)new { actualizados = await service.SaveGridAsync(Company, request.Cambios, Actor) });
@@ -63,6 +72,7 @@ public class PriceListsController(PriceListService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<List<PriceHistory>>>> HistoryDetails(Guid batch) =>
         await Run(() => service.HistoryDetailsAsync(Company, batch));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost("historial/{batch:guid}/revertir")]
     public async Task<ActionResult<ApiResponse<object>>> Revert(Guid batch) =>
         await Run(async () => (object)new { actualizados = await service.RevertAsync(Company, batch, Actor) });
@@ -71,10 +81,12 @@ public class PriceListsController(PriceListService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ScheduledPriceRule>>>> Rules(int id) =>
         await Run(() => service.RulesAsync(Company, id));
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPost("{id:int}/reglas")]
     public async Task<ActionResult<ApiResponse<ScheduledPriceRule>>> CreateRule(int id, SaveScheduledPriceRuleRequest request) =>
         await Run(() => service.SaveRuleAsync(Company, id, null, request, Actor), 201);
 
+    [Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}/reglas/{ruleId:int}")]
     public async Task<ActionResult<ApiResponse<ScheduledPriceRule>>> UpdateRule(int id, int ruleId, SaveScheduledPriceRuleRequest request) =>
         await Run(() => service.SaveRuleAsync(Company, id, ruleId, request, Actor));

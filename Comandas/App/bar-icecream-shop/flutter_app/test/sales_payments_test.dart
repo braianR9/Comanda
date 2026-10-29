@@ -1,17 +1,17 @@
-import 'package:bar_icecream_shop/models/product.dart';
-import 'package:bar_icecream_shop/providers/caja_provider.dart';
-import 'package:bar_icecream_shop/providers/price_list_provider.dart';
+import 'package:focobr/models/product.dart';
+import 'package:focobr/providers/caja_provider.dart';
+import 'package:focobr/providers/price_list_provider.dart';
 import 'dart:async';
 
-import 'package:bar_icecream_shop/models/payment_amounts.dart';
-import 'package:bar_icecream_shop/models/restaurant_table.dart';
-import 'package:bar_icecream_shop/models/sector.dart';
-import 'package:bar_icecream_shop/models/user_session.dart';
-import 'package:bar_icecream_shop/providers/auth_provider.dart';
-import 'package:bar_icecream_shop/providers/product_provider.dart';
-import 'package:bar_icecream_shop/providers/sales_provider.dart';
-import 'package:bar_icecream_shop/providers/sector_provider.dart';
-import 'package:bar_icecream_shop/screens/sales/sales_screen.dart';
+import 'package:focobr/models/payment_amounts.dart';
+import 'package:focobr/models/restaurant_table.dart';
+import 'package:focobr/models/sector.dart';
+import 'package:focobr/models/user_session.dart';
+import 'package:focobr/providers/auth_provider.dart';
+import 'package:focobr/providers/product_provider.dart';
+import 'package:focobr/providers/sales_provider.dart';
+import 'package:focobr/providers/sector_provider.dart';
+import 'package:focobr/screens/sales/sales_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,7 +25,8 @@ SaleSnapshot snapshot(
         double adjustment = 0,
         bool hasPayment = false,
         List<int> joinedTableIds = const [],
-        int quantity = 1}) =>
+        int quantity = 1,
+        double unitPrice = 100}) =>
     SaleSnapshot.fromJson({
       'id': 1,
       'number': 1,
@@ -44,7 +45,7 @@ SaleSnapshot snapshot(
           'id': 1,
           'productId': 1,
           'name': 'Café',
-          'unitPrice': 100,
+          'unitPrice': unitPrice,
           'quantity': quantity
         }
       ],
@@ -53,6 +54,9 @@ SaleSnapshot snapshot(
 class FakeSales extends SalesProvider {
   SaleSnapshot current = snapshot();
   int paymentCalls = 0;
+  int priceCalls = 0;
+  int stockChecks = 0;
+  bool cashOpen = true;
   int checkoutCalls = 0;
   int cancellationCalls = 0;
   bool failCheckout = true;
@@ -60,6 +64,26 @@ class FakeSales extends SalesProvider {
   Completer<void>? paymentGate;
   List<SaleCatalogItem> methods = [const SaleCatalogItem(1, 'Efectivo')];
   List<SalePaymentInput> submitted = [];
+  @override
+  Future<void> validateStock(List<SaleLine> lines) async {
+    stockChecks++;
+    await requireOpenCash();
+  }
+
+  @override
+  Future<void> requireOpenCash() async {
+    if (!cashOpen) throw Exception('No hay una caja abierta en esta sucursal.');
+  }
+
+  @override
+  Future<SaleSnapshot> changeItemPrice(
+      int saleId, int itemId, int version, double price) async {
+    priceCalls++;
+    expect(version, current.version);
+    return current =
+        snapshot(version: version + 1, unitPrice: price, total: price * .9);
+  }
+
   @override
   Future<List<SaleSnapshot>> getActiveSales() async => [current];
   @override
@@ -124,6 +148,8 @@ class FakeSales extends SalesProvider {
 }
 
 class FakeAuth extends AuthProvider {
+  final String role;
+  FakeAuth([this.role = 'ADMIN']);
   @override
   UserSession get session => UserSession.fromJson({
         'id': 1,
@@ -149,7 +175,7 @@ class FakeAuth extends AuthProvider {
           'telefono': '',
           'activa': true
         },
-        'rol': {'id': 1, 'nombre': 'ADMIN'},
+        'rol': {'id': 1, 'nombre': role},
       });
 }
 
@@ -204,21 +230,29 @@ class FakeSalePrices extends PriceListProvider {
 }
 
 Future<void> openSale(WidgetTester tester, FakeSales sales,
-    {FakeProducts? products, FakeSalePrices? prices}) async {
+    {FakeProducts? products,
+    FakeSalePrices? prices,
+    String role = 'ADMIN'}) async {
   tester.view.physicalSize = const Size(1400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MultiProvider(providers: [
-    ChangeNotifierProvider<AuthProvider>(create: (_) => FakeAuth()),
-    ChangeNotifierProvider<SalesProvider>.value(value: sales),
-    ChangeNotifierProvider<SectorProvider>(create: (_) => FakeSectors()),
-    ChangeNotifierProvider<ProductProvider>(
-        create: (_) => products ?? FakeProducts()),
-    ChangeNotifierProvider<CajaProvider>(create: (_) => FakeCaja()),
-    ChangeNotifierProvider<PriceListProvider>(
-        create: (_) => prices ?? FakeSalePrices()),
-  ], child: const MaterialApp(home: SalesScreen())));
+  await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>(create: (_) => FakeAuth(role)),
+        ChangeNotifierProvider<SalesProvider>.value(value: sales),
+        ChangeNotifierProvider<SectorProvider>(create: (_) => FakeSectors()),
+        ChangeNotifierProvider<ProductProvider>(
+            create: (_) => products ?? FakeProducts()),
+        ChangeNotifierProvider<CajaProvider>(create: (_) => FakeCaja()),
+        ChangeNotifierProvider<PriceListProvider>(
+            create: (_) => prices ?? FakeSalePrices()),
+      ],
+      child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!),
+          home: const SalesScreen())));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Mesa 1'));
   await tester.pumpAndSettle();
@@ -226,6 +260,73 @@ Future<void> openSale(WidgetTester tester, FakeSales sales,
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  testWidgets('closed cash blocks payment before showing the payment modal',
+      (tester) async {
+    final sales = FakeSales()..cashOpen = false;
+    await openSale(tester, sales);
+    await tester.tap(find.text('Cobrar cuenta'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmar cobro'), findsNothing);
+    expect(find.textContaining('No hay una caja abierta'), findsOneWidget);
+    expect(sales.paymentCalls, 0);
+    expect(sales.checkoutCalls, 0);
+  });
+
+  testWidgets('closed cash does not let a draft increase its quantity',
+      (tester) async {
+    final sales = FakeSales()..cashOpen = false;
+    await openSale(tester, sales);
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('Enviar cambios'), findsNothing);
+    expect(find.textContaining('No hay una caja abierta'), findsOneWidget);
+  });
+
+  testWidgets(
+      'employees take and change orders without payment or price controls',
+      (tester) async {
+    final sales = FakeSales();
+    await openSale(tester, sales, role: 'EMPLEADO');
+    expect(find.text('Cobrar cuenta'), findsNothing);
+    expect(find.text('Aplicar descuento'), findsNothing);
+    expect(find.text('Cambiar descuento'), findsNothing);
+    expect(find.byTooltip('Editar precio para esta cuenta'), findsNothing);
+    expect(find.text('Pedido enviado. Caja se encarga del cobro.'),
+        findsOneWidget);
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pumpAndSettle();
+    expect(sales.stockChecks, 1);
+    expect(find.text('Enviar cambios'), findsOneWidget);
+    expect(sales.paymentCalls, 0);
+  });
+
+  testWidgets('Caja can edit the price for an account before collecting',
+      (tester) async {
+    final sales = FakeSales();
+    await openSale(tester, sales, role: 'CAJA');
+    expect(find.text('Cobrar cuenta'), findsOneWidget);
+    await tester.tap(find.byTooltip('Editar precio para esta cuenta'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField), '150,00');
+    await tester.tap(find.text('Guardar precio'));
+    await tester.pumpAndSettle();
+    expect(sales.priceCalls, 1);
+    expect(sales.current.items.single.unitPrice, 150);
+    expect(sales.current.total, 135);
+    expect(find.text('Cobrar cuenta'), findsOneWidget);
+    expect(find.text('Enviar cambios'), findsNothing);
+  });
+
+  test(
+      'legacy Encargado sessions are shown as Caja and retain checkout permission',
+      () {
+    final legacy = FakeAuth('ENCARGADO').session;
+    expect(legacy.rol.nombre, 'CAJA');
+    expect(legacy.canCheckout, isTrue);
+    expect(FakeAuth('EMPLEADO').session.canCheckout, isFalse);
+  });
 
   testWidgets(
       'catalog and new line use server prices, including a boundary change',
@@ -337,7 +438,12 @@ void main() {
     await tester.tap(find.text('Completar cobro'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(double.parse(tester.widget<TextFormField>(find.byType(TextFormField)).controller!.text), 50);
+    expect(
+        double.parse(tester
+            .widget<TextFormField>(find.byType(TextFormField))
+            .controller!
+            .text),
+        50);
     await tester.tap(find.text('Confirmar cobro'));
     await tester.pumpAndSettle();
     expect(sales.paymentCalls, 1);
@@ -434,7 +540,9 @@ void main() {
     });
   }
 
-  testWidgets('second payment prefills remainder and can refresh after editing first', (tester) async {
+  testWidgets(
+      'second payment prefills remainder and can refresh after editing first',
+      (tester) async {
     await openSale(tester, FakeSales());
     await tester.tap(find.text('Cobrar cuenta'));
     await tester.pump();
@@ -442,16 +550,28 @@ void main() {
     await tester.enterText(find.byType(TextFormField), '40');
     await tester.tap(find.text('Agregar otro medio de pago'));
     await tester.pump();
-    expect(tester.widget<TextFormField>(find.byType(TextFormField).last).controller!.text, '50.00');
-    expect(find.text('Saldo luego de los medios anteriores: \$50.00'), findsOneWidget);
+    expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).last)
+            .controller!
+            .text,
+        '50.00');
+    expect(find.text('Saldo luego de los medios anteriores: \$50.00'),
+        findsOneWidget);
     expect(find.text('Falta asignar: \$0.00'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).first, '30');
     await tester.pump();
-    expect(find.text('Saldo luego de los medios anteriores: \$60.00'), findsOneWidget);
+    expect(find.text('Saldo luego de los medios anteriores: \$60.00'),
+        findsOneWidget);
     expect(find.text('Falta asignar: \$10.00'), findsOneWidget);
     await tester.tap(find.text('Completar saldo con este medio'));
     await tester.pump();
-    expect(tester.widget<TextFormField>(find.byType(TextFormField).last).controller!.text, '60.00');
+    expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).last)
+            .controller!
+            .text,
+        '60.00');
     expect(find.text('Falta asignar: \$0.00'), findsOneWidget);
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();

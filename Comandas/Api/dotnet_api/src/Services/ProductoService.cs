@@ -11,7 +11,7 @@ public sealed class ProductoException(string message, int statusCode = 400) : Ex
     public int StatusCode { get; } = statusCode;
 }
 
-public class ProductoService
+public partial class ProductoService
 {
     private readonly AppDbContext _context;
     private readonly PriceListService _priceLists;

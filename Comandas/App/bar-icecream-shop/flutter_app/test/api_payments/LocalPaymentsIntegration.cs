@@ -18,6 +18,12 @@ static class LocalPaymentsIntegration
         {
             var seed = await db.Orders.AsNoTracking().Include(s => s.Items)
                 .FirstAsync(s => s.Items.Any());
+            if (!await db.Cajas.AnyAsync(c => c.IdEmpresa == seed.IdEmpresa && c.IdSucursal == seed.IdSucursal && c.Estado == "Abierta"))
+            {
+                db.Cajas.Add(new Caja { IdEmpresa = seed.IdEmpresa, IdSucursal = seed.IdSucursal,
+                    UsuarioAperturaId = seed.UsuarioId, FechaApertura = DateTime.UtcNow, Estado = "Abierta" });
+                await db.SaveChangesAsync();
+            }
             var product = seed.Items[0];
             var sale = new Order {
                 IdEmpresa = seed.IdEmpresa, IdSucursal = seed.IdSucursal, TableId = seed.TableId,

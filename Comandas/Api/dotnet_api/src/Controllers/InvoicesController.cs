@@ -5,16 +5,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace BarIceCreamShop.Api.Controllers;
 
-[ApiController, Authorize]
+[ApiController, Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy)]
 public class InvoicesController(InvoiceService invoices, AfipCredentialService credentials) : ControllerBase
 {
     private int Company => int.Parse(User.FindFirstValue("id_empresa")!);
     private int Branch => int.Parse(User.FindFirstValue("id_sucursal")!);
     private int Actor => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    private bool Manager => User.FindFirstValue("rol_nombre") is "ADMIN" or "ENCARGADO";
+    private bool Manager => User.FindFirstValue("rol_nombre") is "ADMIN" or "CAJA" or "ENCARGADO";
     private async Task<IActionResult> Run(Func<Task<object>> action, bool manager = false)
     {
-        if (manager && !Manager) return StatusCode(403, ApiResponse<object>.Fail("Requiere ADMIN o ENCARGADO.", 403));
+        if (manager && !Manager) return StatusCode(403, ApiResponse<object>.Fail("Requiere ADMIN o CAJA.", 403));
         try { return Ok(ApiResponse<object>.Ok(await action())); }
         catch (InvoiceException e) { return StatusCode(e.StatusCode, ApiResponse<object>.Fail(e.Message, e.StatusCode)); }
         catch (AfipException e)

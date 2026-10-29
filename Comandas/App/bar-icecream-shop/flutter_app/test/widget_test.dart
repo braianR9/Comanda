@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:bar_icecream_shop/screens/auth/login_screen.dart';
-import 'package:bar_icecream_shop/providers/auth_provider.dart';
+import 'package:focobr/screens/auth/login_screen.dart';
+import 'package:focobr/providers/auth_provider.dart';
 
 void main() {
   testWidgets('Login screen renders correctly', (WidgetTester tester) async {

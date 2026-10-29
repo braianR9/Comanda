@@ -7,13 +7,14 @@ namespace BarIceCreamShop.Api.Services;
 public sealed class UsuarioService(AppDbContext db)
 {
     public async Task<List<RolDto>> ListRoles() =>
-        await db.Roles.AsNoTracking().OrderBy(r => r.Nombre)
-            .Select(r => new RolDto { Id = r.Id, Nombre = r.Nombre }).ToListAsync();
+        await db.Roles.AsNoTracking().Where(r => r.Nombre == "ADMIN" || r.Nombre == "CAJA" || r.Nombre == "ENCARGADO" || r.Nombre == "EMPLEADO").OrderBy(r => r.Nombre)
+            .Select(r => new RolDto { Id = r.Id, Nombre = r.Nombre == "ENCARGADO" ? "CAJA" : r.Nombre }).ToListAsync();
 
     public async Task<List<UsuarioDto>> List(int company, string? search, bool includeInactive)
     {
         var query = db.Usuarios.AsNoTracking()
             .Include(u => u.Rol)
+            .Include(u => u.Sucursal)
             .Include(u => u.SectorAsignado)
             .Include(u => u.MesasExcluidas)
             .Where(u => u.IdEmpresa == company && (includeInactive || u.Activo));
@@ -29,7 +30,7 @@ public sealed class UsuarioService(AppDbContext db)
     }
 
     public async Task<UsuarioDto?> Get(int company, int id) =>
-        await db.Usuarios.AsNoTracking().Include(u => u.Rol)
+        await db.Usuarios.AsNoTracking().Include(u => u.Rol).Include(u => u.Sucursal)
             .Include(u => u.SectorAsignado).Include(u => u.MesasExcluidas)
             .Where(u => u.IdEmpresa == company && u.Id == id)
             .Select(u => Dto(u)).SingleOrDefaultAsync();
@@ -55,13 +56,13 @@ public sealed class UsuarioService(AppDbContext db)
         return await Reload(company, entity.Id);
     }
 
-    public async Task<UsuarioDto> Update(int company, int id, UsuarioRequest r)
+    public async Task<UsuarioDto> Update(int company, int id, UsuarioRequest r, bool enforceLastAdmin = true)
     {
         Validate(r, requirePassword: false);
         await ValidateRol(company, r.IdRol);
         var entity = await Entity(company, id);
         await ValidateEmailUnique(r.Email, id);
-        if (entity.Rol?.Nombre == "ADMIN" && (!r.Activo || await IsOtherRol(r.IdRol)))
+        if (enforceLastAdmin && entity.Rol?.Nombre == "ADMIN" && (!r.Activo || await IsOtherRol(r.IdRol)))
             await EnsureNotLastActiveAdmin(company, id);
         var (sectorId, excludedIds) = await NormalizeAssignment(company, r);
         Apply(entity, r);
@@ -116,7 +117,8 @@ public sealed class UsuarioService(AppDbContext db)
 
     private async Task ValidateRol(int company, int idRol)
     {
-        if (!await db.Roles.AsNoTracking().AnyAsync(r => r.Id == idRol))
+        if (!await db.Roles.AsNoTracking().AnyAsync(r => r.Id == idRol &&
+            (r.Nombre == "ADMIN" || r.Nombre == "CAJA" || r.Nombre == "ENCARGADO" || r.Nombre == "EMPLEADO")))
             throw new SaleException("El rol seleccionado no es válido.", 400);
     }
 
@@ -161,6 +163,8 @@ public sealed class UsuarioService(AppDbContext db)
             throw new SaleException("La contraseña es obligatoria.");
         if (!string.IsNullOrWhiteSpace(r.Password) && r.Password.Trim().Length < 6)
             throw new SaleException("La contraseña debe tener al menos 6 caracteres.");
+        if (!string.IsNullOrWhiteSpace(r.Password) && System.Text.Encoding.UTF8.GetByteCount(r.Password.Trim()) > 72)
+            throw new SaleException("La contraseña no debe superar 72 bytes.");
     }
 
     private static void Apply(Usuario entity, UsuarioRequest r)
@@ -179,7 +183,7 @@ public sealed class UsuarioService(AppDbContext db)
         Apellido = u.Apellido,
         Email = u.Email,
         IdRol = u.IdRol,
-        RolNombre = u.Rol?.Nombre ?? string.Empty,
+        RolNombre = Security.SalePermissions.RoleName(u.Rol?.Nombre ?? string.Empty),
         IdSucursal = u.IdSucursal,
         SucursalNombre = u.Sucursal?.Nombre ?? string.Empty,
         Activo = u.Activo,

@@ -6,10 +6,12 @@ using BarIceCreamShop.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using BarIceCreamShop.Api.Security;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
-    Args = args,
+    Args = args.Contains("--setup-systems") ? Array.Empty<string>() : args,
     ContentRootPath = AppContext.BaseDirectory,
 });
 
@@ -19,6 +21,12 @@ builder.Configuration
     // Secretos de cada instalación (no versionado). Ver appsettings.Local.example.json.
     .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
+
+if (args.Contains("--setup-systems"))
+{
+    await SystemsSetup.Run(builder.Configuration, args);
+    return;
+}
 
 // ─── Secretos obligatorios ──────────────────────────────────────────────────
 var missingSecrets = new List<string>();
@@ -48,6 +56,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ─── Servicios de la aplicación ─────────────────────────────────────────────
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<SaleVoidService>();
 builder.Services.AddScoped<TableService>();
 builder.Services.AddScoped<PrinterService>();
 builder.Services.AddScoped<PrinterConfigurationService>();
@@ -61,6 +70,22 @@ builder.Services.AddScoped<CatalogosService>();
 builder.Services.AddScoped<StockMovementService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<UsuarioService>();
+builder.Services.AddScoped<SystemAdminService>();
+builder.Services.AddSingleton<SystemEventSink>();
+builder.Services.AddSingleton<ILoggerProvider, SystemErrorLoggerProvider>();
+builder.Services.AddHostedService<SystemEventWorker>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    options.AddPolicy("systems-login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = 10, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
+    options.AddPolicy("client-errors", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.OnRejected = async (context, cancellation) => await context.HttpContext.Response.WriteAsJsonAsync(
+        BarIceCreamShop.Api.Models.ApiResponse<object>.Fail("Demasiados intentos. Volvé a probar en unos minutos.", 429), cancellation);
+});
 builder.Services.AddScoped<ReportsService>();
 builder.Services.AddScoped<CajaService>();
 builder.Services.AddScoped<PurchaseService>();
@@ -76,7 +101,7 @@ if (builder.Configuration.GetValue("Workers:GoogleSheets", true))
     builder.Services.AddHostedService<GoogleSheetSyncWorker>();
 
 // ─── Controllers ────────────────────────────────────────────────────────────
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.Add<SystemErrorResultFilter>())
     .AddNewtonsoftJson();
 
 // ─── CORS para Flutter Web (desarrollo + orígenes extra en Cors:Origins) ───
@@ -98,6 +123,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents { OnTokenValidated = SystemsOwner.ValidateSession };
         var jwt = builder.Configuration.GetSection("Jwt");
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -110,7 +136,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!))
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(SystemsOwner.Policy, policy => policy.RequireAuthenticatedUser()
+        .RequireAssertion(context => SystemsOwner.IsOwner(context.User, builder.Configuration)));
+    options.AddPolicy(BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy,
+        policy => policy.RequireAssertion(context =>
+            BarIceCreamShop.Api.Security.SalePermissions.CanCollect(context.User)));
+});
 
 // ─── Swagger ────────────────────────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
@@ -183,6 +216,8 @@ if ((builder.Configuration["Urls"] ?? string.Empty).Contains("https://", StringC
 }
 app.UseRouting();
 app.UseCors("FlutterDevCors");
+app.UseMiddleware<SystemErrorMiddleware>();
+app.UseRateLimiter();
 // CORS must handle browser preflight before the API-key check.
 app.UseMiddleware<ApiKeyMiddleware>();
 app.UseAuthentication();

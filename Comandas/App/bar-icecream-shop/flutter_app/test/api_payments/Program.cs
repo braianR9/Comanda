@@ -4,6 +4,52 @@ using System.Globalization;
 using BarIceCreamShop.Api.Models;
 using BarIceCreamShop.Api.Services;
 
+if (args.Contains("--test-sale-void"))
+{
+    await SaleVoidRegression.Run();
+    return;
+}
+
+if (args.Contains("--write-product-template") || args.Contains("--test-product-template"))
+{
+    var index = Array.IndexOf(args, "--template");
+    var path = index >= 0 ? args[index + 1] : "assets/templates/plantilla_productos_focobr.xlsx";
+    if (args.Contains("--write-product-template")) ProductImportTemplateRegression.Generate(path);
+    ProductImportTemplateRegression.Run(path);
+    return;
+}
+
+if (args.Contains("--test-systems"))
+{
+    await SystemsAdminRegression.Run();
+    return;
+}
+
+if (args.Contains("--test-cash-closing"))
+{
+    await CashClosingRegression.Run();
+    return;
+}
+
+if (args.Contains("--test-cashier"))
+{
+    await CashierRegression.Run();
+    return;
+}
+
+if (args.Contains("--test-stock-sale"))
+{
+    await StockSaleRegression.Run();
+    return;
+}
+
+if (args.Contains("--test-product-import"))
+{
+    var index = Array.IndexOf(args, "--workbook");
+    ProductImportRegression.Run(index >= 0 ? args[index + 1] : null);
+    return;
+}
+
 if (args.Contains("--test-afip"))
 {
     await AfipRegression.Run(live: args.Contains("--live"));

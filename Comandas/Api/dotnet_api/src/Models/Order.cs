@@ -155,6 +155,9 @@ public class SaleCounter
 public record SaleItemRequest([param: Range(1, int.MaxValue)] int ProductId, [param: Range(typeof(decimal), "0.001", "999999999999999.999", ParseLimitsInInvariantCulture = true)] decimal Quantity, [param: MaxLength(500)] string? Comment);
 public record CreateSaleRequest([param: Range(1, int.MaxValue)] int TableId, int? WaiterId, List<SaleItemRequest>? Items, int? PriceListId = null);
 public record UpdateSaleItemRequest([param: Range(typeof(decimal), "0.001", "999999999999999.999", ParseLimitsInInvariantCulture = true)] decimal Quantity, [param: MaxLength(500)] string? Comment, long? Version);
+public record ChangeSaleItemPriceRequest(
+    [param: Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal UnitPrice,
+    long Version);
 public record ChangeSalePriceListRequest([param: Range(1, int.MaxValue)] int PriceListId, bool RepreciarRenglonesExistentes, long? Version);
 public record ApplyDiscountRequest(int? DiscountId, string? Name, string Type, decimal Value, long? Version);
 public record PaymentRequest([param: Range(1, int.MaxValue)] int? PaymentTypeId, [param: Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal Amount, [param: MaxLength(500)] string? Reference, [param: Range(1, int.MaxValue)] int? CardId = null, decimal? BaseAmount = null);

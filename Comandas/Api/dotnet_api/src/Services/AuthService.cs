@@ -28,9 +28,12 @@ namespace BarIceCreamShop.Api.Services
                 .Include(u => u.Sucursal)
                 .Include(u => u.Rol)
                 .Include(u => u.MesasExcluidas)
-                .FirstOrDefaultAsync(u => u.Email == dto.Email && u.Activo);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.Trim().ToLower() && u.Activo &&
+                    u.Empresa.Activa && u.Sucursal.Activa && u.Sucursal.IdEmpresa == u.IdEmpresa);
 
             if (usuario == null)
+                return null;
+            if (usuario.PasswordHash.StartsWith("$2") && Encoding.UTF8.GetByteCount(dto.Password) > 72)
                 return null;
 
             // Contraseñas nuevas se guardan con BCrypt; las cuentas antiguas (texto plano)
@@ -53,7 +56,7 @@ namespace BarIceCreamShop.Api.Services
                 IdSucursal = usuario.IdSucursal,
                 Empresa    = usuario.Empresa,
                 Sucursal   = usuario.Sucursal,
-                Rol        = usuario.Rol,
+                Rol        = new Rol { Id = usuario.Rol.Id, Nombre = Security.SalePermissions.RoleName(usuario.Rol.Nombre) },
                 IdSectorAsignado   = usuario.IdSectorAsignado,
                 MesasExcluidasIds  = usuario.MesasExcluidas.Select(m => m.IdMesa).ToList(),
             };
@@ -67,7 +70,8 @@ namespace BarIceCreamShop.Api.Services
                 new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
                 new Claim(ClaimTypes.Email, usuario.Email),
                 new Claim(ClaimTypes.Role, usuario.IdRol.ToString()),
-                new Claim("rol_nombre", usuario.Rol.Nombre),
+                new Claim("rol_nombre", Security.SalePermissions.RoleName(usuario.Rol.Nombre)),
+                new Claim("session_stamp", Security.SystemsOwner.UserStamp(usuario.PasswordHash)),
                 new Claim("id_empresa", usuario.IdEmpresa.ToString()),
                 new Claim("id_sucursal", usuario.IdSucursal.ToString())
             };

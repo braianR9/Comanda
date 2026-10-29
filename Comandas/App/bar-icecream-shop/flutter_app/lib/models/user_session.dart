@@ -9,7 +9,8 @@ class Rol {
 
   factory Rol.fromJson(Map<String, dynamic> json) => Rol(
         id: json['id'] as int,
-        nombre: json['nombre'] as String,
+        nombre:
+            json['nombre'] == 'ENCARGADO' ? 'CAJA' : json['nombre'] as String,
       );
 }
 
@@ -48,7 +49,9 @@ class UserSession {
 
   String get nombreCompleto => '$nombre $apellido';
   bool get isAdmin => rol.nombre == 'ADMIN';
-  bool get isEncargado => rol.nombre == 'ENCARGADO';
+  bool get isCaja => rol.nombre == 'CAJA' || rol.nombre == 'ENCARGADO';
+  bool get isEncargado => isCaja;
+  bool get canCheckout => isAdmin || isCaja;
   bool get isEmpleado => rol.nombre == 'EMPLEADO';
 
   /// Ventas, sectores/maestros y catálogos ("configuraciones").

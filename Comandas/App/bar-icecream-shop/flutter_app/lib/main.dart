@@ -17,9 +17,11 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/brand_colors.dart';
+import 'utils/client_diagnostics.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ClientDiagnostics.install();
   final brand = BrandProvider();
   await brand.restoreLast();
   runApp(BarApp(brand: brand));
@@ -54,7 +56,7 @@ class BarApp extends StatelessWidget {
       ],
       child: Consumer<BrandProvider>(
         builder: (_, brand, __) => MaterialApp(
-          title: 'Foco',
+          title: 'focobr',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           home: const _AppEntry(),

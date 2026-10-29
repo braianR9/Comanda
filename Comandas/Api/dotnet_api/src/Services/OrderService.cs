@@ -24,15 +24,27 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         return value == null ? null : Map(value);
     }
 
+    private async Task RequireOpenCashAsync(int company, int branch)
+    {
+        try { await cajaService.RequireOpenAsync(company, branch); }
+        catch (CajaException ex) { throw new SaleException(ex.Message, ex.StatusCode); }
+    }
+
+    public async Task ValidateStockAsync(int company, int branch, IEnumerable<SaleItemRequest> items)
+    {
+        await RequireOpenCashAsync(company, branch);
+        await stockMovements.ValidateSelectionAsync(company, branch, items);
+    }
+
     public async Task<SaleDto> CreateAsync(int company, int branch, int user, CreateSaleRequest request)
     {
         if (request.Items == null || request.Items.Count == 0) throw new SaleException("La venta se abre al agregar el primer producto.");
-        try { await cajaService.RequireOpenAsync(company, branch); }
-        catch (CajaException e) { throw new SaleException(e.Message, e.StatusCode); }
+        await ValidateStockAsync(company, branch, request.Items);
         int priceListId;
         try { priceListId = await priceLists.ResolveSaleListIdAsync(company, branch, request.PriceListId); }
         catch (PriceListException e) { throw new SaleException(e.Message, e.StatusCode); }
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await RequireOpenCashAsync(company, branch);
         var table = await ValidateFreeTable(company, branch, request.TableId, null);
         var sale = new Order { IdEmpresa = company, IdSucursal = branch, Numero = await NextNumber(company, false, tx), TableId = request.TableId, MozoId = request.WaiterId, Estado = "EnPedido", FechaApertura = DateTime.UtcNow, UsuarioId = user, Version = 1, IdListaPrecio = priceListId };
         if (!table.EsMostrador) table.Status = "Ocupada";
@@ -43,20 +55,28 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
 
     public async Task<SaleDto> AddItemAsync(int company, int branch, int id, SaleItemRequest request)
     {
-        var sale = await Editable(company, branch, id); await AddOrMergeItem(sale, request.ProductId, request.Quantity, request.Comment);
+        var sale = await Editable(company, branch, id);
+        await ValidateStockAsync(company, branch, sale.Items.Where(i => i.Estado == "Activo")
+            .Select(i => new SaleItemRequest(i.ProductId, i.Quantity, i.Comment)).Append(request));
+        await AddOrMergeItem(sale, request.ProductId, request.Quantity, request.Comment);
         Changed(sale); Recalculate(sale); await context.SaveChangesAsync(); return (await GetAsync(company, branch, id))!;
     }
 
     public async Task<SaleDto> ReplaceItemsAsync(int company, int branch, int id, IEnumerable<SaleItemRequest> requests)
     {
+        var proposed = requests.ToList();
+        await ValidateStockAsync(company, branch, proposed);
         var sale = await Editable(company, branch, id); context.Set<OrderItem>().RemoveRange(sale.Items); sale.Items.Clear();
-        foreach (var item in requests) await AddOrMergeItem(sale, item.ProductId, item.Quantity, item.Comment);
+        foreach (var item in proposed) await AddOrMergeItem(sale, item.ProductId, item.Quantity, item.Comment);
         Changed(sale); Recalculate(sale); await context.SaveChangesAsync(); return (await GetAsync(company, branch, id))!;
     }
 
     public async Task<SaleDto> UpdateItemAsync(int company, int branch, int id, int itemId, UpdateSaleItemRequest request)
     {
         var sale = await Editable(company, branch, id, request.Version); var item = sale.Items.FirstOrDefault(i => i.Id == itemId) ?? throw new SaleException("Renglón no encontrado.", 404);
+        if (request.Quantity > item.Quantity)
+            await ValidateStockAsync(company, branch, sale.Items.Where(i => i.Estado == "Activo")
+                .Select(i => new SaleItemRequest(i.ProductId, i.Id == itemId ? request.Quantity : i.Quantity, i.Comment)));
         item.Quantity = request.Quantity; item.Comment = CleanComment(request.Comment); item.Subtotal = Money(item.UnitPrice * item.Quantity); item.FechaModificacion = DateTime.UtcNow;
         Changed(sale); Recalculate(sale); await context.SaveChangesAsync(); return (await GetAsync(company, branch, id))!;
     }
@@ -92,6 +112,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
     public async Task<CommandDto> SendCommandAsync(int company, int branch, int user, int id, long? version)
     {
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await RequireOpenCashAsync(company, branch);
         var sale = await Editable(company, branch, id, version); var previous = sale.Commands.OrderBy(c => c.Fecha).ToList();
         var sent = previous.SelectMany(c => c.Lines.Select(l => new { c.Fecha, Line = l })).GroupBy(x => x.Line.ProductId).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Fecha).First().Line.CurrentQuantity);
         var lastComments = previous.SelectMany(c => c.Lines.Select(l => new { c.Fecha, Line = l })).GroupBy(x => x.Line.ProductId).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Fecha).First().Line.Comment);
@@ -153,8 +174,29 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         return (await GetAsync(company, branch, id))!;
     }
 
+    public async Task<SaleDto> ChangeItemPriceAsync(int company, int branch, int id, int itemId, ChangeSaleItemPriceRequest request)
+    {
+        if (request.UnitPrice < 0 || request.UnitPrice > 9999999999999999.99m)
+            throw new SaleException("El precio no es válido.");
+        var sale = await Editable(company, branch, id, request.Version);
+        if (sale.Commands.Count == 0 || HasPendingKitchenChanges(sale))
+            throw new SaleException("Enviá el pedido y sus cambios antes de ajustar el precio para cobrar.", 409);
+        var item = sale.Items.FirstOrDefault(i => i.Id == itemId && i.Estado == "Activo")
+            ?? throw new SaleException("Renglón no encontrado.", 404);
+        item.UnitPrice = Money(request.UnitPrice);
+        item.Subtotal = Money(item.UnitPrice * item.Quantity);
+        item.FechaModificacion = DateTime.UtcNow;
+        sale.Version++;
+        Recalculate(sale);
+        await context.SaveChangesAsync();
+        return (await GetAsync(company, branch, id))!;
+    }
+
     public async Task<SaleDto> AddPaymentsAsync(int company, int branch, int user, int id, AddPaymentsRequest request)
     {
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync() : null;
+        await RequireOpenCashAsync(company, branch);
         var sale = await Editable(company, branch, id, request.Version, allowPayments: true);
         if (sale.Commands.Count == 0 || HasPendingKitchenChanges(sale)) throw new SaleException("Debe enviar la comanda y sus cambios antes de cobrar.", 409);
         if (request.Payments.Count == 0) throw new SaleException("Seleccioná un medio de pago.");
@@ -194,12 +236,16 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         sale.Payments.AddRange(pending);
         sale.Total = basis + sale.Payments.Sum(p => p.AdjustmentAmount);
         sale.Version++;
-        await context.SaveChangesAsync(); return (await GetAsync(company, branch, id))!;
+        await context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
+        return (await GetAsync(company, branch, id))!;
     }
 
     public async Task<SaleDto> CheckoutAsync(int company, int branch, int user, int id, long? version)
     {
-        await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable); var sale = await Editable(company, branch, id, version, allowPayments: true);
+        await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await RequireOpenCashAsync(company, branch);
+        var sale = await Editable(company, branch, id, version, allowPayments: true);
         if (sale.Commands.Count == 0 || HasPendingKitchenChanges(sale)) throw new SaleException("Debe enviar la comanda y sus cambios antes de cobrar.", 409);
         if (Money(sale.Payments.Sum(p => p.Amount)) != sale.Total) throw new SaleException("La suma de los pagos debe coincidir exactamente con el total.", 409);
         await stockMovements.ApplySaleAsync(sale, user);

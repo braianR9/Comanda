@@ -1,11 +1,11 @@
 {
-    "name": "bar_icecream_shop",
-    "short_name": "bar_icecream_shop",
+    "name": "focobr",
+    "short_name": "focobr",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "focobr - Gestión de pedidos y caja.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

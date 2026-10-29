@@ -4,6 +4,9 @@ import '../../models/invoice.dart';
 import '../../providers/auth_provider.dart';
 import '../purchases/purchase_api.dart';
 import 'invoice_dialogs.dart';
+import 'void_sale_dialog.dart';
+import '../../providers/caja_provider.dart';
+import '../../providers/product_provider.dart';
 
 String _dateTime(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} '
@@ -12,23 +15,35 @@ String _dateTime(DateTime d) =>
 String _money(num value) => '\$${value.toStringAsFixed(2)}';
 
 /// Comprobantes emitidos (con quién y cuándo) y ventas cobradas pendientes de facturar.
-class InvoicesScreen extends StatelessWidget {
-  const InvoicesScreen({super.key});
+class InvoicesScreen extends StatefulWidget {
+  final int initialTab;
+  final PurchaseApi? api;
+  const InvoicesScreen({super.key, this.initialTab = 0, this.api});
+  @override
+  State<InvoicesScreen> createState() => _InvoicesScreenState();
+}
+
+class _InvoicesScreenState extends State<InvoicesScreen> {
+  int _voidRevision = 0;
   @override
   Widget build(BuildContext context) {
-    final api = PurchaseApi(context.read<AuthProvider>().session!.token);
+    final api =
+        widget.api ?? PurchaseApi(context.read<AuthProvider>().session!.token);
     return DefaultTabController(
-      length: 2,
+      length: 3,
+      initialIndex: widget.initialTab,
       child: Scaffold(
         appBar: AppBar(
             title: const Text('Comprobantes electrónicos'),
             bottom: const TabBar(tabs: [
               Tab(text: 'Comprobantes emitidos'),
               Tab(text: 'Ventas sin facturar'),
+              Tab(text: 'Ventas anuladas'),
             ])),
         body: TabBarView(children: [
           _IssuedTab(api: api),
-          _PendingTab(api: api),
+          _PendingTab(api: api, onVoid: () => setState(() => _voidRevision++)),
+          _VoidedTab(key: ValueKey(_voidRevision), api: api),
         ]),
       ),
     );
@@ -385,6 +400,8 @@ class _Pending {
   final String table, cashier;
   final String? lastStatus, lastMessages, lastUser;
   final DateTime? lastAt;
+  final int version;
+  final bool canVoid;
   const _Pending(
       this.saleId,
       this.saleNumber,
@@ -395,12 +412,15 @@ class _Pending {
       this.lastStatus,
       this.lastMessages,
       this.lastUser,
-      this.lastAt);
+      this.lastAt,
+      this.version,
+      this.canVoid);
 }
 
 class _PendingTab extends StatefulWidget {
   final PurchaseApi api;
-  const _PendingTab({required this.api});
+  final VoidCallback onVoid;
+  const _PendingTab({required this.api, required this.onVoid});
   @override
   State<_PendingTab> createState() => _PendingTabState();
 }
@@ -427,6 +447,8 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
       last?['messages']?.toString(),
       last?['userName']?.toString(),
       DateTime.tryParse(last?['at']?.toString() ?? '')?.toLocal(),
+      (item['version'] as num?)?.toInt() ?? 0,
+      item['canVoid'] == true,
     );
   }
 
@@ -454,6 +476,31 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
     } catch (e) {
       if (mounted) snack(e.toString().replaceFirst('Exception: ', ''));
     }
+  }
+
+  Future<void> _void(_Pending row) async {
+    final done = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => VoidSaleDialog(
+            api: api,
+            saleId: row.saleId,
+            saleNumber: row.saleNumber,
+            version: row.version,
+            total: row.total));
+    if (!mounted) return;
+    widget.onVoid();
+    if (done == true) {
+      snack('Venta anulada. Se registró la devolución y se repuso el stock.');
+      final session = context.read<AuthProvider?>()?.session;
+      if (session != null) {
+        context.read<CajaProvider>().load(session.token);
+        context
+            .read<ProductProvider>()
+            .load(session.idEmpresa, token: session.token, force: true);
+      }
+    }
+    await load(page);
   }
 
   String _last(_Pending row) => switch (row.lastStatus) {
@@ -504,8 +551,65 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
                         onPressed: () => _invoice(row),
                         child: const Text('Facturar'))
                     : const Text('Sin importe'),
+                const SizedBox(width: 8),
+                Tooltip(
+                    message: row.canVoid
+                        ? 'Anular venta y reponer stock'
+                        : 'Solo se anulan ventas sin comprobantes fiscales ni intentos pendientes.',
+                    child: OutlinedButton.icon(
+                        onPressed: row.canVoid && row.version > 0
+                            ? () => _void(row)
+                            : null,
+                        icon: const Icon(Icons.cancel_outlined),
+                        label: const Text('Anular venta'))),
               ])),
             ]),
         ],
       );
+}
+
+class _VoidedTab extends StatefulWidget {
+  final PurchaseApi api;
+  const _VoidedTab({super.key, required this.api});
+  @override
+  State<_VoidedTab> createState() => _VoidedTabState();
+}
+
+class _VoidedTabState extends _PagedState<_VoidedTab, Map<String, dynamic>> {
+  @override
+  PurchaseApi get api => widget.api;
+  @override
+  String get path => 'sales/voids';
+  @override
+  String get empty => 'Todavía no hay ventas anuladas sin comprobante.';
+  @override
+  Map<String, dynamic> parse(Map<String, dynamic> item) => item;
+  @override
+  Widget table(BuildContext context) => DataTable(columns: const [
+        DataColumn(label: Text('Venta')),
+        DataColumn(label: Text('Cobrada')),
+        DataColumn(label: Text('Anulada')),
+        DataColumn(label: Text('Anuló')),
+        DataColumn(label: Text('Devuelto'), numeric: true),
+        DataColumn(label: Text('Motivo')),
+      ], rows: [
+        for (final row in rows)
+          DataRow(cells: [
+            DataCell(Text('N.º ${row['saleNumber']}')),
+            DataCell(Text(row['closedAt'] == null
+                ? '—'
+                : _dateTime(
+                    DateTime.parse(row['closedAt'] as String).toLocal()))),
+            DataCell(
+                Text(_dateTime(DateTime.parse(row['at'] as String).toLocal()))),
+            DataCell(Text(row['userName'] as String)),
+            DataCell(Text(_money(row['refunded'] as num))),
+            DataCell(SizedBox(
+                width: 320,
+                child: Tooltip(
+                    message: row['reason'] as String,
+                    child: Text(row['reason'] as String,
+                        maxLines: 2, overflow: TextOverflow.ellipsis)))),
+          ])
+      ]);
 }

@@ -32,7 +32,7 @@ namespace BarIceCreamShop.Api.Controllers
             int id,
             [FromForm] UploadEmpresaImagenRequest request)
         {
-            if (User.FindFirstValue("id_empresa") != id.ToString() || User.FindFirstValue("rol_nombre") is not ("ADMIN" or "ENCARGADO"))
+            if (User.FindFirstValue("id_empresa") != id.ToString() || User.FindFirstValue("rol_nombre") is not ("ADMIN" or "CAJA" or "ENCARGADO"))
                 return StatusCode(403, ApiResponse<Empresa>.Fail("No tenés permiso para cambiar esta imagen.", 403));
             var imagen = request.Imagen;
 

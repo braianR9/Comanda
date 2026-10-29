@@ -208,3 +208,195 @@ cd App/bar-icecream-shop/flutter_app/test/api_payments
 dotnet run -- --test-afip          # cálculos
 dotnet run -- --test-afip --live   # además, comunicación con homologación
 ```
+
+### Importación de productos desde Excel
+
+Antes de desplegar esta versión de la API, ejecutar `database/add_producto_importacion.sql`
+contra la base correspondiente. Agrega una columna nullable y un índice por empresa;
+no carga productos ni cambia los existentes. Desplegar luego la API y la aplicación Flutter.
+
+En **Mis productos**, el botón **Importar Excel** permite seleccionar un `.xlsx` (máximo
+5 MB y 2000 productos), revisar todas las filas y confirmar. Es compatible con el
+exportado de Productos cuyo encabezado aparece después del título y fecha. Columnas:
+`Código`, `Nombre`, `Costo`, `Precio`, `Rubro`, `Subrubro`, `Alicuota`, `Activo`.
+Costo y Precio incluyen IVA; Alicuota es el porcentaje, no el ID. Los valores numéricos
+nativos de Excel y los textos decimales con coma están admitidos.
+
+La vista previa no escribe datos. La confirmación vuelve a validar y guarda todo en una
+transacción: cualquier error revierte la carga completa. Se crean los rubros/subrubros
+faltantes y se usa una alícuota activa existente de la empresa o global con ese porcentaje.
+Los productos reciben código interno automático, guardan el código externo (incluidos
+`S01`, etc.) en `codigo_importacion` y actualizan la lista de precios predeterminada.
+Los existentes por código importado o nombre (sin distinguir mayúsculas) se omiten sin
+actualizar precios ni otros campos. No se vacía el catálogo existente.
+
+Se crean productos simples, sin stock ni componentes; los combos requieren configuración
+posterior. Salón, delivery y carta digital quedan desactivados hasta configurarlos. Se
+conserva el estado Activo del archivo. Precios cero generan advertencias, no errores.
+Imagen, descripción, preparación y código de barras quedan vacíos.
+
+Prueba del lector sin conexión a base de datos:
+
+```sh
+dotnet run --project ../../App/bar-icecream-shop/flutter_app/test/api_payments -- --test-product-import
+# Opcional: agregar --workbook /ruta/al/exportado.xlsx para validar el archivo de 185 productos.
+```
+
+La importación muestra etapas, tiempo transcurrido y avance por productos procesados.
+Durante el guardado estima el tiempo restante usando el ritmo real de procesamiento;
+la confirmación de la transacción y la actualización del catálogo se muestran aparte.
+Requiere actualizar tanto la API como Flutter. No hay cambios adicionales de esquema.
+El cliente solicita `POST /api/productos/importar?progreso=true` y consume eventos
+NDJSON (`progreso`, `resultado`, `error`). La respuesta normal JSON sigue disponible
+sin ese parámetro. Los proxies deben permitir streaming (la API envía
+`X-Accel-Buffering: no`); con buffering los eventos pueden aparecer todos al finalizar.
+Prueba del lector de eventos: `dart run test/product_import_stream_regression.dart`
+desde la carpeta Flutter.
+
+### Comprobar stock al seleccionar productos
+
+La casilla **Comprobar stock al vender** se aplica al agregar un producto al pedido,
+al leerlo por código de barras y al aumentar su cantidad. Flutter consulta
+`POST /api/sales/validate-stock` con el pedido propuesto antes de cambiar el borrador.
+La API también valida al crear y modificar renglones. Se suman todas las cantidades
+del mismo producto, incluidas las consumidas por distintos combos.
+
+Esta comprobación no reserva ni descuenta inventario. El cobro registra el consumo
+sin volver a rechazar el pedido por disponibilidad. Los productos sin stock configurado
+y los que tienen la casilla desactivada permiten vender sin ese bloqueo. Las alarmas
+son independientes de esta casilla. No requiere cambios de esquema.
+
+Prueba transaccional local (revierte los datos de prueba):
+`dotnet run --project test/api_payments -- --test-stock-sale` desde la carpeta Flutter.
+
+### Empleado y Caja en pedidos
+
+- **EMPLEADO** toma pedidos, modifica cantidades/comentarios y envía comandas o cambios.
+  No tiene controles de cobro, descuentos, listas de precios ni facturación.
+- **CAJA** y **ADMIN** pueden cobrar y ajustar el precio unitario de un renglón enviado,
+  antes de registrar pagos. En la comanda aparece un lápiz junto al importe.
+  El cambio recalcula subtotal, descuento y total; no cambia el catálogo ni sus listas
+  y no obliga a reenviar cocina. Con pagos registrados, el precio queda bloqueado.
+- El rol anterior **ENCARGADO** se muestra como **CAJA** y conserva su ID y usuarios;
+  se aceptan los tokens anteriores. No requiere migrar roles ni volver a crear cuentas.
+  En instalaciones nuevas, `add_roles_seed.sql` crea CAJA y evita duplicarlo si ya existe ENCARGADO.
+
+La política `Cashier` protege en la API pagos, checkout, descuentos, precios de cuenta,
+facturación y modificaciones de catálogo/listas de precios. El cliente no puede habilitar
+estas acciones alterando los controles visuales. `PUT /api/sales/{id}/items/{itemId}/price`
+recibe `unitPrice` y `version`; exige una cuenta enviada sin cambios de cocina ni pagos.
+Actualizar API y Flutter; no hay cambios adicionales de esquema.
+
+Pruebas: `flutter test test/sales_payments_test.dart` y
+`dotnet run --project test/api_payments -- --test-cashier` desde la carpeta Flutter.
+La segunda usa PostgreSQL local y revierte los datos de prueba sin emitir ni imprimir.
+
+### Caja y cuentas pendientes
+
+No se permite cerrar la caja de una sucursal mientras tenga ventas en `Abierta`,
+`EnPedido`, `PedidoEnviado` o `ConCambios`, incluidos pedidos de mostrador y cuentas
+con pagos parciales pendientes de completar. La respuesta indica las mesas/ventas
+que deben cobrarse o anularse. Las cuentas de otras sucursales no bloquean el cierre.
+
+Seleccionar/agregar productos, enviar comandas, registrar pagos y finalizar un cobro
+requiere una caja abierta. El cierre y las operaciones que crean ventas o registran
+pagos coordinan el acceso con un bloqueo transaccional de la fila de caja para evitar
+cerrarla entre la comprobación y el guardado. Flutter vuelve a comprobar la caja antes
+de mostrar el cobro, en lugar de confiar solo en el estado almacenado en pantalla.
+
+Las cuentas anteriores no se borran, cobran ni anulan automáticamente. Si ya quedó
+una cuenta abierta con caja cerrada, se puede abrir una caja para resolverla o anular
+el pedido si corresponde. No requiere migración de esquema.
+
+Pruebas desde Flutter: `dotnet run --project test/api_payments -- --test-cash-closing`
+y `flutter test test/sales_payments_test.dart`. Las pruebas de base de datos crean
+sus sucursales/cajas temporales dentro de una transacción que se revierte.
+
+### Anular ventas finalizadas sin comprobante
+
+Aplicar `database/add_sale_voids.sql` como propietario de la base antes de actualizar
+API y Flutter. Agrega `venta_anulaciones`, `venta_devoluciones` y el origen de stock
+`AnulacionVenta`; mantiene ventas y pagos existentes.
+
+En **Comprobantes → Ventas sin facturar → Anular venta**, ADMIN y CAJA pueden anular
+una venta finalizada con motivo obligatorio (3–500 caracteres). También hay un acceso
+desde el listado de ventas. La pestaña **Ventas anuladas** conserva quién, cuándo,
+motivo e importe devuelto. Los empleados no pueden ejecutar esta operación.
+
+La anulación conserva el total original, fecha de cobro, productos y pagos; cambia la
+venta a `Cancelada` e incrementa su versión. No libera ni modifica la mesa, que puede
+tener otro pedido. Exige caja abierta y registra una devolución por cada pago original,
+con su mismo medio de pago. Caja y transacciones descuentan las devoluciones del turno
+actual. Los cierres de caja anteriores conservan sus importes guardados.
+
+Siempre se repone el stock efectivamente descontado por la venta, usando los movimientos
+originales de productos y componentes. Se conserva la composición histórica aunque el
+combo haya cambiado. Las ventas sin descuento de stock no crean inventario al anular.
+Una versión desactualizada, anulación repetida o comprobante autorizado/pendiente bloquea
+la operación. La emisión fiscal y la anulación se coordinan mediante el mismo bloqueo
+por venta. La devolución, el stock, la auditoría y el cambio de estado son transaccionales.
+
+Los informes de ventas excluyen la venta anulada y Sistemas muestra las devoluciones
+como movimientos negativos. Se cancelan sincronizaciones pendientes de esa venta; no se
+reescriben archivos exportados ni filas que ya se enviaron a Google Sheets.
+
+Pruebas desde Flutter: `flutter test test/sale_void_test.dart` y
+`dotnet run --project test/api_payments -- --test-sale-void`. La segunda usa tablas
+temporales de historial y revierte todos los datos de prueba de PostgreSQL local.
+
+### Acceso exclusivo de sistemas
+
+El enlace **Acceso de sistemas** del login abre un panel separado para el propietario
+de focobr. No es un rol de `usuarios`: ningún ADMIN, CAJA o EMPLEADO puede concederlo,
+ni obtiene acceso global por usar el mismo correo. La identidad se configura solamente
+en el servidor mediante `SystemsOwner:Email` y `SystemsOwner:PasswordHash` (BCrypt).
+
+Instalación, desde `Api/dotnet_api`:
+
+1. Ejecutar `database/add_systems_admin.sql` como propietario de la base (`postgres`).
+   Crea el historial, conserva los datos existentes y concede al rol local `foco_api`
+   lectura, inserción y actualización de la resolución/nota. Adaptar ese rol en otros entornos.
+2. Ejecutar `dotnet run -- --setup-systems --email propietario@ejemplo.com`.
+   Solicita la contraseña sin mostrarla (mínimo 12 caracteres, máximo 72 bytes).
+   Alternativamente, agregar `--generate-password`: genera una contraseña aleatoria y
+   la guarda en `.systems-owner-credentials.txt`, privado y excluido de Git/Docker.
+   Guardar la contraseña en un gestor y borrar ese archivo una vez copiada.
+3. Reiniciar la API y actualizar Flutter. El correo y el hash se guardan en
+   `src/appsettings.Local.json`. Conservar este archivo en almacenamiento persistente.
+   Para recuperar/cambiar la cuenta desde el servidor, repetir el comando con `--reset-owner`.
+
+En un servicio en la nube también se pueden usar los secretos `SystemsOwner__Email`
+y `SystemsOwner__PasswordHash`; no usar una contraseña en texto plano en la segunda
+variable. Si se usa esta modalidad, la contraseña se cambia en los secretos del servicio.
+La cuenta local no se propaga automáticamente a otra API/base de datos.
+
+El panel permite crear/editar y habilitar/deshabilitar empresas, sucursales y usuarios,
+asignar sucursal y rol, y restablecer contraseñas. La identidad de sistemas puede
+recuperar incluso al último administrador deshabilitado de un comercio. Cada modificación
+guarda una auditoría con los datos anteriores y nuevos, sin contraseñas.
+
+Las transacciones se filtran por empresa, sucursal, período y estado. **Ventas** usa
+la fecha de cierre (apertura para cuentas pendientes) y totaliza ventas finalizadas.
+**Cobros** usa la fecha real de cada pago y muestra su medio de pago. Los rangos son
+`[desde, hasta)`, de hasta 366 días, con paginación y totales diarios según la zona
+horaria enviada por la aplicación. Los pagos divididos no duplican los totales de venta.
+El detalle de cada venta muestra productos, precios, descuentos y pagos registrados.
+
+Los errores HTTP 500, excepciones de la API, errores de trabajadores de impresión/Sheets
+y errores Flutter/Dart de sesiones autenticadas se registran desde esta instalación.
+Incluyen fecha UTC, origen, empresa/sucursal/usuario cuando corresponda, referencia y
+detalle técnico; se pueden filtrar y marcar como resueltos con una nota. No se guardan
+cuerpos de pedidos HTTP, cabeceras, cookies ni parámetros de consulta, y se ocultan
+secretos configurados, contraseñas etiquetadas y tokens. Si la base no responde o se
+llena la cola de 1000 eventos, se guarda un respaldo en `logs/systems-fallback-*.jsonl`
+del servidor; esos archivos se revisan allí y no se muestran en el panel.
+
+La sesión de sistemas permanece en memoria y dura 30 minutos. Cambiar su contraseña
+revoca sus sesiones anteriores. Cada solicitud autenticada de un comercio comprueba
+que el usuario, su rol, empresa y sucursal sigan habilitados, y que no haya cambiado
+su contraseña o sucursal. Las sesiones emitidas antes de esta versión requieren iniciar
+sesión nuevamente. El login de sistemas limita intentos por IP.
+
+Pruebas desde Flutter: `flutter test test/system_admin_test.dart` y
+`dotnet run --project test/api_payments -- --test-systems`. Las pruebas usan una tabla
+temporal de eventos y revierten empresas, sucursales, usuarios y transacciones creadas.

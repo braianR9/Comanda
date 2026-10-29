@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace BarIceCreamShop.Api.Controllers;
 
-[ApiController, Authorize, Route("api/reports")]
+[ApiController, Authorize(Policy = BarIceCreamShop.Api.Security.SalePermissions.CashierPolicy), Route("api/reports")]
 public class ReportsController(ReportsService service) : ControllerBase
 {
     [HttpGet("sales-detail")]

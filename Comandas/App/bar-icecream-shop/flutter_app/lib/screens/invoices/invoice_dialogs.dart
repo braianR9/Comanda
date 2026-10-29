@@ -200,6 +200,16 @@ class _InvoiceDialogState extends State<InvoiceDialog> {
         .customers
         .where((c) => c.active)
         .toList();
+    final invoiceButton = FilledButton(
+      onPressed: _busy ? null : _issue,
+      child: Text(_busy ? 'Pidiendo CAE…' : 'Facturar'),
+    );
+    final skipButton = TextButton(
+      onPressed: _busy ? null : _skip,
+      child: Text(widget.printTicketOnSkip
+          ? 'No facturar · imprimir ticket'
+          : 'Cancelar'),
+    );
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
@@ -288,16 +298,12 @@ class _InvoiceDialogState extends State<InvoiceDialog> {
               ]),
         ),
       ),
-      actions: [
-        TextButton(
-            onPressed: _busy ? null : _skip,
-            child: Text(widget.printTicketOnSkip
-                ? 'No facturar · imprimir ticket'
-                : 'Cancelar')),
-        FilledButton(
-            onPressed: _busy ? null : _issue,
-            child: Text(_busy ? 'Pidiendo CAE…' : 'Facturar')),
-      ],
+      actionsAlignment: widget.printTicketOnSkip
+          ? MainAxisAlignment.spaceBetween
+          : MainAxisAlignment.end,
+      actions: widget.printTicketOnSkip
+          ? [invoiceButton, skipButton]
+          : [skipButton, invoiceButton],
     );
   }
 }

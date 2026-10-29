@@ -9,6 +9,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/sales_report_provider.dart';
 import '../../providers/sector_provider.dart';
 import '../../theme/brand_colors.dart';
+import '../invoices/invoices_screen.dart';
 
 class SalesReportScreen extends StatefulWidget {
   final bool embedded;
@@ -142,6 +143,15 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                       style: TextStyle(color: Brand.subtle)),
                 ],
               ),
+            ),
+            IconButton(
+              tooltip: 'Anular una venta sin comprobante',
+              icon: const Icon(Icons.cancel_outlined),
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const InvoicesScreen(initialTab: 1)));
+                if (mounted) await _reload();
+              },
             ),
             OutlinedButton.icon(
               onPressed: exporting ? null : _export,

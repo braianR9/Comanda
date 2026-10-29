@@ -5,7 +5,9 @@ class AppRole {
 
   factory AppRole.fromJson(Map<String, dynamic> json) => AppRole(
         id: (json['id'] as num).toInt(),
-        name: json['nombre']?.toString() ?? '',
+        name: json['nombre'] == 'ENCARGADO'
+            ? 'CAJA'
+            : json['nombre']?.toString() ?? '',
       );
 }
 
@@ -46,7 +48,9 @@ class AppUser {
         lastName: json['apellido']?.toString() ?? '',
         email: json['email']?.toString() ?? '',
         roleId: (json['idRol'] as num?)?.toInt() ?? 0,
-        roleName: json['rolNombre']?.toString() ?? '',
+        roleName: json['rolNombre'] == 'ENCARGADO'
+            ? 'CAJA'
+            : json['rolNombre']?.toString() ?? '',
         branchId: (json['idSucursal'] as num?)?.toInt() ?? 0,
         branchName: json['sucursalNombre']?.toString() ?? '',
         active: json['activo'] as bool? ?? true,

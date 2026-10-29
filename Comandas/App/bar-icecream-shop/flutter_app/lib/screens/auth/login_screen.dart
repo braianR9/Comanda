@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../home/home_screen.dart';
+import '../system/system_admin_screen.dart';
 import '../../theme/brand_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -142,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen>
             const FocoLogo(size: 80),
             const SizedBox(height: 20),
             Text(
-              'FOCO',
+              'focobr',
               style: GoogleFonts.poppins(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
@@ -196,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen>
         const FocoLogo(size: 72),
         const SizedBox(height: 14),
         Text(
-          'FOCO',
+          'focobr',
           style: GoogleFonts.poppins(
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -368,13 +369,20 @@ class _LoginScreenState extends State<LoginScreen>
               ),
               Consumer<AuthProvider>(
                 builder: (_, auth, __) {
-                  return _GradientButton(
+                  return _LoginButton(
                     onPressed: auth.isLoading ? null : _handleLogin,
                     isLoading: auth.isLoading,
                   );
                 },
               ),
               const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const SystemAdminScreen(),
+                )),
+                icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+                label: const Text('Acceso de sistemas'),
+              ),
             ],
           ),
         ),
@@ -509,11 +517,10 @@ class _GlassField extends StatelessWidget {
   }
 }
 
-// Botón con gradiente
-class _GradientButton extends StatelessWidget {
+class _LoginButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
-  const _GradientButton({required this.onPressed, required this.isLoading});
+  const _LoginButton({required this.onPressed, required this.isLoading});
 
   @override
   Widget build(BuildContext context) {
@@ -522,14 +529,7 @@ class _GradientButton extends StatelessWidget {
       height: 54,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: onPressed == null
-              ? const LinearGradient(
-                  colors: [Color(0xFFD8D5E3), Color(0xFFC5C1D4)])
-              : LinearGradient(
-                  colors: [Brand.primary, Color(0xFF8777E8)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+          color: onPressed == null ? Brand.surface : Brand.primary,
           borderRadius: BorderRadius.circular(14),
           boxShadow: onPressed == null
               ? []
@@ -545,18 +545,21 @@ class _GradientButton extends StatelessWidget {
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            foregroundColor: Brand.onPrimary,
+            disabledForegroundColor: Brand.strong,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
           ),
           child: isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   height: 22,
                   width: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: Colors.white,
+                    color: Brand.strong,
                   ),
                 )
               : Text(
@@ -564,7 +567,6 @@ class _GradientButton extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
                   ),
                 ),
         ),

@@ -37,3 +37,22 @@ public record SalesDetailResultDto(
     decimal TotalQuantity,
     decimal TotalAmount,
     decimal TotalRealAmount);
+
+/// Renglón del Libro de IVA Ventas. Las notas de crédito van con importes negativos.
+public record VatSalesLineDto(
+    DateTime Date,
+    string Voucher,
+    int PointOfSale,
+    string Customer,
+    string VatCondition,
+    string? Cuit,
+    decimal Subtotal,
+    decimal Vat105,
+    decimal Vat21,
+    decimal Vat27,
+    decimal Total,
+    bool Testing);
+
+public record VatSalesTotalsDto(decimal Subtotal, decimal Vat105, decimal Vat21, decimal Vat27, decimal Total);
+
+public record VatSalesResultDto(List<VatSalesLineDto> Items, VatSalesTotalsDto Totals);

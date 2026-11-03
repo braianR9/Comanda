@@ -14,6 +14,29 @@ String _dateTime(DateTime d) =>
 
 String _money(num value) => '\$${value.toStringAsFixed(2)}';
 
+/// Tabla compacta común a las pestañas: filas de una línea y poco espacio entre
+/// columnas, para que entre a lo ancho sin scroll horizontal.
+DataTable _compactTable(
+        {required List<DataColumn> columns, required List<DataRow> rows}) =>
+    DataTable(
+      columnSpacing: 16,
+      horizontalMargin: 12,
+      headingRowHeight: 40,
+      dataRowMinHeight: 36,
+      dataRowMaxHeight: 44,
+      headingTextStyle:
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      dataTextStyle: const TextStyle(fontSize: 13, color: Colors.black87),
+      columns: columns,
+      rows: rows,
+    );
+
+/// Botones de las acciones de cada fila, en tamaño reducido.
+const _compactButton = ButtonStyle(
+    visualDensity: VisualDensity.compact,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)));
+
 /// Comprobantes emitidos (con quién y cuándo) y ventas cobradas pendientes de facturar.
 class InvoicesScreen extends StatefulWidget {
   final int initialTab;
@@ -122,9 +145,14 @@ abstract class _PagedState<T extends StatefulWidget, R> extends State<T>
       Expanded(
         child: rows.isEmpty
             ? Center(child: Text(empty))
-            : SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(child: table(context))),
+            // Ocupa todo el ancho; el scroll horizontal queda solo para pantallas angostas.
+            : LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minWidth: constraints.maxWidth),
+                        child: SingleChildScrollView(child: table(context))))),
       ),
       if (pages > 1)
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -244,20 +272,24 @@ class _IssuedTabState extends _PagedState<_IssuedTab, _Issued> {
     };
     return Tooltip(
       message: x.messages,
-      child: Chip(
-          label: Text(label, style: TextStyle(color: color.shade800)),
-          backgroundColor: color.shade50,
-          side: BorderSide.none,
-          visualDensity: VisualDensity.compact),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+            color: color.shade50, borderRadius: BorderRadius.circular(10)),
+        child:
+            Text(label, style: TextStyle(fontSize: 12, color: color.shade800)),
+      ),
     );
   }
 
-  /// Quién emitió y cuándo; si la factura se anuló, también quién y cuándo.
+  /// Quién emitió y cuándo, en una línea; anulación, motivo y reimpresiones
+  /// quedan en el tooltip del ícono de información.
   Widget _audit(_Issued row) {
     final x = row.invoice;
-    final lines = [
-      '${x.isCreditNote ? 'Anuló' : x.authorized ? 'Facturó' : 'Intentó'}: ${x.userName.isEmpty ? '—' : x.userName}',
-      _dateTime(x.authorizedAt ?? x.createdAt),
+    final main =
+        '${x.isCreditNote ? 'Anuló' : x.authorized ? 'Facturó' : 'Intentó'}: '
+        '${x.userName.isEmpty ? '—' : x.userName} · ${_dateTime(x.authorizedAt ?? x.createdAt)}';
+    final details = [
       if (x.isCreditNote && x.reason.isNotEmpty) 'Motivo: ${x.reason}',
       if (row.annulledBy != null)
         'Anulada por ${row.annulledBy} · ${_dateTime(row.annulledAt!)}',
@@ -266,13 +298,20 @@ class _IssuedTabState extends _PagedState<_IssuedTab, _Issued> {
       if (row.reprints > 0)
         'Reimpresa ${row.reprints} ${row.reprints == 1 ? 'vez' : 'veces'} · última: ${row.lastReprintBy ?? '—'} ${row.lastReprintAt == null ? '' : _dateTime(row.lastReprintAt!)}',
     ];
-    return Text(lines.join('\n'), style: const TextStyle(fontSize: 12));
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Text(main, style: const TextStyle(fontSize: 12)),
+      if (details.isNotEmpty) ...[
+        const SizedBox(width: 4),
+        Tooltip(
+            message: details.join('\n'),
+            child:
+                const Icon(Icons.info_outline, size: 16, color: Colors.grey)),
+      ],
+    ]);
   }
 
   @override
-  Widget table(BuildContext context) => DataTable(
-        dataRowMinHeight: 48,
-        dataRowMaxHeight: 88,
+  Widget table(BuildContext context) => _compactTable(
         columns: const [
           DataColumn(label: Text('Comprobante')),
           DataColumn(label: Text('Venta')),
@@ -299,15 +338,19 @@ class _IssuedTabState extends _PagedState<_IssuedTab, _Issued> {
                   IconButton(
                       onPressed: () => _reprint(row.invoice),
                       tooltip: 'Reimprimir',
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 20,
                       icon: const Icon(Icons.print_outlined)),
                 if (row.invoice.canCreditNote)
                   TextButton(
+                      style: _compactButton,
                       onPressed: () => _creditNote(row.invoice),
                       child: const Text('Anular')),
                 if (!row.invoice.authorized &&
                     !row.invoice.isCreditNote &&
                     row.canRetry)
                   TextButton(
+                      style: _compactButton,
                       onPressed: () => _retry(row),
                       child: const Text('Reintentar')),
               ])),
@@ -511,9 +554,7 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
       };
 
   @override
-  Widget table(BuildContext context) => DataTable(
-        dataRowMinHeight: 48,
-        dataRowMaxHeight: 64,
+  Widget table(BuildContext context) => _compactTable(
         columns: const [
           DataColumn(label: Text('Venta')),
           DataColumn(label: Text('Cobrada')),
@@ -539,29 +580,32 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
                         _last(row),
                         if (row.lastUser != null && row.lastAt != null)
                           '${row.lastUser} · ${_dateTime(row.lastAt!)}',
-                      ].join('\n'),
+                      ].join(' · '),
                       style: const TextStyle(fontSize: 12)))),
               DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(
                     onPressed: () => _ticket(row),
                     tooltip: 'Imprimir ticket de pago (no fiscal)',
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 20,
                     icon: const Icon(Icons.receipt_long_outlined)),
                 row.total > 0
                     ? FilledButton.tonal(
+                        style: _compactButton,
                         onPressed: () => _invoice(row),
                         child: const Text('Facturar'))
                     : const Text('Sin importe'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Tooltip(
                     message: row.canVoid
                         ? 'Anular venta y reponer stock'
-                        : 'Solo se anulan ventas sin comprobantes fiscales ni intentos pendientes.',
-                    child: OutlinedButton.icon(
+                        : 'Para anular la venta, primero anulá su factura con nota de crédito o esperá la respuesta de AFIP.',
+                    child: OutlinedButton(
+                        style: _compactButton,
                         onPressed: row.canVoid && row.version > 0
                             ? () => _void(row)
                             : null,
-                        icon: const Icon(Icons.cancel_outlined),
-                        label: const Text('Anular venta'))),
+                        child: const Text('Anular venta'))),
               ])),
             ]),
         ],
@@ -585,7 +629,7 @@ class _VoidedTabState extends _PagedState<_VoidedTab, Map<String, dynamic>> {
   @override
   Map<String, dynamic> parse(Map<String, dynamic> item) => item;
   @override
-  Widget table(BuildContext context) => DataTable(columns: const [
+  Widget table(BuildContext context) => _compactTable(columns: const [
         DataColumn(label: Text('Venta')),
         DataColumn(label: Text('Cobrada')),
         DataColumn(label: Text('Anulada')),
@@ -609,7 +653,7 @@ class _VoidedTabState extends _PagedState<_VoidedTab, Map<String, dynamic>> {
                 child: Tooltip(
                     message: row['reason'] as String,
                     child: Text(row['reason'] as String,
-                        maxLines: 2, overflow: TextOverflow.ellipsis)))),
+                        maxLines: 1, overflow: TextOverflow.ellipsis)))),
           ])
       ]);
 }

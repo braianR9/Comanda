@@ -85,7 +85,9 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
             .Select(o => new
             {
                 o.Id, o.Numero, o.FechaCierre, o.Total, o.Version, table = o.Table.Nombre, o.UsuarioCobroId,
-                canVoid = !db.Invoices.Any(i => i.OrderId == o.Id && i.Status != "Rechazado"),
+                // Misma regla que SaleVoidService: bloquean una factura vigente o un comprobante sin confirmar.
+                canVoid = !db.Invoices.Any(i => i.OrderId == o.Id && (i.Status == "Procesando"
+                    || (i.Status == "Autorizado" && i.CreditNoteId == null && InvoiceTypes.Contains(i.Type)))),
                 lastAttempt = db.Invoices.Where(x => x.OrderId == o.Id).OrderByDescending(x => x.Id)
                     .Select(x => new { x.Status, x.Messages, x.CreatedAt, x.UserId, x.CreditNoteId }).FirstOrDefault(),
             }).ToListAsync();

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using BarIceCreamShop.Api.Data;
 using BarIceCreamShop.Api.Models;
 using ClosedXML.Excel;
@@ -146,6 +147,106 @@ public sealed class ReportsService(AppDbContext db)
 
         return (items, list.Sum(x => x.Quantity), list.Sum(x => x.Total), items.Sum(x => x.RealAmount));
     }
+
+    private static readonly JsonSerializerOptions VatJson = new(JsonSerializerDefaults.Web);
+
+    /// Libro de IVA Ventas: comprobantes autorizados de la sucursal, por fecha de autorización.
+    public async Task<VatSalesResultDto> VatSalesAsync(int company, int branch, SalesDetailFilter filter)
+    {
+        var query = db.Invoices.AsNoTracking()
+            .Where(x => x.CompanyId == company && x.BranchId == branch && x.Status == "Autorizado");
+        if (filter.From.HasValue)
+        {
+            var from = AsUtc(filter.From.Value);
+            query = query.Where(x => (x.AuthorizedAt ?? x.CreatedAt) >= from);
+        }
+        if (filter.To.HasValue)
+        {
+            var to = AsUtc(filter.To.Value);
+            query = query.Where(x => (x.AuthorizedAt ?? x.CreatedAt) <= to);
+        }
+        var invoices = await query
+            .OrderBy(x => x.AuthorizedAt ?? x.CreatedAt).ThenBy(x => x.PointOfSale).ThenBy(x => x.Number)
+            .Take(20000).ToListAsync();
+
+        var items = invoices
+            .Where(x => !filter.UseTimeRange || !filter.TimeFrom.HasValue || !filter.TimeTo.HasValue
+                || InTimeRange(x.AuthorizedAt ?? x.CreatedAt, filter.TimeFrom.Value, filter.TimeTo.Value))
+            .Select(x =>
+            {
+                var sign = x.IsCreditNote ? -1m : 1m;
+                var vat = JsonSerializer.Deserialize<List<InvoiceVat>>(x.VatJson, VatJson) ?? [];
+                decimal VatAt(decimal rate) => sign * vat.Where(v => v.Rate == rate).Sum(v => v.Amount);
+                var hasCuit = x.DocType is AfipCodes.DocCuit or AfipCodes.DocCuil && x.DocNumber > 0;
+                return new VatSalesLineDto(
+                    ToArgentinaTime(x.AuthorizedAt ?? x.CreatedAt), $"{AfipCodes.TypeName(x.Type)} N° {x.Number}",
+                    x.PointOfSale, string.IsNullOrWhiteSpace(x.ReceiverName) ? "Consumidor final" : x.ReceiverName,
+                    VatConditionName(x.ReceiverVatCondition), hasCuit ? x.DocNumber.ToString() : null,
+                    sign * x.Net, VatAt(10.5m), VatAt(21m), VatAt(27m), sign * x.Total, x.Environment != "Produccion");
+            })
+            .ToList();
+
+        return new VatSalesResultDto(items, new VatSalesTotalsDto(
+            items.Sum(x => x.Subtotal), items.Sum(x => x.Vat105), items.Sum(x => x.Vat21),
+            items.Sum(x => x.Vat27), items.Sum(x => x.Total)));
+    }
+
+    public async Task<byte[]> ExportVatSalesXlsxAsync(int company, int branch, SalesDetailFilter filter)
+    {
+        var result = await VatSalesAsync(company, branch, filter);
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Libro IVA Ventas");
+        string[] headers = ["Fecha", "Comprobante", "Punto de venta", "Cliente", "Condición IVA", "CUIT", "Subtotal", "IVA 10,5 %", "IVA 21%", "IVA 27%", "Total"];
+        for (var col = 0; col < headers.Length; col++) sheet.Cell(1, col + 1).Value = headers[col];
+        sheet.Row(1).Style.Font.Bold = true;
+
+        var row = 2;
+        foreach (var item in result.Items)
+        {
+            sheet.Cell(row, 1).Value = item.Date;
+            sheet.Cell(row, 1).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+            sheet.Cell(row, 2).Value = item.Testing ? $"{item.Voucher} (prueba)" : item.Voucher;
+            sheet.Cell(row, 3).Value = item.PointOfSale;
+            sheet.Cell(row, 4).Value = item.Customer;
+            sheet.Cell(row, 5).Value = item.VatCondition;
+            sheet.Cell(row, 6).Value = item.Cuit ?? "";
+            sheet.Cell(row, 7).Value = item.Subtotal;
+            sheet.Cell(row, 8).Value = item.Vat105;
+            sheet.Cell(row, 9).Value = item.Vat21;
+            sheet.Cell(row, 10).Value = item.Vat27;
+            sheet.Cell(row, 11).Value = item.Total;
+            row++;
+        }
+        sheet.Cell(row, 6).Value = "Totales";
+        sheet.Cell(row, 7).Value = result.Totals.Subtotal;
+        sheet.Cell(row, 8).Value = result.Totals.Vat105;
+        sheet.Cell(row, 9).Value = result.Totals.Vat21;
+        sheet.Cell(row, 10).Value = result.Totals.Vat27;
+        sheet.Cell(row, 11).Value = result.Totals.Total;
+        sheet.Row(row).Style.Font.Bold = true;
+        sheet.Range(2, 7, row, 11).Style.NumberFormat.Format = "#,##0.00";
+        sheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static bool InTimeRange(DateTime utc, TimeSpan from, TimeSpan to)
+    {
+        var timeOfDay = ToArgentinaTime(utc).TimeOfDay;
+        return from <= to ? timeOfDay >= from && timeOfDay <= to : timeOfDay >= from || timeOfDay <= to;
+    }
+
+    private static string VatConditionName(int code) => code switch
+    {
+        AfipCodes.CondResponsableInscripto => "Responsable inscripto",
+        AfipCodes.CondExento => "Exento",
+        AfipCodes.CondConsumidorFinal => "Consumidor final",
+        AfipCodes.CondMonotributo => "Monotributo",
+        _ => "No categorizado",
+    };
 
     private static DateTime AsUtc(DateTime value) => value.Kind switch
     {

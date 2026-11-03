@@ -30,6 +30,25 @@ public class ReportsController(ReportsService service) : ControllerBase
             "listado-ventas.xlsx");
     }
 
+    [HttpGet("iva-ventas")]
+    public async Task<ActionResult<ApiResponse<VatSalesResultDto>>> VatSales(
+        DateTime? from, DateTime? to, bool rangoHorario, TimeSpan? horaDesde, TimeSpan? horaHasta)
+    {
+        var filter = BuildFilter(from, to, rangoHorario, horaDesde, horaHasta, null, null, null, null);
+        return Ok(ApiResponse<VatSalesResultDto>.Ok(await service.VatSalesAsync(Company, Branch, filter)));
+    }
+
+    [HttpGet("iva-ventas/export")]
+    public async Task<IActionResult> ExportVatSales(
+        DateTime? from, DateTime? to, bool rangoHorario, TimeSpan? horaDesde, TimeSpan? horaHasta)
+    {
+        var filter = BuildFilter(from, to, rangoHorario, horaDesde, horaHasta, null, null, null, null);
+        var bytes = await service.ExportVatSalesXlsxAsync(Company, Branch, filter);
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "libro-iva-ventas.xlsx");
+    }
+
     private static SalesDetailFilter BuildFilter(
         DateTime? from, DateTime? to, bool rangoHorario, TimeSpan? horaDesde, TimeSpan? horaHasta,
         int? rubroId, int? subRubroId, int? sectorId, int? numeroPedido) => new()

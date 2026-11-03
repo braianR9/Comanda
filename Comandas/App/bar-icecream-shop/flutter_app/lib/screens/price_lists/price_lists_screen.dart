@@ -539,20 +539,27 @@ class _PriceListDetailState extends State<_PriceListDetail> {
               style: GoogleFonts.poppins(color: Brand.muted)),
         )
       else ...[
-        Card(
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200)),
-          child: Column(children: [
-            for (final item in page.items)
-              _ProductPriceRow(
-                key: ValueKey(item.idProducto),
-                item: item,
-                onChanged: (value) => _setPrice(item, value),
-              ),
-          ]),
+        // La página de productos ocupa el alto disponible y scrollea sola.
+        Expanded(
+          child: Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200)),
+            child: ListView.builder(
+              itemCount: page.items.length,
+              itemBuilder: (_, index) {
+                final item = page.items[index];
+                return _ProductPriceRow(
+                  key: ValueKey(item.idProducto),
+                  item: item,
+                  onChanged: (value) => _setPrice(item, value),
+                );
+              },
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         Row(children: [

@@ -23,8 +23,12 @@ public sealed class SaleVoidService(AppDbContext db, StockMovementService stock)
         if (sale.Estado != "Finalizada" || await db.SaleVoids.AnyAsync(v => v.OrderId == id))
             throw new SaleException("Solo se pueden anular ventas finalizadas que no estén anuladas.", 409);
         if (sale.Version != request.Version) throw new SaleException("La venta cambió. Actualizá antes de anular.", 409);
-        if (await db.Invoices.AnyAsync(i => i.OrderId == id && i.Status != "Rechazado"))
-            throw new SaleException("La venta tiene un comprobante fiscal o un intento pendiente. Revisalo en Comprobantes antes de continuar.", 409);
+        // Una factura ya compensada con nota de crédito no impide anular la venta;
+        // sí una factura vigente o un comprobante sin respuesta de AFIP.
+        if (await db.Invoices.AnyAsync(i => i.OrderId == id && (i.Status == "Procesando"
+                || (i.Status == "Autorizado" && i.CreditNoteId == null
+                    && (i.Type == AfipCodes.FacturaA || i.Type == AfipCodes.FacturaB || i.Type == AfipCodes.FacturaC)))))
+            throw new SaleException("La venta tiene una factura vigente o un comprobante sin confirmar. Anulá la factura con nota de crédito en Comprobantes antes de continuar.", 409);
         var total = sale.Payments.Sum(p => p.Amount);
         if (total != sale.Total) throw new SaleException("Los pagos registrados no coinciden con el total. Revisá la venta antes de anularla.", 409);
         var now = DateTime.UtcNow;

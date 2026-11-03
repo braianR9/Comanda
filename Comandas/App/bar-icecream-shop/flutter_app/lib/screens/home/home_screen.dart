@@ -28,6 +28,7 @@ import '../sales/sales_catalogs_screen.dart';
 import '../printers/printers_screen.dart';
 import '../users/users_screen.dart';
 import '../reports/sales_report_screen.dart';
+import '../reports/vat_sales_screen.dart';
 import '../settings/google_sheet_settings_screen.dart';
 import '../price_lists/price_lists_screen.dart';
 import '../invoices/invoices_screen.dart';
@@ -38,12 +39,12 @@ import '../../theme/brand_colors.dart';
 /// 0 Inicio · 1 Productos · 2 Rubros · 3 Sectores · 4 Salón · 5 Descuentos y
 /// pagos · 6 Impresoras · 7 Movimientos de stock · 8 Clientes · 9 Usuarios ·
 /// 10 Listado de ventas · 11 Google Sheets · 12 Caja · 13 Listas de precios ·
-/// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal.
+/// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal · 20 Libro de IVA Ventas.
 Set<int> _allowedSections(UserSession session) => {
       0,
       4, 14, // Empleados: tomar y modificar pedidos.
       if (session.canCheckout) ...{7, 8, 12, 16, 17, 18},
-      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19},
+      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19, 20},
       if (session.canManageUsers) ...{9, 11},
     };
 
@@ -390,102 +391,101 @@ class _WideLayoutState extends State<_WideLayout>
               },
             ),
           Expanded(
-            child: _section == 19
-                ? const BrandSettingsScreen()
-                : _section == 18
-                    ? const InvoicesScreen()
-                    : _section == 15
-                        ? const CompanySettingsScreen()
-                        : _section == 16
-                            ? const PurchasesScreen()
-                            : _section == 17
-                                ? const SuppliersScreen()
-                                : _section == 14
-                                    ? const SalesScreen(
-                                        key: ValueKey('venta-directa'),
-                                        embedded: true,
-                                        directSale: true)
-                                    : _section == 12
-                                        ? const CajaScreen(embedded: true)
-                                        : _section == 13
-                                            ? const PriceListsScreen(
-                                                embedded: true)
-                                            : _section == 11
-                                                ? const GoogleSheetSettingsScreen(
+            child: _section == 20
+                ? const VatSalesScreen(embedded: true)
+                : _section == 19
+                    ? const BrandSettingsScreen()
+                    : _section == 18
+                        ? const InvoicesScreen()
+                        : _section == 15
+                            ? const CompanySettingsScreen()
+                            : _section == 16
+                                ? const PurchasesScreen()
+                                : _section == 17
+                                    ? const SuppliersScreen()
+                                    : _section == 14
+                                        ? const SalesScreen(
+                                            key: ValueKey('venta-directa'),
+                                            embedded: true,
+                                            directSale: true)
+                                        : _section == 12
+                                            ? const CajaScreen(embedded: true)
+                                            : _section == 13
+                                                ? const PriceListsScreen(
                                                     embedded: true)
-                                                : _section == 10
-                                                    ? const SalesReportScreen(
+                                                : _section == 11
+                                                    ? const GoogleSheetSettingsScreen(
                                                         embedded: true)
-                                                    : _section == 9
-                                                        ? const UsersScreen(
+                                                    : _section == 10
+                                                        ? const SalesReportScreen(
                                                             embedded: true)
-                                                        : _section == 8
-                                                            ? const ClientsScreen(
+                                                        : _section == 9
+                                                            ? const UsersScreen(
                                                                 embedded: true)
-                                                            : _section == 7
-                                                                ? const StockMovementsScreen(
+                                                            : _section == 8
+                                                                ? const ClientsScreen(
                                                                     embedded:
                                                                         true)
-                                                                : _section == 6
-                                                                    ? const PrintersScreen(
+                                                                : _section == 7
+                                                                    ? const StockMovementsScreen(
                                                                         embedded:
                                                                             true)
                                                                     : _section ==
-                                                                            5
-                                                                        ? const SalesCatalogsScreen(
+                                                                            6
+                                                                        ? const PrintersScreen(
                                                                             embedded:
                                                                                 true)
                                                                         : _section ==
-                                                                                4
-                                                                            ? const SalesScreen(
-                                                                                key: ValueKey('salon'),
-                                                                                embedded: true)
-                                                                            : _section == 1
-                                                                                ? _productEditorOpen
-                                                                                    ? ProductEditorScreen(
-                                                                                        key: ValueKey(_editingProduct?.id ?? 'new-product'),
-                                                                                        product: _editingProduct,
-                                                                                        embedded: true,
-                                                                                        onCancel: () => setState(() {
-                                                                                          _productEditorOpen = false;
-                                                                                          _editingProduct = null;
-                                                                                        }),
-                                                                                        onSaved: (product) async {
-                                                                                          try {
-                                                                                            await context.read<ProductProvider>().save(product);
-                                                                                            if (!mounted) return;
-                                                                                            setState(() {
+                                                                                5
+                                                                            ? const SalesCatalogsScreen(embedded: true)
+                                                                            : _section == 4
+                                                                                ? const SalesScreen(key: ValueKey('salon'), embedded: true)
+                                                                                : _section == 1
+                                                                                    ? _productEditorOpen
+                                                                                        ? ProductEditorScreen(
+                                                                                            key: ValueKey(_editingProduct?.id ?? 'new-product'),
+                                                                                            product: _editingProduct,
+                                                                                            embedded: true,
+                                                                                            onCancel: () => setState(() {
                                                                                               _productEditorOpen = false;
                                                                                               _editingProduct = null;
-                                                                                            });
-                                                                                            ScaffoldMessenger.of(context).showSnackBar(
-                                                                                              const SnackBar(content: Text('Producto guardado correctamente')),
-                                                                                            );
-                                                                                          } catch (error) {
-                                                                                            if (!mounted) return;
-                                                                                            ScaffoldMessenger.of(context).showSnackBar(
-                                                                                              SnackBar(
-                                                                                                content: Text(error.toString().replaceFirst('Exception: ', '')),
+                                                                                            }),
+                                                                                            onSaved: (product) async {
+                                                                                              try {
+                                                                                                await context.read<ProductProvider>().save(product);
+                                                                                                if (!mounted) return;
+                                                                                                setState(() {
+                                                                                                  _productEditorOpen = false;
+                                                                                                  _editingProduct = null;
+                                                                                                });
+                                                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                                                  const SnackBar(content: Text('Producto guardado correctamente')),
+                                                                                                );
+                                                                                              } catch (error) {
+                                                                                                if (!mounted) return;
+                                                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                                                  SnackBar(
+                                                                                                    content: Text(error.toString().replaceFirst('Exception: ', '')),
+                                                                                                  ),
+                                                                                                );
+                                                                                              }
+                                                                                            },
+                                                                                          )
+                                                                                        : ProductsScreen(
+                                                                                            embedded: true,
+                                                                                            onOpenEditor: (product) => setState(() {
+                                                                                              _editingProduct = product;
+                                                                                              _productEditorOpen = true;
+                                                                                            }),
+                                                                                          )
+                                                                                    : _section == 2
+                                                                                        ? const ProductGroupsScreen(embedded: true)
+                                                                                        : _section == 3
+                                                                                            ? const SectorsScreen(embedded: true)
+                                                                                            : SingleChildScrollView(
+                                                                                                padding: const EdgeInsets.all(32),
+                                                                                                child: _HomeContent(session: widget.session),
                                                                                               ),
-                                                                                            );
-                                                                                          }
-                                                                                        },
-                                                                                      )
-                                                                                    : ProductsScreen(
-                                                                                        embedded: true,
-                                                                                        onOpenEditor: (product) => setState(() {
-                                                                                          _editingProduct = product;
-                                                                                          _productEditorOpen = true;
-                                                                                        }),
-                                                                                      )
-                                                                                : _section == 2
-                                                                                    ? const ProductGroupsScreen(embedded: true)
-                                                                                    : _section == 3
-                                                                                        ? const SectorsScreen(embedded: true)
-                                                                                        : SingleChildScrollView(
-                                                                                            padding: const EdgeInsets.all(32),
-                                                                                            child: _HomeContent(session: widget.session),
-                                                                                          ),
           ),
         ],
       )),
@@ -503,10 +503,12 @@ class _MainMenu extends StatelessWidget {
   static const sales = <int, String>{
     4: 'Salón',
     14: 'Mostrador',
-    12: 'Caja',
-    18: 'Comprobantes',
-    7: 'Movimientos de stock',
     8: 'Clientes',
+    12: 'Caja',
+    7: 'Movimientos de stock',
+    18: 'Comprobantes',
+    10: 'Listado de ventas',
+    20: 'Libro de IVA Ventas',
   };
   static const masters = <int, String>{
     1: 'Productos',
@@ -515,9 +517,6 @@ class _MainMenu extends StatelessWidget {
     5: 'Descuentos y pagos',
     6: 'Impresoras',
     13: 'Listas de precios',
-  };
-  static const statistics = <int, String>{
-    10: 'Ventas · Listado de ventas',
   };
 
   Widget _group(String label, IconData icon, Map<int, String> entries) {
@@ -584,8 +583,6 @@ class _MainMenu extends StatelessWidget {
               _group('Maestros', Icons.school_rounded, masters),
             ],
             if (session.canAccessMasters) ...[
-              const SizedBox(width: 6),
-              _group('Estadísticas', Icons.bar_chart_rounded, statistics),
               const SizedBox(width: 6),
               _group('Configuración', Icons.settings_outlined, const {
                 15: 'Empresa y facturación',
@@ -806,64 +803,46 @@ class _HomeContentState extends State<_HomeContent> {
     final isWide = MediaQuery.of(context).size.width >= 800;
     final totalTables = context.watch<SectorProvider>().salonTables.length;
 
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    // Dos bloques: los datos de la empresa solos y, debajo, el estado del salón.
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _HomeCard(
+        child: isWide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _LogoUpload(
+                    imageUrl: _imageUrl,
+                    onTap: _pickImage,
+                    uploading: _uploading,
+                    size: 160,
+                  ),
+                  const SizedBox(width: 36),
+                  Expanded(
+                      child: _EmpresaInfo(
+                          empresa: empresa, sucursal: widget.session.sucursal)),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _LogoUpload(
+                    imageUrl: _imageUrl,
+                    onTap: _pickImage,
+                    uploading: _uploading,
+                    size: 120,
+                  ),
+                  const SizedBox(height: 24),
+                  _EmpresaInfo(
+                      empresa: empresa, sucursal: widget.session.sucursal),
+                ],
+              ),
       ),
-      child: Column(
-        crossAxisAlignment:
-            isWide ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
-        children: [
-          isWide
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _LogoUpload(
-                      imageUrl: _imageUrl,
-                      onTap: _pickImage,
-                      uploading: _uploading,
-                      size: 160,
-                    ),
-                    const SizedBox(width: 36),
-                    Expanded(
-                        child: _EmpresaInfo(
-                            empresa: empresa,
-                            sucursal: widget.session.sucursal,
-                            openTables: _openTables,
-                            totalTables: totalTables)),
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _LogoUpload(
-                      imageUrl: _imageUrl,
-                      onTap: _pickImage,
-                      uploading: _uploading,
-                      size: 120,
-                    ),
-                    const SizedBox(height: 24),
-                    _EmpresaInfo(
-                        empresa: empresa,
-                        sucursal: widget.session.sucursal,
-                        openTables: _openTables,
-                        totalTables: totalTables),
-                  ],
-                ),
-          const SizedBox(height: 24),
-          _SalonSummary(openTables: _openTables, totalTables: totalTables),
-        ],
+      const SizedBox(height: 20),
+      _HomeCard(
+        child: _SalonSummary(
+            openTables: _openTables, totalTables: totalTables, wide: isWide),
       ),
-    );
+    ]);
   }
 
   Future<void> _pickImage() async {
@@ -1030,18 +1009,34 @@ class _LogoUpload extends StatelessWidget {
   }
 }
 
+// ── Tarjeta blanca de los bloques del inicio ─────────────────────────────────
+class _HomeCard extends StatelessWidget {
+  final Widget child;
+  const _HomeCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: child,
+      );
+}
+
 // ── Datos de la empresa ───────────────────────────────────────────────────────
 class _EmpresaInfo extends StatelessWidget {
   final dynamic empresa;
   final dynamic sucursal;
-  final int openTables;
-  final int totalTables;
-  const _EmpresaInfo({
-    required this.empresa,
-    required this.sucursal,
-    required this.openTables,
-    required this.totalTables,
-  });
+  const _EmpresaInfo({required this.empresa, required this.sucursal});
 
   @override
   Widget build(BuildContext context) {
@@ -1073,40 +1068,74 @@ class _EmpresaInfo extends StatelessWidget {
   }
 }
 
+/// Bloque del salón: mesas abiertas, libres y ocupación, en grande.
 class _SalonSummary extends StatelessWidget {
   final int openTables;
   final int totalTables;
+  final bool wide;
 
-  const _SalonSummary({required this.openTables, required this.totalTables});
+  const _SalonSummary(
+      {required this.openTables, required this.totalTables, this.wide = true});
 
   @override
   Widget build(BuildContext context) {
     final freeTables = (totalTables - openTables).clamp(0, totalTables);
-    final occupation = totalTables == 0 ? 0 : (openTables * 100 / totalTables);
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        _SalonMetric(
-          icon: Icons.table_restaurant_rounded,
-          label: 'Mesas abiertas',
-          value: '$openTables',
-          color: const Color(0xFFF0A83A),
-        ),
-        _SalonMetric(
-          icon: Icons.event_seat_outlined,
-          label: 'Mesas libres',
-          value: '$freeTables',
-          color: const Color(0xFF59A86A),
-        ),
-        _SalonMetric(
-          icon: Icons.donut_small_rounded,
-          label: 'Ocupación',
-          value: '${occupation.round()}%',
+    final occupation = totalTables == 0 ? 0.0 : openTables / totalTables;
+    final metrics = [
+      _SalonMetric(
+        icon: Icons.table_restaurant_rounded,
+        label: 'Mesas abiertas',
+        value: '$openTables',
+        color: const Color(0xFFF0A83A),
+      ),
+      _SalonMetric(
+        icon: Icons.event_seat_outlined,
+        label: 'Mesas libres',
+        value: '$freeTables',
+        color: const Color(0xFF59A86A),
+      ),
+      _SalonMetric(
+        icon: Icons.donut_small_rounded,
+        label: 'Ocupación',
+        value: '${(occupation * 100).round()}%',
+        color: Brand.primary,
+      ),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        Text('Salón',
+            style: GoogleFonts.poppins(
+                color: Brand.ink, fontSize: 22, fontWeight: FontWeight.w800)),
+        const Spacer(),
+        Text('$totalTables mesas en total',
+            style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 13)),
+      ]),
+      const SizedBox(height: 18),
+      if (wide)
+        Row(children: [
+          for (var i = 0; i < metrics.length; i++) ...[
+            if (i > 0) const SizedBox(width: 16),
+            Expanded(child: metrics[i]),
+          ],
+        ])
+      else
+        Column(children: [
+          for (var i = 0; i < metrics.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            metrics[i],
+          ],
+        ]),
+      const SizedBox(height: 18),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: LinearProgressIndicator(
+          value: occupation,
+          minHeight: 10,
           color: Brand.primary,
+          backgroundColor: Brand.surface,
         ),
-      ],
-    );
+      ),
+    ]);
   }
 }
 
@@ -1125,25 +1154,35 @@ class _SalonMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minWidth: 155),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           color: color.withOpacity(.09),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(.28)),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 10),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label,
-                style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 11)),
-            Text(value,
-                style: GoogleFonts.poppins(
-                    color: Brand.ink,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800)),
-          ]),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: color.withOpacity(.16),
+                borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style:
+                      GoogleFonts.poppins(color: Brand.subtle, fontSize: 13)),
+              Text(value,
+                  style: GoogleFonts.poppins(
+                      color: Brand.ink,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15)),
+            ]),
+          ),
         ]),
       );
 }

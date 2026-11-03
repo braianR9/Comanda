@@ -1,5 +1,3 @@
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +7,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/sales_report_provider.dart';
 import '../../providers/sector_provider.dart';
 import '../../theme/brand_colors.dart';
+import '../../utils/file_download.dart';
 import '../invoices/invoices_screen.dart';
 
 class SalesReportScreen extends StatefulWidget {
@@ -90,19 +89,9 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
             sectorId: sectorId,
             orderNumber: int.tryParse(orderNumberController.text.trim()),
           );
-      if (kIsWeb) {
-        throw Exception(
-            'La exportación todavía no está disponible en la versión web.');
-      }
-      final uri = await FilePicker.saveFile(
-        dialogTitle: 'Guardar listado de ventas',
-        fileName: 'listado-ventas.xlsx',
-        bytes: bytes,
-        type: FileType.custom,
-        allowedExtensions: const ['xlsx'],
-      );
+      final uri = await saveExcelFile('listado-ventas.xlsx', bytes,
+          dialogTitle: 'Guardar listado de ventas');
       if (uri == null || !mounted) return;
-      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Listado exportado en $uri')));
     } catch (error) {
@@ -139,7 +128,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                           color: Brand.ink,
                           fontSize: 22,
                           fontWeight: FontWeight.w800)),
-                  Text('Estadísticas · Ventas · Listado de ventas',
+                  Text('Ventas · Listado de ventas',
                       style: TextStyle(color: Brand.subtle)),
                 ],
               ),

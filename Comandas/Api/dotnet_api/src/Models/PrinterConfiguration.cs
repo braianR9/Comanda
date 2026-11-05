@@ -17,6 +17,8 @@ public class PrinterConfiguration
     [Column("uso")] public string Uso { get; set; } = "Ambos";
     [Column("predeterminada")] public bool Predeterminada { get; set; }
     [Column("activa")] public bool Activa { get; set; } = true;
+    /// Computadora (agente) que la imprime; null = la primera computadora agregada en la sucursal.
+    [Column("id_agente_impresion")] public int? IdAgente { get; set; }
     [Column("fecha_creacion")] public DateTime FechaCreacion { get; set; }
     [Column("fecha_modificacion")] public DateTime FechaModificacion { get; set; }
 }
@@ -31,7 +33,8 @@ public class PrinterConfigurationRequest
     [Required] public string Usage { get; set; } = "Ambos";
     public bool IsDefault { get; set; }
     public bool Active { get; set; } = true;
+    public int? AgentId { get; set; }
 }
 
-public record PrinterConfigurationDto(int Id, string Name, string ConnectionType, string? QueueName, string? IpAddress, int? Port, string Usage, bool IsDefault, bool Active);
+public record PrinterConfigurationDto(int Id, string Name, string ConnectionType, string? QueueName, string? IpAddress, int? Port, string Usage, bool IsDefault, bool Active, int? AgentId);
 public class PrinterStatusRequest { public bool Active { get; set; } }

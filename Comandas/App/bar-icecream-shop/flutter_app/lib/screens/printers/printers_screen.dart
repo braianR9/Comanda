@@ -70,9 +70,12 @@ class _PrintersScreenState extends State<PrintersScreen> {
           else
             Expanded(
                 child: ListView(children: [
-              _AgentCard(
-                status: provider.agent,
-                onCreateKey: _createAgentKey,
+              _AgentsCard(
+                agents: provider.agents,
+                onAdd: _addAgent,
+                onRegenerateKey: _regenerateAgentKey,
+                onRename: _renameAgent,
+                onDelete: _deleteAgent,
                 onDownload: _downloadAgent,
               ),
               const SizedBox(height: 20),
@@ -85,6 +88,7 @@ class _PrintersScreenState extends State<PrintersScreen> {
                 for (final printer in provider.printers) ...[
                   _PrinterCard(
                     printer: printer,
+                    agentName: _agentName(provider.agents, printer),
                     onEdit: () => _edit(printer),
                     onTest: () => _test(printer),
                     onActiveChanged: (active) => _setActive(printer, active),
@@ -108,7 +112,9 @@ class _PrintersScreenState extends State<PrintersScreen> {
 
   Future<void> _edit([ConfiguredPrinter? printer]) async {
     final value = await showDialog<ConfiguredPrinter>(
-        context: context, builder: (_) => _PrinterDialog(printer: printer));
+        context: context,
+        builder: (_) => _PrinterDialog(
+            printer: printer, agents: context.read<PrinterProvider>().agents));
     if (value == null || !mounted) return;
     try {
       await context.read<PrinterProvider>().save(value);
@@ -141,28 +147,56 @@ class _PrintersScreenState extends State<PrintersScreen> {
     }
   }
 
-  Future<void> _createAgentKey() async {
-    final provider = context.read<PrinterProvider>();
-    if (provider.agent?.configured == true) {
-      final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-                title: const Text('¿Generar una clave nueva?'),
-                content: const Text(
-                    'El agente que ya está instalado deja de imprimir hasta que lo instales de nuevo con la clave nueva.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancelar')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Generar')),
-                ],
-              ));
-      if (confirmed != true || !mounted) return;
+  /// Computadora que imprime en esta impresora; sin asignar, la primera agregada.
+  static String? _agentName(
+      List<PrintAgentInfo> agents, ConfiguredPrinter printer) {
+    if (agents.isEmpty) return null;
+    for (final agent in agents) {
+      if (agent.id == printer.agentId) return agent.name;
     }
+    return agents.first.name;
+  }
+
+  Future<void> _addAgent() async {
+    final name = await _askAgentName('Agregar computadora');
+    if (name == null || !mounted) return;
+    await _showKey(() => context.read<PrinterProvider>().createAgent(name));
+  }
+
+  Future<void> _regenerateAgentKey(PrintAgentInfo agent) async {
+    if (!await _confirm(
+        '¿Generar una clave nueva para ${agent.name}?',
+        'El agente instalado en esa computadora deja de imprimir hasta que lo instales de nuevo con la clave nueva.',
+        'Generar')) {
+      return;
+    }
+    if (!mounted) return;
+    await _showKey(
+        () => context.read<PrinterProvider>().regenerateAgentKey(agent));
+  }
+
+  Future<void> _renameAgent(PrintAgentInfo agent) async {
+    final name =
+        await _askAgentName('Cambiar nombre', initialValue: agent.name);
+    if (name == null || !mounted) return;
+    await _run(() => context.read<PrinterProvider>().renameAgent(agent, name));
+  }
+
+  Future<void> _deleteAgent(PrintAgentInfo agent) async {
+    if (!await _confirm(
+        '¿Quitar ${agent.name}?',
+        'Su clave deja de funcionar y sus impresoras pasan a la primera computadora de la lista. '
+            'En esa computadora podés desinstalar el agente con "desinstalar".',
+        'Quitar')) {
+      return;
+    }
+    if (!mounted) return;
+    await _run(() => context.read<PrinterProvider>().deleteAgent(agent));
+  }
+
+  Future<void> _showKey(Future<String> Function() createKey) async {
     try {
-      final key = await provider.createAgentKey();
+      final key = await createKey();
       if (!mounted) return;
       await showDialog<void>(
           context: context, builder: (_) => _AgentKeyDialog(agentKey: key));
@@ -171,6 +205,66 @@ class _PrintersScreenState extends State<PrintersScreen> {
         _message(error.toString().replaceFirst('Exception: ', ''), error: true);
       }
     }
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      if (mounted) {
+        _message(error.toString().replaceFirst('Exception: ', ''), error: true);
+      }
+    }
+  }
+
+  Future<bool> _confirm(String title, String content, String action) async =>
+      await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+                title: Text(title),
+                content: Text(content),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancelar')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(action)),
+                ],
+              )) ==
+      true;
+
+  Future<String?> _askAgentName(String title, {String initialValue = ''}) {
+    final controller = TextEditingController(text: initialValue);
+    void submit(BuildContext context) {
+      final name = controller.text.trim();
+      if (name.isNotEmpty) Navigator.pop(context, name);
+    }
+
+    return showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: Text(title),
+              content: SizedBox(
+                width: 420,
+                child: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    maxLength: 100,
+                    decoration: const InputDecoration(
+                        labelText: 'Nombre',
+                        helperText: 'Por ejemplo: Caja, Cocina, Barra'),
+                    onSubmitted: (_) => submit(context)),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar')),
+                FilledButton(
+                    onPressed: () => submit(context),
+                    child: const Text('Guardar')),
+              ],
+            )).whenComplete(controller.dispose);
   }
 
   Future<void> _downloadAgent(String fileName) async {
@@ -198,11 +292,13 @@ class _PrintersScreenState extends State<PrintersScreen> {
 
 class _PrinterCard extends StatelessWidget {
   final ConfiguredPrinter printer;
+  final String? agentName;
   final VoidCallback onEdit;
   final VoidCallback onTest;
   final ValueChanged<bool> onActiveChanged;
   const _PrinterCard(
       {required this.printer,
+      this.agentName,
       required this.onEdit,
       required this.onTest,
       required this.onActiveChanged});
@@ -254,7 +350,8 @@ class _PrinterCard extends StatelessWidget {
                     ]),
                 const SizedBox(height: 5),
                 Text(
-                    '${printer.connectionType} · $destination · Uso: ${_usage(printer.usage)}',
+                    '${printer.connectionType} · $destination · Uso: ${_usage(printer.usage)}'
+                    '${agentName == null ? '' : ' · Computadora: $agentName'}',
                     style: const TextStyle(color: Color(0xFF747386))),
               ])),
           IconButton(
@@ -280,7 +377,8 @@ class _PrinterCard extends StatelessWidget {
 
 class _PrinterDialog extends StatefulWidget {
   final ConfiguredPrinter? printer;
-  const _PrinterDialog({this.printer});
+  final List<PrintAgentInfo> agents;
+  const _PrinterDialog({this.printer, this.agents = const []});
 
   @override
   State<_PrinterDialog> createState() => _PrinterDialogState();
@@ -296,6 +394,7 @@ class _PrinterDialogState extends State<_PrinterDialog> {
   late String _usage;
   late bool _default;
   late bool _active;
+  int? _agentId;
 
   @override
   void initState() {
@@ -309,6 +408,12 @@ class _PrinterDialogState extends State<_PrinterDialog> {
     _usage = value?.usage ?? 'Ambos';
     _default = value?.isDefault ?? true;
     _active = value?.active ?? true;
+    final agents = widget.agents;
+    _agentId = agents.any((x) => x.id == value?.agentId)
+        ? value!.agentId
+        : agents.length == 1
+            ? agents.first.id
+            : null;
   }
 
   @override
@@ -392,6 +497,23 @@ class _PrinterDialogState extends State<_PrinterDialog> {
                             value: 'Ambos', child: Text('Comanda - Ticket'))
                       ],
                       onChanged: (value) => setState(() => _usage = value!)),
+                  if (widget.agents.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int>(
+                        initialValue: _agentId,
+                        decoration: const InputDecoration(
+                            labelText: 'Computadora que la imprime',
+                            helperText:
+                                'La computadora a la que está enchufada la impresora'),
+                        items: [
+                          for (final agent in widget.agents)
+                            DropdownMenuItem(
+                                value: agent.id, child: Text(agent.name))
+                        ],
+                        validator: (value) =>
+                            value == null ? 'Elegí la computadora' : null,
+                        onChanged: (value) => setState(() => _agentId = value)),
+                  ],
                   const SizedBox(height: 8),
                   SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -433,128 +555,163 @@ class _PrinterDialogState extends State<_PrinterDialog> {
           usage: _usage,
           isDefault: _default,
           active: _active,
+          agentId: _agentId,
         ));
   }
 }
 
-/// Estado, clave e instaladores del agente que imprime en la PC del local.
-class _AgentCard extends StatelessWidget {
-  final PrintAgentStatus? status;
-  final VoidCallback onCreateKey;
+/// Computadoras del local con el agente instalado: estado, claves e instaladores.
+class _AgentsCard extends StatelessWidget {
+  final List<PrintAgentInfo> agents;
+  final VoidCallback onAdd;
+  final ValueChanged<PrintAgentInfo> onRegenerateKey;
+  final ValueChanged<PrintAgentInfo> onRename;
+  final ValueChanged<PrintAgentInfo> onDelete;
   final ValueChanged<String> onDownload;
-  const _AgentCard(
-      {required this.status,
-      required this.onCreateKey,
+  const _AgentsCard(
+      {required this.agents,
+      required this.onAdd,
+      required this.onRegenerateKey,
+      required this.onRename,
+      required this.onDelete,
       required this.onDownload});
 
   @override
-  Widget build(BuildContext context) {
-    final agent = status;
-    final (color, text) = agent == null || !agent.configured
-        ? (Colors.grey.shade600, 'Sin instalar')
-        : agent.connected
-            ? (Colors.green.shade700, 'Conectado · ${agent.machine ?? ''}')
-            : agent.lastSeen == null
-                ? (Colors.orange.shade800, 'Clave generada, falta instalarlo')
-                : (
-                    Colors.orange.shade800,
-                    'Sin conexión desde el ${_date(agent.lastSeen!)}'
-                        '${agent.machine == null ? '' : ' · ${agent.machine}'}'
-                  );
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Brand.surface)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                    color: Brand.tint, borderRadius: BorderRadius.circular(12)),
-                child: Icon(Icons.computer_rounded, color: Brand.primary)),
-            const SizedBox(width: 16),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text('Agente de impresión del local',
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Brand.ink)),
-                  const SizedBox(height: 5),
-                  Row(children: [
-                    Icon(Icons.circle, size: 10, color: color),
-                    const SizedBox(width: 6),
-                    Flexible(
-                        child: Text(text,
-                            style: TextStyle(
-                                color: color, fontWeight: FontWeight.w600))),
-                  ]),
-                ])),
-          ]),
-          const SizedBox(height: 12),
-          const Text(
-              'Es un programa que se instala en la computadora que tiene conectadas las impresoras. '
-              'Recibe las comandas y los tickets desde Foco y los imprime. Esa computadora tiene que quedar prendida.',
-              style: TextStyle(color: Color(0xFF747386))),
-          const SizedBox(height: 14),
-          Wrap(spacing: 10, runSpacing: 10, children: [
-            FilledButton.icon(
-                onPressed: onCreateKey,
-                icon: const Icon(Icons.key_rounded),
-                label: Text(agent?.configured == true
-                    ? 'Generar clave nueva'
-                    : 'Generar clave')),
-            OutlinedButton.icon(
-                onPressed: () => onDownload('FocoAgente-Windows.zip'),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('Descargar para Windows')),
-            OutlinedButton.icon(
-                onPressed: () => onDownload('FocoAgente-Mac.zip'),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('Descargar para Mac')),
-          ]),
-          const SizedBox(height: 4),
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 12),
-              expandedCrossAxisAlignment: CrossAxisAlignment.start,
-              initiallyExpanded: agent?.configured != true,
-              title: Text('Cómo dejar las impresoras funcionando',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, color: Brand.primary)),
-              children: const [
-                _Step(1,
-                    'Conectá las impresoras a la computadora del local y verificá que Windows o la Mac las reconozca.'),
-                _Step(2,
-                    'Tocá "Generar clave" y copiala. Se muestra una sola vez.'),
-                _Step(3,
-                    'En esa computadora, entrá a Foco, descargá el instalador (Windows o Mac) y descomprimilo.'),
-                _Step(4,
-                    'Abrí "instalar" (en Windows instalar.cmd, en Mac instalar.command), pegá la clave y apretá Enter.'),
-                _Step(
-                    5,
-                    'El instalador muestra los nombres de las impresoras de esa computadora. Cargá cada una acá con "Nueva impresora": '
-                    'tipo "USB / impresora del sistema", el nombre exacto en "Nombre de la cola" y para qué se usa (Comanda, Ticket o las dos).'),
-                _Step(6,
-                    'Tocá el ícono de prueba de cada impresora. Si sale el ticket "PRUEBA DE IMPRESION", ya está.'),
-                SizedBox(height: 8),
-                Text(
-                    'Si Windows muestra "Windows protegió su PC", tocá "Más información" y "Ejecutar de todas formas". '
-                    'Si la Mac no lo deja abrir, hacé clic derecho > Abrir, o andá a Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".',
-                    style: TextStyle(color: Color(0xFF747386), fontSize: 13)),
-              ],
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Brand.surface)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                      color: Brand.tint,
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.computer_rounded, color: Brand.primary)),
+              const SizedBox(width: 16),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('Computadoras con impresoras',
+                        style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Brand.ink)),
+                    const SizedBox(height: 3),
+                    const Text(
+                        'En cada computadora que tenga impresoras enchufadas se instala el agente de impresión. '
+                        'Las demás (mozos, celulares) no necesitan nada.',
+                        style: TextStyle(color: Color(0xFF747386))),
+                  ])),
+            ]),
+            const SizedBox(height: 12),
+            if (agents.isEmpty)
+              const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Text('Todavía no agregaste ninguna computadora.'))
+            else
+              for (final agent in agents) _agentRow(agent),
+            const SizedBox(height: 12),
+            Wrap(spacing: 10, runSpacing: 10, children: [
+              FilledButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Agregar computadora')),
+              OutlinedButton.icon(
+                  onPressed: () => onDownload('FocoAgente-Windows.zip'),
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Descargar para Windows')),
+              OutlinedButton.icon(
+                  onPressed: () => onDownload('FocoAgente-Mac.zip'),
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Descargar para Mac')),
+            ]),
+            const SizedBox(height: 4),
+            Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 12),
+                expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                initiallyExpanded: agents.isEmpty,
+                title: Text('Cómo dejar las impresoras funcionando',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: Brand.primary)),
+                children: const [
+                  _Step(
+                      1,
+                      'Enchufá cada impresora por USB a la computadora que tenga más cerca. '
+                      'Por ejemplo, la de comandas a la PC de la cocina y la de tickets a la PC de la caja.'),
+                  _Step(2,
+                      'Tocá "Agregar computadora" por cada PC que tenga impresoras, ponele un nombre (Caja, Cocina) y copiá su clave. Se muestra una sola vez.'),
+                  _Step(3,
+                      'En cada una de esas PCs, entrá a Foco, descargá el instalador (Windows o Mac) y descomprimilo.'),
+                  _Step(
+                      4,
+                      'Abrí "instalar" (en Windows instalar.cmd, en Mac instalar.command), pegá la clave de ESA computadora y apretá Enter. '
+                      'En unos segundos aparece como "Conectada".'),
+                  _Step(
+                      5,
+                      'El instalador muestra los nombres de las impresoras de esa PC. Cargá cada una acá con "Nueva impresora": '
+                      'tipo "USB / impresora del sistema", el nombre exacto en "Nombre de la cola", para qué se usa y la computadora a la que está enchufada.'),
+                  _Step(6,
+                      'Tocá el ícono de prueba de cada impresora. Si sale el ticket "PRUEBA DE IMPRESION", ya está.'),
+                  SizedBox(height: 8),
+                  Text(
+                      'Si Windows muestra "Windows protegió su PC", tocá "Más información" y "Ejecutar de todas formas". '
+                      'Si la Mac no lo deja abrir, andá a Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".',
+                      style: TextStyle(color: Color(0xFF747386), fontSize: 13)),
+                ],
+              ),
             ),
-          ),
-        ]),
-      ),
+          ]),
+        ),
+      );
+
+  Widget _agentRow(PrintAgentInfo agent) {
+    final (color, text) = agent.connected
+        ? (Colors.green.shade700, 'Conectada · ${agent.machine ?? ''}')
+        : agent.lastSeen == null
+            ? (Colors.orange.shade800, 'Falta instalar el agente')
+            : (
+                Colors.orange.shade800,
+                'Sin conexión desde el ${_date(agent.lastSeen!)}'
+                    '${agent.machine == null ? '' : ' · ${agent.machine}'}'
+              );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Icon(Icons.circle, size: 10, color: color),
+        const SizedBox(width: 10),
+        Text(agent.name,
+            style: TextStyle(fontWeight: FontWeight.w700, color: Brand.ink)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text(text,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: color, fontWeight: FontWeight.w600))),
+        PopupMenuButton<String>(
+          tooltip: 'Opciones',
+          onSelected: (value) => switch (value) {
+            'key' => onRegenerateKey(agent),
+            'rename' => onRename(agent),
+            _ => onDelete(agent),
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'key', child: Text('Generar clave nueva')),
+            PopupMenuItem(value: 'rename', child: Text('Cambiar nombre')),
+            PopupMenuItem(value: 'delete', child: Text('Quitar')),
+          ],
+        ),
+      ]),
     );
   }
 
@@ -593,7 +750,7 @@ class _AgentKeyDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Clave del agente'),
+        title: const Text('Clave de la computadora'),
         content: SizedBox(
           width: 520,
           child: Column(mainAxisSize: MainAxisSize.min, children: [

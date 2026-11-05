@@ -17,6 +17,9 @@ class ConfiguredPrinter {
   final bool isDefault;
   final bool active;
 
+  /// Computadora (agente) que la imprime; null = la primera computadora agregada.
+  final int? agentId;
+
   const ConfiguredPrinter({
     this.id = 0,
     required this.name,
@@ -27,6 +30,7 @@ class ConfiguredPrinter {
     required this.usage,
     this.isDefault = false,
     this.active = true,
+    this.agentId,
   });
 
   factory ConfiguredPrinter.fromJson(Map<String, dynamic> json) =>
@@ -40,6 +44,7 @@ class ConfiguredPrinter {
         usage: json['usage']?.toString() ?? 'Ambos',
         isDefault: json['isDefault'] as bool? ?? false,
         active: json['active'] as bool? ?? true,
+        agentId: (json['agentId'] as num?)?.toInt(),
       );
 
   Map<String, dynamic> toRequest() => {
@@ -51,21 +56,23 @@ class ConfiguredPrinter {
         'usage': usage,
         'isDefault': isDefault,
         'active': active,
+        'agentId': agentId,
       };
 }
 
-/// Agente de impresión de la sucursal (programa instalado en la PC de las impresoras).
-class PrintAgentStatus {
-  final bool configured;
+/// Computadora del local con el agente de impresión instalado.
+class PrintAgentInfo {
+  final int id;
+  final String name;
   final DateTime? lastSeen;
   final String? machine;
 
-  const PrintAgentStatus(
-      {this.configured = false, this.lastSeen, this.machine});
+  const PrintAgentInfo(
+      {required this.id, required this.name, this.lastSeen, this.machine});
 
-  factory PrintAgentStatus.fromJson(Map<String, dynamic> json) =>
-      PrintAgentStatus(
-        configured: json['configured'] as bool? ?? false,
+  factory PrintAgentInfo.fromJson(Map<String, dynamic> json) => PrintAgentInfo(
+        id: (json['id'] as num).toInt(),
+        name: json['name']?.toString() ?? '',
         lastSeen:
             DateTime.tryParse(json['lastSeen']?.toString() ?? '')?.toLocal(),
         machine: json['machine']?.toString(),
@@ -82,7 +89,7 @@ class PrinterProvider extends ChangeNotifier {
   bool loading = false;
   String? error;
   List<ConfiguredPrinter> printers = [];
-  PrintAgentStatus? agent;
+  List<PrintAgentInfo> agents = [];
 
   Map<String, String> get _headers => {
         ...ApiConfig.headers,
@@ -106,7 +113,7 @@ class PrinterProvider extends ChangeNotifier {
         for (final value in values)
           ConfiguredPrinter.fromJson(value as Map<String, dynamic>)
       ];
-      await loadAgent();
+      await loadAgents();
     } catch (exception) {
       error = exception.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -143,28 +150,60 @@ class PrinterProvider extends ChangeNotifier {
         .timeout(ApiConfig.timeout));
   }
 
-  Future<void> loadAgent() async {
+  Future<void> loadAgents() async {
     try {
       final response = await http
-          .get(Uri.parse('${ApiConfig.baseUrl}/api/printers/agent'),
+          .get(Uri.parse('${ApiConfig.baseUrl}/api/printers/agents'),
               headers: _headers)
           .timeout(ApiConfig.timeout);
-      agent = PrintAgentStatus.fromJson(
-          _body(response)['data'] as Map<String, dynamic>? ?? const {});
+      agents = [
+        for (final value in _body(response)['data'] as List? ?? const [])
+          PrintAgentInfo.fromJson(value as Map<String, dynamic>)
+      ];
     } catch (_) {
-      // El estado del agente es informativo: no bloquea la lista de impresoras.
+      // El estado de las computadoras es informativo: no bloquea la lista de impresoras.
     }
     notifyListeners();
   }
 
-  /// Genera una clave nueva para el agente; la anterior deja de funcionar.
-  Future<String> createAgentKey() async {
+  /// Agrega una computadora y devuelve su clave (se muestra una sola vez).
+  Future<String> createAgent(String name) async {
     final body = _body(await http
-        .post(Uri.parse('${ApiConfig.baseUrl}/api/printers/agent/key'),
+        .post(Uri.parse('${ApiConfig.baseUrl}/api/printers/agents'),
+            headers: _headers, body: jsonEncode({'name': name}))
+        .timeout(ApiConfig.timeout));
+    await loadAgents();
+    return (body['data'] as Map<String, dynamic>)['key'].toString();
+  }
+
+  Future<void> renameAgent(PrintAgentInfo agent, String name) async {
+    _body(await http
+        .put(Uri.parse('${ApiConfig.baseUrl}/api/printers/agents/${agent.id}'),
+            headers: _headers, body: jsonEncode({'name': name}))
+        .timeout(ApiConfig.timeout));
+    await loadAgents();
+  }
+
+  /// Clave nueva para la computadora; la anterior deja de funcionar.
+  Future<String> regenerateAgentKey(PrintAgentInfo agent) async {
+    final body = _body(await http
+        .post(
+            Uri.parse(
+                '${ApiConfig.baseUrl}/api/printers/agents/${agent.id}/key'),
             headers: _headers)
         .timeout(ApiConfig.timeout));
-    await loadAgent();
+    await loadAgents();
     return (body['data'] as Map<String, dynamic>)['key'].toString();
+  }
+
+  /// Sus impresoras pasan a la primera computadora de la sucursal.
+  Future<void> deleteAgent(PrintAgentInfo agent) async {
+    _body(await http
+        .delete(
+            Uri.parse('${ApiConfig.baseUrl}/api/printers/agents/${agent.id}'),
+            headers: _headers)
+        .timeout(ApiConfig.timeout));
+    await load(_token);
   }
 
   /// Instalador del agente (FocoAgente-Windows.zip o FocoAgente-Mac.zip).

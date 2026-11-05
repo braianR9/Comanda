@@ -20,6 +20,7 @@ public sealed class PrinterConfigurationService(AppDbContext db, PrinterTranspor
         Validate(request);
         var name = request.Name.Trim();
         if (await db.PrinterConfigurations.AnyAsync(x => x.IdSucursal == branch && x.Nombre.ToLower() == name.ToLower())) throw new SaleException("Ya existe una impresora con ese nombre.", 409);
+        await ValidateAgent(company, branch, request.AgentId);
         var value = new PrinterConfiguration { IdEmpresa = company, IdSucursal = branch, FechaCreacion = DateTime.UtcNow };
         Apply(value, request);
         if (value.Predeterminada) await ClearOverlappingDefaults(company, branch, value.Uso, null);
@@ -30,6 +31,7 @@ public sealed class PrinterConfigurationService(AppDbContext db, PrinterTranspor
     {
         Validate(request);
         var value = await Require(company, branch, id);
+        await ValidateAgent(company, branch, request.AgentId);
         var name = request.Name.Trim();
         if (await db.PrinterConfigurations.AnyAsync(x => x.IdSucursal == branch && x.Id != id && x.Nombre.ToLower() == name.ToLower())) throw new SaleException("Ya existe una impresora con ese nombre.", 409);
         Apply(value, request);
@@ -60,9 +62,14 @@ public sealed class PrinterConfigurationService(AppDbContext db, PrinterTranspor
         var values = await db.PrinterConfigurations.Where(x => x.IdEmpresa == company && x.IdSucursal == branch && x.Id != exceptId && x.Predeterminada && (x.Uso == usage || x.Uso == "Ambos" || usage == "Ambos")).ToListAsync();
         foreach (var value in values) { value.Predeterminada = false; value.FechaModificacion = DateTime.UtcNow; }
     }
+    private async Task ValidateAgent(int company, int branch, int? agentId)
+    {
+        if (agentId is int id && !await db.PrintAgents.AnyAsync(x => x.Id == id && x.IdEmpresa == company && x.IdSucursal == branch))
+            throw new SaleException("La computadora elegida no existe en esta sucursal.");
+    }
     private static void Apply(PrinterConfiguration value, PrinterConfigurationRequest request)
-    { value.Nombre = request.Name.Trim(); value.TipoConexion = request.ConnectionType; value.NombreCola = request.ConnectionType == "Cups" ? request.QueueName?.Trim() : null; value.DireccionIp = request.ConnectionType == "Red" ? request.IpAddress?.Trim() : null; value.Puerto = request.ConnectionType == "Red" ? request.Port : null; value.Uso = request.Usage; value.Predeterminada = request.IsDefault; value.Activa = request.Active; value.FechaModificacion = DateTime.UtcNow; }
+    { value.Nombre = request.Name.Trim(); value.TipoConexion = request.ConnectionType; value.NombreCola = request.ConnectionType == "Cups" ? request.QueueName?.Trim() : null; value.DireccionIp = request.ConnectionType == "Red" ? request.IpAddress?.Trim() : null; value.Puerto = request.ConnectionType == "Red" ? request.Port : null; value.Uso = request.Usage; value.Predeterminada = request.IsDefault; value.Activa = request.Active; value.IdAgente = request.AgentId; value.FechaModificacion = DateTime.UtcNow; }
     private static void Validate(PrinterConfigurationRequest request)
     { if (string.IsNullOrWhiteSpace(request.Name)) throw new SaleException("El nombre es obligatorio."); if (request.ConnectionType is not ("Cups" or "Red")) throw new SaleException("La conexión debe ser Cups o Red."); if (request.Usage is not ("Comanda" or "TicketVenta" or "Ambos")) throw new SaleException("El uso debe ser Comanda, TicketVenta o Ambos."); if (request.ConnectionType == "Cups" && string.IsNullOrWhiteSpace(request.QueueName)) throw new SaleException("El nombre de la cola CUPS es obligatorio."); if (request.ConnectionType == "Red" && (string.IsNullOrWhiteSpace(request.IpAddress) || request.Port is null or < 1 or > 65535)) throw new SaleException("La IP y el puerto son obligatorios para una impresora de red."); }
-    private static PrinterConfigurationDto ToDto(PrinterConfiguration x) => new(x.Id, x.Nombre, x.TipoConexion, x.NombreCola, x.DireccionIp, x.Puerto, x.Uso, x.Predeterminada, x.Activa);
+    private static PrinterConfigurationDto ToDto(PrinterConfiguration x) => new(x.Id, x.Nombre, x.TipoConexion, x.NombreCola, x.DireccionIp, x.Puerto, x.Uso, x.Predeterminada, x.Activa, x.IdAgente);
 }

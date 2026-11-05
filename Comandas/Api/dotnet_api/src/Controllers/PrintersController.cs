@@ -9,8 +9,12 @@ namespace BarIceCreamShop.Api.Controllers;
 [ApiController, Authorize, Route("api/printers")]
 public sealed class PrintersController(PrinterConfigurationService service, PrintAgentService agents) : ControllerBase
 {
-    [HttpGet("agent")] public async Task<ActionResult<ApiResponse<PrintAgentStatusDto>>> AgentStatus() => Ok(ApiResponse<PrintAgentStatusDto>.Ok(await agents.StatusAsync(Company, Branch)));
-    [HttpPost("agent/key")] public async Task<ActionResult<ApiResponse<PrintAgentKeyDto>>> AgentKey() => await Run(() => agents.CreateKeyAsync(Company, Branch));
+    // Computadoras del local con el agente de impresión instalado.
+    [HttpGet("agents")] public async Task<ActionResult<ApiResponse<List<PrintAgentDto>>>> Agents() => Ok(ApiResponse<List<PrintAgentDto>>.Ok(await agents.ListAsync(Company, Branch)));
+    [HttpPost("agents")] public async Task<ActionResult<ApiResponse<PrintAgentKeyDto>>> CreateAgent(PrintAgentRequest request) => await Run(() => agents.CreateAsync(Company, Branch, request), 201);
+    [HttpPut("agents/{id:int}")] public async Task<ActionResult<ApiResponse<PrintAgentDto>>> RenameAgent(int id, PrintAgentRequest request) => await Run(() => agents.RenameAsync(Company, Branch, id, request));
+    [HttpPost("agents/{id:int}/key")] public async Task<ActionResult<ApiResponse<PrintAgentKeyDto>>> AgentKey(int id) => await Run(() => agents.RegenerateKeyAsync(Company, Branch, id));
+    [HttpDelete("agents/{id:int}")] public async Task<ActionResult<ApiResponse<object>>> DeleteAgent(int id) => await Run<object>(async () => { await agents.DeleteAsync(Company, Branch, id); return new { id }; });
     [HttpGet] public async Task<ActionResult<ApiResponse<List<PrinterConfigurationDto>>>> List([FromQuery] bool includeInactive = false) => Ok(ApiResponse<List<PrinterConfigurationDto>>.Ok(await service.ListAsync(Company, Branch, includeInactive)));
     [HttpGet("{id:int}")] public async Task<ActionResult<ApiResponse<PrinterConfigurationDto>>> Get(int id) { var value = await service.GetAsync(Company, Branch, id); return value is null ? NotFound(ApiResponse<PrinterConfigurationDto>.NotFound("Impresora no encontrada.")) : Ok(ApiResponse<PrinterConfigurationDto>.Ok(value)); }
     [HttpPost] public async Task<ActionResult<ApiResponse<PrinterConfigurationDto>>> Create(PrinterConfigurationRequest request) => await Run(() => service.CreateAsync(Company, Branch, request), 201);

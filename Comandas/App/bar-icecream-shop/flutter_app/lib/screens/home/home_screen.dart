@@ -515,7 +515,6 @@ class _MainMenu extends StatelessWidget {
     2: 'Rubros y subrubros',
     3: 'Sectores',
     5: 'Descuentos y pagos',
-    6: 'Impresoras',
     13: 'Listas de precios',
   };
 
@@ -587,6 +586,7 @@ class _MainMenu extends StatelessWidget {
               _group('Configuración', Icons.settings_outlined, const {
                 15: 'Empresa y facturación',
                 19: 'Colores de la sucursal',
+                6: 'Impresoras',
                 11: 'Google Sheets',
                 9: 'Usuarios',
               }),

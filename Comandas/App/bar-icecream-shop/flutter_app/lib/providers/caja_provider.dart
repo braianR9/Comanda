@@ -73,13 +73,26 @@ class CajaProvider extends ChangeNotifier {
     return caja;
   }
 
-  Future<Caja> cerrar({String? observaciones}) async {
+  /// Efectivo que quedó para abrir la próxima caja, según el último cierre.
+  double? get montoProximaApertura => _history
+      .where((caja) => !caja.abierta && caja.montoProximaApertura != null)
+      .firstOrNull
+      ?.montoProximaApertura;
+
+  Future<Caja> cerrar(
+      {required double montoContado,
+      required double montoProximaApertura,
+      String? observaciones}) async {
     final caja = _current;
     if (caja == null) throw Exception('No hay una caja abierta.');
     final response = await http
         .post(_uri('/api/cajas/${caja.id}/cerrar'),
             headers: _headers,
-            body: jsonEncode({'observaciones': observaciones}))
+            body: jsonEncode({
+              'observaciones': observaciones,
+              'montoContado': montoContado,
+              'montoProximaApertura': montoProximaApertura,
+            }))
         .timeout(ApiConfig.timeout);
     final closed =
         Caja.fromJson(_body(response)['data'] as Map<String, dynamic>);

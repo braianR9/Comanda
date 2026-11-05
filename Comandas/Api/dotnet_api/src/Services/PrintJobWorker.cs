@@ -127,7 +127,8 @@ public sealed class PrintJobWorker : BackgroundService
                 .Where(x => x.CajaId == caja.Id).OrderBy(x => x.Fecha).ToListAsync(cancellationToken);
             var companyName = await db.Empresas.AsNoTracking().Where(x => x.Id == companyId).Select(x => x.Nombre).SingleAsync(cancellationToken);
             var branch = await db.Sucursales.AsNoTracking().Where(x => x.Id == branchId).Select(x => x.Nombre).SingleAsync(cancellationToken);
-            ticket = BuildCajaTicket(caja, detalle, movimientos, companyName, branch);
+            var sectores = await CajaService.DetalleSectoresAsync(db, caja, caja.FechaCierre ?? DateTime.UtcNow);
+        ticket = BuildCajaTicket(caja, detalle, sectores, movimientos, companyName, branch);
         }
         else
         {
@@ -468,21 +469,32 @@ public sealed class PrintJobWorker : BackgroundService
     private static byte[] BuildCajaTicket(
         Caja caja,
         List<CajaCierreDetalle> detalle,
+        List<(string Grupo, string MedioPago, decimal Total)> sectores,
         List<CajaMovimiento> movimientos,
         string companyName,
         string branchName)
     {
         const int width = 42;
+        const string normal = "\u001b!\u0008", big = "\u001b!\u0018";
         var text = new StringBuilder();
-        text.Append("\u001b!\u0008");
+        void Line(string label, decimal amount) => text.AppendLine($"{label,-28}{FormatMoney(amount),14}");
+        void Title(string title)
+        {
+            text.AppendLine(new string('=', width));
+            text.AppendLine(Center(title, width));
+            text.AppendLine(new string('-', width));
+        }
+        text.Append(normal);
 
         text.AppendLine(Center(companyName.ToUpperInvariant(), width));
         if (!string.IsNullOrWhiteSpace(branchName) && !string.Equals(branchName, companyName, StringComparison.OrdinalIgnoreCase))
             text.AppendLine(Center(branchName, width));
         text.AppendLine();
-        text.AppendLine(Center(caja.Estado == "Cerrada" ? "CIERRE DE CAJA" : "REPORTE DE CAJA (ABIERTA)", width));
+        text.Append(big);
+        text.AppendLine(Center(caja.Estado != "Cerrada" ? "REPORTE DE CAJA (ABIERTA)"
+            : caja.NumeroCierre is { } numero ? $"CIERRE DE CAJA NRO {numero}" : "CIERRE DE CAJA", width));
+        text.Append(normal);
         text.AppendLine(new string('=', width));
-
         text.AppendLine($"Abrió: {caja.UsuarioApertura.Nombre} {caja.UsuarioApertura.Apellido}".Trim());
         text.AppendLine($"Fecha apertura: {caja.FechaApertura.ToLocalTime():dd/MM/yyyy HH:mm}");
         if (caja.UsuarioCierre is not null && caja.FechaCierre.HasValue)
@@ -490,43 +502,71 @@ public sealed class PrintJobWorker : BackgroundService
             text.AppendLine($"Cerró: {caja.UsuarioCierre.Nombre} {caja.UsuarioCierre.Apellido}".Trim());
             text.AppendLine($"Fecha cierre: {caja.FechaCierre.Value.ToLocalTime():dd/MM/yyyy HH:mm}");
         }
-        text.AppendLine(new string('-', width));
-        text.AppendLine($"{"Monto inicial:",-28}{FormatMoney(caja.MontoInicial),14}");
 
+        // Efectivo: apertura, lo que tendría que haber, lo que se contó y la diferencia.
+        var esperado = caja.TotalEfectivoEsperado ?? 0;
+        Title("EFECTIVO");
+        Line("Valor de apertura:", caja.MontoInicial);
+        Line("Efectivo esperado:", esperado);
+        if (caja.MontoContado is { } contado)
+        {
+            Line("Valor final (contado):", contado);
+            var diferencia = contado - esperado;
+            Line(diferencia > 0 ? "Diferencia (sobrante):" : diferencia < 0 ? "Diferencia (faltante):" : "Diferencia:", diferencia);
+        }
+        if (caja.MontoProximaApertura is { } proxima)
+        {
+            text.AppendLine(new string('-', width));
+            text.Append(big);
+            Line("Proxima apertura:", proxima);
+            text.Append(normal);
+        }
+
+        // Resumen: total vendido y, por salón y mostrador, los medios de pago.
+        Title("RESUMEN DETALLADO");
+        text.Append(big);
+        Line("TOTAL VENDIDO:", caja.TotalVentas ?? detalle.Sum(x => x.Total));
+        text.Append(normal);
+        foreach (var grupo in sectores.GroupBy(x => x.Grupo)
+            .OrderBy(g => g.Key == "Mostrador" ? 1 : 0).ThenBy(g => g.Key))
+        {
+            text.AppendLine();
+            Line(grupo.Key.ToUpperInvariant(), grupo.Sum(x => x.Total));
+            foreach (var item in grupo.OrderByDescending(x => x.Total))
+                Line($"  {item.MedioPago}", item.Total);
+        }
         if (detalle.Count > 0)
         {
-            text.AppendLine(new string('-', width));
-            foreach (var line in Wrap("Cobros por medio de pago:", width)) text.AppendLine(line);
-            foreach (var item in detalle)
-                text.AppendLine($"{item.MedioPago,-28}{FormatMoney(item.Total),14}");
+            text.AppendLine();
+            text.AppendLine("TOTAL POR MEDIO DE PAGO");
+            foreach (var item in detalle.OrderByDescending(x => x.Total))
+                Line($"  {item.MedioPago}", item.Total);
         }
-        text.AppendLine(new string('-', width));
-        text.AppendLine($"{"Total vendido:",-28}{FormatMoney(caja.TotalVentas ?? 0),14}");
 
-        var ingresos = movimientos.Where(x => x.Tipo == "Ingreso").ToList();
-        var egresos = movimientos.Where(x => x.Tipo == "Egreso").ToList();
-        if (ingresos.Count > 0 || egresos.Count > 0)
+        void Movimientos(string title, string sign, List<CajaMovimiento> items, decimal extra, string? extraLabel)
         {
+            Title(title);
+            foreach (var item in items)
+                foreach (var (line, index) in Wrap($"{sign} {item.Motivo} ({item.Usuario.Nombre} {item.Usuario.Apellido})".Trim(), width - 14)
+                    .Select((line, index) => (line, index)))
+                    text.AppendLine(index == 0 ? $"{line,-28}{FormatMoney(item.Monto),14}" : line);
+            if (extraLabel != null) Line($"{sign} {extraLabel}", extra);
+            if (items.Count == 0 && extraLabel == null) text.AppendLine("Sin movimientos");
             text.AppendLine(new string('-', width));
-            foreach (var line in Wrap("Movimientos manuales:", width)) text.AppendLine(line);
-            foreach (var item in ingresos)
-                foreach (var line in Wrap($"+ {item.Motivo} ({item.Usuario.Nombre} {item.Usuario.Apellido})".Trim(), width - 14))
-                    text.AppendLine($"{line,-28}{FormatMoney(item.Monto),14}");
-            foreach (var item in egresos)
-                foreach (var line in Wrap($"- {item.Motivo} ({item.Usuario.Nombre} {item.Usuario.Apellido})".Trim(), width - 14))
-                    text.AppendLine($"{line,-28}{FormatMoney(-item.Monto),14}");
+            Line("Total:", items.Sum(x => x.Monto) + extra);
         }
-
-        text.AppendLine(new string('=', width));
-        text.Append("\u001b!\u0018");
-        text.AppendLine($"{"Efectivo esperado:",-28}{FormatMoney(caja.TotalEfectivoEsperado ?? 0),14}");
-        text.Append("\u001b!\u0008");
-        text.AppendLine(new string('=', width));
+        Movimientos("INGRESOS MANUALES", "+", movimientos.Where(x => x.Tipo == "Ingreso").ToList(), 0, null);
+        // Lo que se lleva al cerrar: el efectivo contado menos lo que queda para la próxima apertura.
+        var retiro = caja.MontoContado - caja.MontoProximaApertura;
+        Movimientos("EGRESOS MANUALES", "-", movimientos.Where(x => x.Tipo == "Egreso").ToList(),
+            retiro ?? 0, retiro is > 0 ? "Retiro al cierre" : null);
 
         if (!string.IsNullOrWhiteSpace(caja.Observaciones))
         {
+            text.AppendLine(new string('=', width));
             foreach (var line in Wrap($"Obs: {caja.Observaciones}", width)) text.AppendLine(line);
         }
+        text.AppendLine(new string('=', width));
         text.AppendLine();
         text.AppendLine();
         text.AppendLine();

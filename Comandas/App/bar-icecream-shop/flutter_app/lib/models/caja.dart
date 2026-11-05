@@ -52,6 +52,15 @@ class Caja {
   final double? totalEgresos;
   final double? totalEfectivoEsperado;
   final String? observaciones;
+  final int? numeroCierre;
+  final double? montoContado;
+  final double? montoProximaApertura;
+
+  /// Contado menos esperado: positivo sobra, negativo falta.
+  final double? diferencia;
+
+  /// Efectivo que se retiró al cerrar (contado menos próxima apertura).
+  final double? retiro;
   final List<CajaMedioPago> detalle;
   final List<CajaMovimiento> movimientos;
 
@@ -68,6 +77,11 @@ class Caja {
     this.totalEgresos,
     this.totalEfectivoEsperado,
     this.observaciones,
+    this.numeroCierre,
+    this.montoContado,
+    this.montoProximaApertura,
+    this.diferencia,
+    this.retiro,
     this.detalle = const [],
     this.movimientos = const [],
   });
@@ -91,6 +105,12 @@ class Caja {
         totalEfectivoEsperado:
             (json['totalEfectivoEsperado'] as num?)?.toDouble(),
         observaciones: json['observaciones']?.toString(),
+        numeroCierre: (json['numeroCierre'] as num?)?.toInt(),
+        montoContado: (json['montoContado'] as num?)?.toDouble(),
+        montoProximaApertura:
+            (json['montoProximaApertura'] as num?)?.toDouble(),
+        diferencia: (json['diferencia'] as num?)?.toDouble(),
+        retiro: (json['retiro'] as num?)?.toDouble(),
         detalle: (json['detalle'] as List<dynamic>? ?? const [])
             .map((e) => CajaMedioPago.fromJson(e as Map<String, dynamic>))
             .toList(),

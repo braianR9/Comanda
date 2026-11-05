@@ -1,7 +1,7 @@
 namespace BarIceCreamShop.Api.Models;
 
 public record AbrirCajaRequest(decimal MontoInicial, string? Observaciones);
-public record CerrarCajaRequest(string? Observaciones);
+public record CerrarCajaRequest(string? Observaciones, decimal? MontoContado, decimal? MontoProximaApertura);
 public record CajaMovimientoRequest(string Tipo, decimal Monto, string Motivo);
 
 public class CajaMedioPagoDto
@@ -34,6 +34,13 @@ public class CajaDto
     public decimal? TotalEgresos { get; set; }
     public decimal? TotalEfectivoEsperado { get; set; }
     public string? Observaciones { get; set; }
+    public int? NumeroCierre { get; set; }
+    public decimal? MontoContado { get; set; }
+    public decimal? MontoProximaApertura { get; set; }
+    /// Contado menos esperado: positivo sobra, negativo falta.
+    public decimal? Diferencia { get; set; }
+    /// Efectivo que se retira al cerrar (contado menos próxima apertura).
+    public decimal? Retiro { get; set; }
     public List<CajaMedioPagoDto> Detalle { get; set; } = [];
     public List<CajaMovimientoDto> Movimientos { get; set; } = [];
 }

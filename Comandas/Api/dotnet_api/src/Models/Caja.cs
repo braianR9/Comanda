@@ -19,6 +19,12 @@ public class Caja
     [Column("total_egresos", TypeName = "decimal(18,2)")] public decimal? TotalEgresos { get; set; }
     [Column("total_efectivo_esperado", TypeName = "decimal(18,2)")] public decimal? TotalEfectivoEsperado { get; set; }
     [Column("observaciones")] public string? Observaciones { get; set; }
+    /// Número correlativo del cierre en la sucursal.
+    [Column("numero_cierre")] public int? NumeroCierre { get; set; }
+    /// Efectivo que se contó al cerrar.
+    [Column("monto_contado", TypeName = "decimal(18,2)")] public decimal? MontoContado { get; set; }
+    /// Efectivo que queda para abrir la próxima caja; el resto se retira.
+    [Column("monto_proxima_apertura", TypeName = "decimal(18,2)")] public decimal? MontoProximaApertura { get; set; }
 
     public Usuario UsuarioApertura { get; set; } = null!;
     public Usuario? UsuarioCierre { get; set; }

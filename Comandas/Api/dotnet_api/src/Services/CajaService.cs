@@ -64,6 +64,12 @@ public class CajaService(AppDbContext context)
             $"SELECT * FROM cajas WHERE id_caja={id} AND id_empresa={company} AND id_sucursal={branch} FOR UPDATE")
             .FirstOrDefaultAsync() ?? throw new CajaException("Caja no encontrada.", 404);
         if (caja.Estado != "Abierta") throw new CajaException("Esta caja ya está cerrada.", 409);
+        if (request.MontoContado is not { } contado || contado < 0)
+            throw new CajaException("Indicá el efectivo que quedó en la caja.");
+        if (request.MontoProximaApertura is not { } proxima || proxima < 0)
+            throw new CajaException("Indicá con cuánto efectivo se abre la próxima caja.");
+        if (proxima > contado)
+            throw new CajaException("La próxima apertura no puede ser mayor al efectivo que quedó en la caja.");
 
         var pending = await context.Orders.AsNoTracking()
             .Where(o => o.IdEmpresa == company && o.IdSucursal == branch &&
@@ -86,6 +92,11 @@ public class CajaService(AppDbContext context)
         caja.TotalIngresos = totals.Ingresos;
         caja.TotalEgresos = totals.Egresos;
         caja.TotalEfectivoEsperado = totals.EfectivoEsperado;
+        caja.MontoContado = contado;
+        caja.MontoProximaApertura = proxima;
+        // La caja de la sucursal está bloqueada (una sola abierta), así que el número no se repite.
+        caja.NumeroCierre = (await context.Cajas.Where(c => c.IdEmpresa == company && c.IdSucursal == branch)
+            .MaxAsync(c => c.NumeroCierre) ?? 0) + 1;
         if (!string.IsNullOrWhiteSpace(request.Observaciones))
         {
             caja.Observaciones = string.IsNullOrWhiteSpace(caja.Observaciones)
@@ -142,6 +153,27 @@ public class CajaService(AppDbContext context)
         return caja == null ? null : await MapAsync(caja);
     }
 
+    /// Cobros de la caja por salón (sector de la mesa) o mostrador y medio de pago, descontando devoluciones.
+    public static async Task<List<(string Grupo, string MedioPago, decimal Total)>> DetalleSectoresAsync(AppDbContext context, Caja caja, DateTime hasta)
+    {
+        var pagos = await (from p in context.SalePayments.AsNoTracking()
+            join o in context.Orders on p.OrderId equals o.Id
+            where o.IdEmpresa == caja.IdEmpresa && o.IdSucursal == caja.IdSucursal && p.Fecha >= caja.FechaApertura && p.Fecha <= hasta
+            group p by new { Grupo = o.Table.EsMostrador ? "Mostrador" : o.Table.Sector.Nombre, p.PaymentTypeName } into g
+            select new { g.Key.Grupo, g.Key.PaymentTypeName, Total = g.Sum(p => p.Amount) }).ToListAsync();
+        var devoluciones = await (from r in context.SaleRefunds.AsNoTracking()
+            join v in context.SaleVoids on r.OrderId equals v.OrderId
+            join o in context.Orders on r.OrderId equals o.Id
+            where v.CashId == caja.Id && v.Date <= hasta
+            group r by new { Grupo = o.Table.EsMostrador ? "Mostrador" : o.Table.Sector.Nombre, r.PaymentTypeName } into g
+            select new { g.Key.Grupo, g.Key.PaymentTypeName, Total = -g.Sum(r => r.Amount) }).ToListAsync();
+        return pagos.Concat(devoluciones)
+            .GroupBy(x => (x.Grupo, x.PaymentTypeName))
+            .Select(g => (g.Key.Grupo, g.Key.PaymentTypeName, g.Sum(x => x.Total)))
+            .Where(x => x.Item3 != 0)
+            .ToList();
+    }
+
     private IQueryable<Caja> Query(int company) => context.Cajas.AsNoTracking().Where(c => c.IdEmpresa == company)
         .Include(c => c.UsuarioApertura).Include(c => c.UsuarioCierre);
 
@@ -170,7 +202,8 @@ public class CajaService(AppDbContext context)
             .Where(m => m.CajaId == caja.Id && m.Fecha <= hasta).ToListAsync();
         var ingresos = movimientos.Where(m => m.Tipo == "Ingreso").Sum(m => m.Monto);
         var egresos = movimientos.Where(m => m.Tipo == "Egreso").Sum(m => m.Monto);
-        var efectivo = pagos.Where(p => p.MedioPago == EfectivoNombre).Sum(p => p.Total);
+        // El medio de pago puede estar cargado como "EFECTIVO" o "Efectivo".
+        var efectivo = pagos.Where(p => string.Equals(p.MedioPago.Trim(), EfectivoNombre, StringComparison.OrdinalIgnoreCase)).Sum(p => p.Total);
         var totalVentas = pagos.Sum(p => p.Total);
         var efectivoEsperado = caja.MontoInicial + efectivo + ingresos - egresos;
         return (pagos, totalVentas, ingresos, egresos, efectivoEsperado);
@@ -217,6 +250,11 @@ public class CajaService(AppDbContext context)
             TotalEgresos = egresos,
             TotalEfectivoEsperado = efectivoEsperado,
             Observaciones = caja.Observaciones,
+            NumeroCierre = caja.NumeroCierre,
+            MontoContado = caja.MontoContado,
+            MontoProximaApertura = caja.MontoProximaApertura,
+            Diferencia = caja.MontoContado - efectivoEsperado,
+            Retiro = caja.MontoContado - caja.MontoProximaApertura,
             Detalle = detalle,
             Movimientos = movimientos,
         };

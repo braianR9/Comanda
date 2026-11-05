@@ -38,7 +38,8 @@ class _CajaScreenState extends State<CajaScreen> {
   Future<void> _abrir() async {
     final result = await showDialog<_AbrirCajaResult>(
       context: context,
-      builder: (_) => const _AbrirCajaDialog(),
+      builder: (_) => _AbrirCajaDialog(
+          montoSugerido: context.read<CajaProvider>().montoProximaApertura),
     );
     if (result == null || !mounted) return;
     try {
@@ -56,7 +57,7 @@ class _CajaScreenState extends State<CajaScreen> {
   Future<void> _cerrar() async {
     final caja = context.read<CajaProvider>().current;
     if (caja == null) return;
-    final confirmed = await showDialog<String?>(
+    final confirmed = await showDialog<_CerrarCajaResult>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _CerrarCajaDialog(caja: caja),
@@ -64,7 +65,9 @@ class _CajaScreenState extends State<CajaScreen> {
     if (confirmed == null || !mounted) return;
     try {
       final closed = await context.read<CajaProvider>().cerrar(
-          observaciones: confirmed.trim().isEmpty ? null : confirmed.trim());
+          montoContado: confirmed.montoContado,
+          montoProximaApertura: confirmed.montoProximaApertura,
+          observaciones: confirmed.observaciones);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Caja cerrada. Se guardó en el historial.')));
@@ -329,7 +332,11 @@ class _CajaDetailDialogState extends State<_CajaDetailDialog> {
   Widget build(BuildContext context) {
     final caja = widget.caja;
     return AlertDialog(
-      title: Text(caja.abierta ? 'Caja abierta' : 'Caja cerrada'),
+      title: Text(caja.abierta
+          ? 'Caja abierta'
+          : caja.numeroCierre == null
+              ? 'Caja cerrada'
+              : 'Cierre de caja N° ${caja.numeroCierre}'),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -352,6 +359,23 @@ class _CajaDetailDialogState extends State<_CajaDetailDialog> {
                     '\$${(caja.totalEgresos ?? 0).toStringAsFixed(2)}'),
                 _detailRow('Efectivo esperado',
                     '\$${(caja.totalEfectivoEsperado ?? 0).toStringAsFixed(2)}'),
+                if (caja.montoContado != null)
+                  _detailRow('Valor final (contado)',
+                      '\$${caja.montoContado!.toStringAsFixed(2)}'),
+                if (caja.diferencia != null)
+                  _detailRow(
+                      caja.diferencia! > 0
+                          ? 'Diferencia (sobrante)'
+                          : caja.diferencia! < 0
+                              ? 'Diferencia (faltante)'
+                              : 'Diferencia',
+                      '\$${caja.diferencia!.toStringAsFixed(2)}'),
+                if (caja.montoProximaApertura != null)
+                  _detailRow('Próxima apertura',
+                      '\$${caja.montoProximaApertura!.toStringAsFixed(2)}'),
+                if ((caja.retiro ?? 0) > 0)
+                  _detailRow('Retiro al cierre',
+                      '\$${caja.retiro!.toStringAsFixed(2)}'),
                 if (caja.observaciones?.isNotEmpty ?? false)
                   _detailRow('Observaciones', caja.observaciones!),
                 if (caja.detalle.isNotEmpty) ...[
@@ -413,14 +437,17 @@ class _AbrirCajaResult {
 }
 
 class _AbrirCajaDialog extends StatefulWidget {
-  const _AbrirCajaDialog();
+  /// Lo que se dejó para esta apertura en el último cierre.
+  final double? montoSugerido;
+  const _AbrirCajaDialog({this.montoSugerido});
   @override
   State<_AbrirCajaDialog> createState() => _AbrirCajaDialogState();
 }
 
 class _AbrirCajaDialogState extends State<_AbrirCajaDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _monto = TextEditingController(text: '0');
+  late final _monto = TextEditingController(
+      text: (widget.montoSugerido ?? 0).toStringAsFixed(2));
   final _observaciones = TextEditingController();
 
   @override
@@ -455,8 +482,12 @@ class _AbrirCajaDialogState extends State<_AbrirCajaDialog> {
                 autofocus: true,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Monto inicial en caja', prefixText: '\$ '),
+                decoration: InputDecoration(
+                    labelText: 'Monto inicial en caja',
+                    prefixText: '\$ ',
+                    helperText: widget.montoSugerido == null
+                        ? null
+                        : 'Lo que se dejó en el último cierre'),
                 validator: (value) {
                   final parsed =
                       double.tryParse((value ?? '').replaceAll(',', '.'));
@@ -485,6 +516,14 @@ class _AbrirCajaDialogState extends State<_AbrirCajaDialog> {
       );
 }
 
+class _CerrarCajaResult {
+  final double montoContado;
+  final double montoProximaApertura;
+  final String? observaciones;
+  const _CerrarCajaResult(
+      this.montoContado, this.montoProximaApertura, this.observaciones);
+}
+
 class _CerrarCajaDialog extends StatefulWidget {
   final Caja caja;
   const _CerrarCajaDialog({required this.caja});
@@ -493,50 +532,138 @@ class _CerrarCajaDialog extends StatefulWidget {
 }
 
 class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _contado = TextEditingController();
+  final _proxima = TextEditingController();
   final _observaciones = TextEditingController();
 
   @override
   void dispose() {
+    _contado.dispose();
+    _proxima.dispose();
     _observaciones.dispose();
     super.dispose();
+  }
+
+  static double? _parse(String? value) =>
+      double.tryParse((value ?? '').trim().replaceAll(',', '.'));
+
+  void _confirm() {
+    if (!_formKey.currentState!.validate()) return;
+    final observaciones = _observaciones.text.trim();
+    Navigator.pop(
+        context,
+        _CerrarCajaResult(_parse(_contado.text)!, _parse(_proxima.text)!,
+            observaciones.isEmpty ? null : observaciones));
   }
 
   @override
   Widget build(BuildContext context) {
     final caja = context.watch<CajaProvider>().current ?? widget.caja;
+    final esperado = caja.totalEfectivoEsperado ?? 0;
+    final contado = _parse(_contado.text);
+    final proxima = _parse(_proxima.text);
+    final diferencia = contado == null ? null : contado - esperado;
+    final retiro =
+        contado == null || proxima == null ? null : contado - proxima;
     return AlertDialog(
       title: const Text('Cerrar caja'),
       content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    'Se va a cerrar la caja abierta por ${caja.usuarioApertura} el '
-                    '${_fmt(caja.fechaApertura)}.',
-                    style: GoogleFonts.poppins()),
-                const SizedBox(height: 12),
-                _row('Monto inicial',
-                    '\$${caja.montoInicial.toStringAsFixed(2)}'),
-                _row('Total vendido',
-                    '\$${(caja.totalVentas ?? 0).toStringAsFixed(2)}'),
-                for (final item in caja.detalle)
-                  _row(item.medioPago, '\$${item.total.toStringAsFixed(2)}'),
-                const Divider(),
-                _row('Efectivo esperado en caja',
-                    '\$${(caja.totalEfectivoEsperado ?? 0).toStringAsFixed(2)}',
-                    highlight: true),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _observaciones,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                      labelText: 'Observaciones (opcional)',
-                      border: OutlineInputBorder()),
-                ),
-              ]),
+        width: 440,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      'Se va a cerrar la caja abierta por ${caja.usuarioApertura} el '
+                      '${_fmt(caja.fechaApertura)}.',
+                      style: GoogleFonts.poppins()),
+                  const SizedBox(height: 12),
+                  _row('Monto inicial',
+                      '\$${caja.montoInicial.toStringAsFixed(2)}'),
+                  _row('Total vendido',
+                      '\$${(caja.totalVentas ?? 0).toStringAsFixed(2)}'),
+                  for (final item in caja.detalle)
+                    _row(item.medioPago, '\$${item.total.toStringAsFixed(2)}'),
+                  const Divider(),
+                  _row('Efectivo esperado en caja',
+                      '\$${esperado.toStringAsFixed(2)}',
+                      highlight: true),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _contado,
+                    autofocus: true,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Efectivo que quedó en la caja (contado)',
+                        prefixText: '\$ ',
+                        border: OutlineInputBorder()),
+                    onChanged: (_) => setState(() {}),
+                    validator: (value) {
+                      final parsed = _parse(value);
+                      return parsed == null || parsed < 0
+                          ? 'Ingresá el efectivo contado.'
+                          : null;
+                    },
+                  ),
+                  if (diferencia != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: Text(
+                          diferencia == 0
+                              ? 'Coincide con lo esperado.'
+                              : diferencia > 0
+                                  ? 'Sobran \$${diferencia.toStringAsFixed(2)}'
+                                  : 'Faltan \$${(-diferencia).toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: diferencia == 0
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade800)),
+                    ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _proxima,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Con cuánto se abre la próxima caja',
+                        prefixText: '\$ ',
+                        border: OutlineInputBorder()),
+                    onChanged: (_) => setState(() {}),
+                    validator: (value) {
+                      final parsed = _parse(value);
+                      if (parsed == null || parsed < 0) {
+                        return 'Ingresá el monto de la próxima apertura.';
+                      }
+                      if (contado != null && parsed > contado) {
+                        return 'No puede ser mayor al efectivo contado.';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (retiro != null && retiro >= 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: Text(
+                          'Se retiran \$${retiro.toStringAsFixed(2)} (sale como egreso en el ticket).',
+                          style: GoogleFonts.poppins(
+                              fontSize: 13, color: Brand.muted)),
+                    ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _observaciones,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                        labelText: 'Observaciones (opcional)',
+                        border: OutlineInputBorder()),
+                  ),
+                ]),
+          ),
         ),
       ),
       actions: [
@@ -544,8 +671,7 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar')),
         FilledButton(
-            onPressed: () => Navigator.pop(context, _observaciones.text),
-            child: const Text('Confirmar cierre')),
+            onPressed: _confirm, child: const Text('Confirmar cierre')),
       ],
     );
   }

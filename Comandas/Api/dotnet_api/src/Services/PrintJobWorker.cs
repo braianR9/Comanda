@@ -55,15 +55,8 @@ public sealed class PrintJobWorker : BackgroundService
         var configurations = scope.ServiceProvider.GetRequiredService<PrinterConfigurationService>();
         var transport = scope.ServiceProvider.GetRequiredService<PrinterTransport>();
 
-        var pending = db.PrintJobs.Where(x => x.Status == "Pendiente");
         // El agente de cada local (PrintAgent:SucursalId) solo toma los trabajos de su sucursal.
-        if (_configuration.GetValue<int?>("PrintAgent:SucursalId") is int agentBranch)
-            pending = pending.Where(x =>
-                db.Orders.Any(o => o.Id == x.OrderId && o.IdSucursal == agentBranch)
-                || db.Cajas.Any(c => c.Id == x.CajaId && c.IdSucursal == agentBranch)
-                || (x.JobType == "Prueba" && db.PrinterConfigurations.Any(p => p.Id == x.PrinterConfigurationId && p.IdSucursal == agentBranch)));
-
-        var job = await pending
+        var job = await Jobs(db, _configuration.GetValue<int?>("PrintAgent:SucursalId"))
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -75,117 +68,10 @@ public sealed class PrintJobWorker : BackgroundService
 
         try
         {
-            byte[] ticket;
-            int companyId, branchId;
-
-            if (job.JobType == "Prueba")
-            {
-                var printerName = await db.PrinterConfigurations.AsNoTracking()
-                    .Where(x => x.Id == job.PrinterConfigurationId).Select(x => x.Nombre).SingleAsync(cancellationToken);
-                companyId = 0; branchId = 0;
-                ticket = PrinterTransport.BuildTestTicket(printerName);
-            }
-            else if (job.CajaId.HasValue)
-            {
-                var caja = await db.Cajas.AsNoTracking()
-                    .Include(x => x.UsuarioApertura)
-                    .Include(x => x.UsuarioCierre)
-                    .SingleOrDefaultAsync(x => x.Id == job.CajaId.Value, cancellationToken)
-                    ?? throw new InvalidOperationException($"No existe la caja {job.CajaId}.");
-                companyId = caja.IdEmpresa; branchId = caja.IdSucursal;
-                var detalle = await db.CajaCierreDetalles.AsNoTracking()
-                    .Where(x => x.CajaId == caja.Id).OrderByDescending(x => x.Total).ToListAsync(cancellationToken);
-                var movimientos = await db.CajaMovimientos.AsNoTracking()
-                    .Include(x => x.Usuario)
-                    .Where(x => x.CajaId == caja.Id).OrderBy(x => x.Fecha).ToListAsync(cancellationToken);
-                var companyName = await db.Empresas.AsNoTracking().Where(x => x.Id == companyId).Select(x => x.Nombre).SingleAsync(cancellationToken);
-                var branch = await db.Sucursales.AsNoTracking().Where(x => x.Id == branchId).Select(x => x.Nombre).SingleAsync(cancellationToken);
-                ticket = BuildCajaTicket(caja, detalle, movimientos, companyName, branch);
-            }
-            else
-            {
-                var sale = await db.Orders
-                    .AsNoTracking()
-                    .Include(x => x.Table)
-                        .ThenInclude(x => x.Sector)
-                    .Include(x => x.Items)
-                    .Include(x => x.Payments)
-                    .Include(x => x.Commands)
-                        .ThenInclude(x => x.Lines)
-                    .SingleOrDefaultAsync(x => x.Id == job.OrderId, cancellationToken)
-                    ?? throw new InvalidOperationException($"No existe la venta {job.OrderId}.");
-                companyId = sale.IdEmpresa; branchId = sale.IdSucursal;
-
-                var waiterId = sale.Commands
-                    .OrderByDescending(x => x.Fecha)
-                    .ThenByDescending(x => x.Id)
-                    .Select(x => x.MozoId)
-                    .FirstOrDefault() ?? sale.MozoId;
-                var waiterName = "Sin asignar";
-                if (waiterId.HasValue)
-                {
-                    waiterName = await db.Usuarios
-                        .AsNoTracking()
-                        .Where(x => x.Id == waiterId.Value)
-                        .Select(x => (x.Nombre + " " + x.Apellido).Trim())
-                        .SingleOrDefaultAsync(cancellationToken) ?? "Sin asignar";
-                }
-
-                if (job.JobType == "TicketVenta")
-                {
-                    var companyName = await db.Empresas.AsNoTracking()
-                        .Where(x => x.Id == sale.IdEmpresa)
-                        .Select(x => x.Nombre)
-                        .SingleAsync(cancellationToken);
-                    var branch = await db.Sucursales.AsNoTracking()
-                        .Where(x => x.Id == sale.IdSucursal)
-                        .Select(x => new { x.Nombre, x.Direccion, x.Telefono })
-                        .SingleAsync(cancellationToken);
-                    // Factura vigente de la venta (si la tiene): el ticket sale como comprobante fiscal.
-                    // Si el trabajo indica el comprobante (factura, nota de crédito o reimpresión), se imprime ese.
-                    var invoice = job.InvoiceId.HasValue
-                        ? await db.Invoices.AsNoTracking()
-                            .SingleOrDefaultAsync(x => x.Id == job.InvoiceId && x.Status == "Autorizado", cancellationToken)
-                        : await db.Invoices.AsNoTracking()
-                            .Where(x => x.OrderId == sale.Id && x.Status == "Autorizado" && x.CreditNoteId == null
-                                && (x.Type == AfipCodes.FacturaA || x.Type == AfipCodes.FacturaB || x.Type == AfipCodes.FacturaC))
-                            .OrderByDescending(x => x.Id).FirstOrDefaultAsync(cancellationToken);
-                    if (invoice?.AssociatedInvoiceId is { } associatedId)
-                    {
-                        var associated = await db.Invoices.AsNoTracking().SingleAsync(x => x.Id == associatedId, cancellationToken);
-                        invoice.AssociatedLabel = $"{AfipCodes.TypeName(associated.Type)} {InvoiceService.Format(associated)}";
-                    }
-                    BillingSettings? billing = null;
-                    if (invoice != null)
-                    {
-                        var json = await db.CompanySettings.AsNoTracking().Where(x => x.CompanyId == sale.IdEmpresa)
-                            .Select(x => x.BillingJson).SingleOrDefaultAsync(cancellationToken);
-                        billing = json == null ? null : JsonSerializer.Deserialize<BillingSettings>(json);
-                    }
-                    ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName,
-                        billing == null ? null : invoice, billing, job.Reprint);
-                }
-                else
-                {
-                    ticket = BuildCommandTicket(sale, waiterName);
-                }
-            }
-
-            var printer = job.PrinterConfigurationId.HasValue
-                ? await db.PrinterConfigurations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == job.PrinterConfigurationId.Value && x.Activa, cancellationToken)
-                : await configurations.ResolveAsync(companyId, branchId, job.JobType == "CierreCaja" ? "TicketVenta" : job.JobType);
-            if (printer is null)
-            {
-                var fallbackQueue = string.IsNullOrWhiteSpace(job.PrinterId) ? _configuration["PrinterSettings:QueueName"] : job.PrinterId;
-                if (string.IsNullOrWhiteSpace(fallbackQueue)) throw new InvalidOperationException($"No hay una impresora activa configurada para {job.JobType}.");
-                printer = new PrinterConfiguration { Nombre = fallbackQueue, TipoConexion = "Cups", NombreCola = fallbackQueue, Uso = "Ambos", Activa = true };
-            }
-
+            var (printer, ticket) = await RenderAsync(db, configurations, _configuration, job, cancellationToken);
             await transport.SendAsync(printer, ticket, cancellationToken);
 
             job.Status = "Impreso";
-            if (printer.Id > 0) job.PrinterConfigurationId = printer.Id;
-            job.PrinterId = printer.NombreCola ?? printer.Nombre;
             await db.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Trabajo {PrintJobId} enviado a {PrinterName}.", job.Id, printer.Nombre);
         }
@@ -197,6 +83,134 @@ public sealed class PrintJobWorker : BackgroundService
         }
 
         return true;
+    }
+
+    /// Trabajos en ese estado; con sucursal, solo los de ese local (ventas, cajas o pruebas de sus impresoras).
+    public static IQueryable<PrintJob> Jobs(AppDbContext db, int? branchId, string status = "Pendiente")
+    {
+        var pending = db.PrintJobs.Where(x => x.Status == status);
+        if (branchId is int branch)
+            pending = pending.Where(x =>
+                db.Orders.Any(o => o.Id == x.OrderId && o.IdSucursal == branch)
+                || db.Cajas.Any(c => c.Id == x.CajaId && c.IdSucursal == branch)
+                || (x.JobType == "Prueba" && db.PrinterConfigurations.Any(p => p.Id == x.PrinterConfigurationId && p.IdSucursal == branch)));
+        return pending;
+    }
+
+    /// Arma el ticket ESC/POS del trabajo y resuelve la impresora; deja anotada en el trabajo la impresora usada.
+    public static async Task<(PrinterConfiguration Printer, byte[] Ticket)> RenderAsync(
+        AppDbContext db, PrinterConfigurationService configurations, IConfiguration configuration,
+        PrintJob job, CancellationToken cancellationToken)
+    {
+        byte[] ticket;
+        int companyId, branchId;
+
+        if (job.JobType == "Prueba")
+        {
+            var printerName = await db.PrinterConfigurations.AsNoTracking()
+                .Where(x => x.Id == job.PrinterConfigurationId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+            companyId = 0; branchId = 0;
+            ticket = PrinterTransport.BuildTestTicket(printerName);
+        }
+        else if (job.CajaId.HasValue)
+        {
+            var caja = await db.Cajas.AsNoTracking()
+                .Include(x => x.UsuarioApertura)
+                .Include(x => x.UsuarioCierre)
+                .SingleOrDefaultAsync(x => x.Id == job.CajaId.Value, cancellationToken)
+                ?? throw new InvalidOperationException($"No existe la caja {job.CajaId}.");
+            companyId = caja.IdEmpresa; branchId = caja.IdSucursal;
+            var detalle = await db.CajaCierreDetalles.AsNoTracking()
+                .Where(x => x.CajaId == caja.Id).OrderByDescending(x => x.Total).ToListAsync(cancellationToken);
+            var movimientos = await db.CajaMovimientos.AsNoTracking()
+                .Include(x => x.Usuario)
+                .Where(x => x.CajaId == caja.Id).OrderBy(x => x.Fecha).ToListAsync(cancellationToken);
+            var companyName = await db.Empresas.AsNoTracking().Where(x => x.Id == companyId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+            var branch = await db.Sucursales.AsNoTracking().Where(x => x.Id == branchId).Select(x => x.Nombre).SingleAsync(cancellationToken);
+            ticket = BuildCajaTicket(caja, detalle, movimientos, companyName, branch);
+        }
+        else
+        {
+            var sale = await db.Orders
+                .AsNoTracking()
+                .Include(x => x.Table)
+                    .ThenInclude(x => x.Sector)
+                .Include(x => x.Items)
+                .Include(x => x.Payments)
+                .Include(x => x.Commands)
+                    .ThenInclude(x => x.Lines)
+                .SingleOrDefaultAsync(x => x.Id == job.OrderId, cancellationToken)
+                ?? throw new InvalidOperationException($"No existe la venta {job.OrderId}.");
+            companyId = sale.IdEmpresa; branchId = sale.IdSucursal;
+
+            var waiterId = sale.Commands
+                .OrderByDescending(x => x.Fecha)
+                .ThenByDescending(x => x.Id)
+                .Select(x => x.MozoId)
+                .FirstOrDefault() ?? sale.MozoId;
+            var waiterName = "Sin asignar";
+            if (waiterId.HasValue)
+            {
+                waiterName = await db.Usuarios
+                    .AsNoTracking()
+                    .Where(x => x.Id == waiterId.Value)
+                    .Select(x => (x.Nombre + " " + x.Apellido).Trim())
+                    .SingleOrDefaultAsync(cancellationToken) ?? "Sin asignar";
+            }
+
+            if (job.JobType == "TicketVenta")
+            {
+                var companyName = await db.Empresas.AsNoTracking()
+                    .Where(x => x.Id == sale.IdEmpresa)
+                    .Select(x => x.Nombre)
+                    .SingleAsync(cancellationToken);
+                var branch = await db.Sucursales.AsNoTracking()
+                    .Where(x => x.Id == sale.IdSucursal)
+                    .Select(x => new { x.Nombre, x.Direccion, x.Telefono })
+                    .SingleAsync(cancellationToken);
+                // Factura vigente de la venta (si la tiene): el ticket sale como comprobante fiscal.
+                // Si el trabajo indica el comprobante (factura, nota de crédito o reimpresión), se imprime ese.
+                var invoice = job.InvoiceId.HasValue
+                    ? await db.Invoices.AsNoTracking()
+                        .SingleOrDefaultAsync(x => x.Id == job.InvoiceId && x.Status == "Autorizado", cancellationToken)
+                    : await db.Invoices.AsNoTracking()
+                        .Where(x => x.OrderId == sale.Id && x.Status == "Autorizado" && x.CreditNoteId == null
+                            && (x.Type == AfipCodes.FacturaA || x.Type == AfipCodes.FacturaB || x.Type == AfipCodes.FacturaC))
+                        .OrderByDescending(x => x.Id).FirstOrDefaultAsync(cancellationToken);
+                if (invoice?.AssociatedInvoiceId is { } associatedId)
+                {
+                    var associated = await db.Invoices.AsNoTracking().SingleAsync(x => x.Id == associatedId, cancellationToken);
+                    invoice.AssociatedLabel = $"{AfipCodes.TypeName(associated.Type)} {InvoiceService.Format(associated)}";
+                }
+                BillingSettings? billing = null;
+                if (invoice != null)
+                {
+                    var json = await db.CompanySettings.AsNoTracking().Where(x => x.CompanyId == sale.IdEmpresa)
+                        .Select(x => x.BillingJson).SingleOrDefaultAsync(cancellationToken);
+                    billing = json == null ? null : JsonSerializer.Deserialize<BillingSettings>(json);
+                }
+                ticket = BuildSaleTicket(sale, companyName, branch.Nombre, branch.Direccion, branch.Telefono, waiterName,
+                    billing == null ? null : invoice, billing, job.Reprint);
+            }
+            else
+            {
+                ticket = BuildCommandTicket(sale, waiterName);
+            }
+        }
+
+        var printer = job.PrinterConfigurationId.HasValue
+            ? await db.PrinterConfigurations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == job.PrinterConfigurationId.Value && x.Activa, cancellationToken)
+            : await configurations.ResolveAsync(companyId, branchId, job.JobType == "CierreCaja" ? "TicketVenta" : job.JobType);
+        if (printer is null)
+        {
+            var fallbackQueue = string.IsNullOrWhiteSpace(job.PrinterId) ? configuration["PrinterSettings:QueueName"] : job.PrinterId;
+            if (string.IsNullOrWhiteSpace(fallbackQueue)) throw new InvalidOperationException($"No hay una impresora activa configurada para {job.JobType}.");
+            printer = new PrinterConfiguration { Nombre = fallbackQueue, TipoConexion = "Cups", NombreCola = fallbackQueue, Uso = "Ambos", Activa = true };
+        }
+
+        if (printer.Id > 0) job.PrinterConfigurationId = printer.Id;
+        job.PrinterId = printer.NombreCola ?? printer.Nombre;
+        return (printer, ticket);
     }
 
     private static byte[] BuildCommandTicket(Order sale, string waiterName)

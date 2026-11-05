@@ -5,12 +5,11 @@ import 'package:web/web.dart' as web;
 
 /// Dispara la descarga en el navegador; devuelve el nombre del archivo.
 Future<String?> saveExcelFile(String fileName, Uint8List bytes,
-    {String dialogTitle = 'Guardar archivo'}) async {
-  final blob = web.Blob(
-      [bytes.toJS].toJS,
-      web.BlobPropertyBag(
-          type:
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+    {String dialogTitle = 'Guardar archivo',
+    String extension = 'xlsx',
+    String mimeType =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}) async {
+  final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: mimeType));
   final url = web.URL.createObjectURL(blob);
   final anchor = web.HTMLAnchorElement()
     ..href = url

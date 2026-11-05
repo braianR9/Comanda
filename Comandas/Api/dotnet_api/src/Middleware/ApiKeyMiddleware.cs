@@ -11,8 +11,8 @@ namespace BarIceCreamShop.Api.Middleware
 
         public async Task InvokeAsync(HttpContext context, IConfiguration configuration)
         {
-            // Permitir acceso a Swagger sin API Key
-            if (context.Request.Path.StartsWithSegments("/swagger"))
+            // Swagger y el agente de impresión (se autentica con su propia clave) no usan la API Key.
+            if (context.Request.Path.StartsWithSegments("/swagger") || context.Request.Path.StartsWithSegments("/api/print-agent"))
             {
                 await _next(context);
                 return;

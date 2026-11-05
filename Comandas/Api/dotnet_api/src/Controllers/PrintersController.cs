@@ -7,8 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace BarIceCreamShop.Api.Controllers;
 
 [ApiController, Authorize, Route("api/printers")]
-public sealed class PrintersController(PrinterConfigurationService service) : ControllerBase
+public sealed class PrintersController(PrinterConfigurationService service, PrintAgentService agents) : ControllerBase
 {
+    [HttpGet("agent")] public async Task<ActionResult<ApiResponse<PrintAgentStatusDto>>> AgentStatus() => Ok(ApiResponse<PrintAgentStatusDto>.Ok(await agents.StatusAsync(Company, Branch)));
+    [HttpPost("agent/key")] public async Task<ActionResult<ApiResponse<PrintAgentKeyDto>>> AgentKey() => await Run(() => agents.CreateKeyAsync(Company, Branch));
     [HttpGet] public async Task<ActionResult<ApiResponse<List<PrinterConfigurationDto>>>> List([FromQuery] bool includeInactive = false) => Ok(ApiResponse<List<PrinterConfigurationDto>>.Ok(await service.ListAsync(Company, Branch, includeInactive)));
     [HttpGet("{id:int}")] public async Task<ActionResult<ApiResponse<PrinterConfigurationDto>>> Get(int id) { var value = await service.GetAsync(Company, Branch, id); return value is null ? NotFound(ApiResponse<PrinterConfigurationDto>.NotFound("Impresora no encontrada.")) : Ok(ApiResponse<PrinterConfigurationDto>.Ok(value)); }
     [HttpPost] public async Task<ActionResult<ApiResponse<PrinterConfigurationDto>>> Create(PrinterConfigurationRequest request) => await Run(() => service.CreateAsync(Company, Branch, request), 201);

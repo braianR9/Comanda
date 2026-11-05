@@ -61,6 +61,7 @@ builder.Services.AddScoped<TableService>();
 builder.Services.AddScoped<PrinterService>();
 builder.Services.AddScoped<PrinterConfigurationService>();
 builder.Services.AddSingleton<PrinterTransport>();
+builder.Services.AddScoped<PrintAgentService>();
 // En la nube Workers:PrintJobs=false: imprime el agente local del comercio, que lee la misma cola.
 if (builder.Configuration.GetValue("Workers:PrintJobs", true))
     builder.Services.AddHostedService<PrintJobWorker>();
@@ -205,17 +206,17 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath)
-});
-
 if ((builder.Configuration["Urls"] ?? string.Empty).Contains("https://", StringComparison.OrdinalIgnoreCase))
 {
     app.UseHttpsRedirection();
 }
 app.UseRouting();
 app.UseCors("FlutterDevCors");
+// Imágenes e instaladores del agente: públicos, con CORS para que la web los pueda descargar.
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath)
+});
 app.UseMiddleware<SystemErrorMiddleware>();
 app.UseRateLimiter();
 // CORS must handle browser preflight before the API-key check.

@@ -54,11 +54,35 @@ class ConfiguredPrinter {
       };
 }
 
+/// Agente de impresión de la sucursal (programa instalado en la PC de las impresoras).
+class PrintAgentStatus {
+  final bool configured;
+  final DateTime? lastSeen;
+  final String? machine;
+
+  const PrintAgentStatus(
+      {this.configured = false, this.lastSeen, this.machine});
+
+  factory PrintAgentStatus.fromJson(Map<String, dynamic> json) =>
+      PrintAgentStatus(
+        configured: json['configured'] as bool? ?? false,
+        lastSeen:
+            DateTime.tryParse(json['lastSeen']?.toString() ?? '')?.toLocal(),
+        machine: json['machine']?.toString(),
+      );
+
+  /// El agente avisa como mucho una vez por minuto mientras está prendido.
+  bool get connected =>
+      lastSeen != null &&
+      DateTime.now().difference(lastSeen!) < const Duration(minutes: 3);
+}
+
 class PrinterProvider extends ChangeNotifier {
   String _token = '';
   bool loading = false;
   String? error;
   List<ConfiguredPrinter> printers = [];
+  PrintAgentStatus? agent;
 
   Map<String, String> get _headers => {
         ...ApiConfig.headers,
@@ -82,6 +106,7 @@ class PrinterProvider extends ChangeNotifier {
         for (final value in values)
           ConfiguredPrinter.fromJson(value as Map<String, dynamic>)
       ];
+      await loadAgent();
     } catch (exception) {
       error = exception.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -116,6 +141,42 @@ class PrinterProvider extends ChangeNotifier {
         .post(Uri.parse('${ApiConfig.baseUrl}/api/printers/${printer.id}/test'),
             headers: _headers)
         .timeout(ApiConfig.timeout));
+  }
+
+  Future<void> loadAgent() async {
+    try {
+      final response = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/api/printers/agent'),
+              headers: _headers)
+          .timeout(ApiConfig.timeout);
+      agent = PrintAgentStatus.fromJson(
+          _body(response)['data'] as Map<String, dynamic>? ?? const {});
+    } catch (_) {
+      // El estado del agente es informativo: no bloquea la lista de impresoras.
+    }
+    notifyListeners();
+  }
+
+  /// Genera una clave nueva para el agente; la anterior deja de funcionar.
+  Future<String> createAgentKey() async {
+    final body = _body(await http
+        .post(Uri.parse('${ApiConfig.baseUrl}/api/printers/agent/key'),
+            headers: _headers)
+        .timeout(ApiConfig.timeout));
+    await loadAgent();
+    return (body['data'] as Map<String, dynamic>)['key'].toString();
+  }
+
+  /// Instalador del agente (FocoAgente-Windows.zip o FocoAgente-Mac.zip).
+  Future<Uint8List> downloadAgent(String fileName) async {
+    final response = await http
+        .get(Uri.parse('${ApiConfig.baseUrl}/descargas/$fileName'))
+        .timeout(const Duration(minutes: 2));
+    if (response.statusCode != 200) {
+      throw Exception(
+          'El instalador no está disponible (${response.statusCode}).');
+    }
+    return response.bodyBytes;
   }
 
   Map<String, dynamic> _body(http.Response response) {

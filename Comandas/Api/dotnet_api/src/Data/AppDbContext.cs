@@ -30,6 +30,7 @@ namespace BarIceCreamShop.Api.Data
         public DbSet<Sector> Sectors { get; set; }
         public DbSet<PrintJob> PrintJobs { get; set; }
         public DbSet<PrinterConfiguration> PrinterConfigurations { get; set; }
+        public DbSet<PrintAgent> PrintAgents { get; set; }
         public DbSet<Producto> Productos { get; set; }
         public DbSet<Rubro> Rubros { get; set; }
         public DbSet<SubRubro> SubRubros { get; set; }
@@ -116,6 +117,7 @@ namespace BarIceCreamShop.Api.Data
             modelBuilder.Entity<PrintJob>().HasOne<Order>().WithMany().HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<PrintJob>().HasOne<Caja>().WithMany().HasForeignKey(p => p.CajaId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<PrinterConfiguration>().HasKey(p => p.Id);
+            modelBuilder.Entity<PrintAgent>().HasKey(p => p.Id);
             modelBuilder.Entity<Producto>().HasKey(p => p.Id);
             modelBuilder.Entity<Producto>().HasIndex(p => new { p.IdEmpresa, p.CodigoImportacion }).IsUnique();
             modelBuilder.Entity<Rubro>().HasKey(r => r.Id);

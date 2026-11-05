@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- El agente de impresión es un proyecto aparte. -->
+    <Compile Remove="agent/**" />
+    <Content Remove="agent/**" />
+    <None Remove="agent/**" />
     <EmbeddedResource Include="database/add_systems_admin.sql" LogicalName="BarIceCreamShop.Api.SystemsSchema.sql" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />

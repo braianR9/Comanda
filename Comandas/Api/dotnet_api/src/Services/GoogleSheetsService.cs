@@ -87,6 +87,46 @@ public sealed class GoogleSheetsService
         await request.ExecuteAsync(cancellationToken);
     }
 
+    /// Borra las filas de una venta anulada: las de ese número de pedido (columna B) cuyo producto
+    /// (columna D) era de la venta. Toma las de más abajo y nunca más de [maxRows]. Devuelve cuántas borró.
+    public async Task<int> DeleteSaleRowsAsync(string sheetId, int orderNumber, IReadOnlySet<string> productNames,
+        int maxRows, CancellationToken cancellationToken)
+    {
+        if (!Enabled) throw new InvalidOperationException("La sincronización con Google Sheets no está configurada.");
+        if (maxRows <= 0 || productNames.Count == 0) return 0;
+        var client = await GetClientAsync(cancellationToken);
+        var spreadsheet = await client.Spreadsheets.Get(sheetId).ExecuteAsync(cancellationToken);
+        var sheet = spreadsheet.Sheets?.FirstOrDefault()?.Properties;
+        if (sheet?.Title is not { Length: > 0 } sheetName || sheet.SheetId is not int tabId)
+            throw new InvalidOperationException("La planilla de Google Sheets no contiene ninguna pestaña.");
+
+        var read = client.Spreadsheets.Values.Get(sheetId, $"'{sheetName.Replace("'", "''")}'!A:K");
+        read.ValueRenderOption = SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.FORMATTEDVALUE;
+        var values = (await read.ExecuteAsync(cancellationToken)).Values ?? [];
+        var number = orderNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        static string Cell(IList<object> row, int index) => index < row.Count ? row[index]?.ToString()?.Trim() ?? "" : "";
+        var rowIndexes = values
+            .Select((row, index) => (row, index))
+            .Where(x => Cell(x.row, 1) == number && productNames.Contains(Cell(x.row, 3)))
+            .Select(x => x.index)
+            .TakeLast(maxRows)
+            .OrderByDescending(i => i) // de abajo hacia arriba, así no se corren los índices
+            .ToList();
+        if (rowIndexes.Count == 0) return 0;
+
+        await client.Spreadsheets.BatchUpdate(new BatchUpdateSpreadsheetRequest
+        {
+            Requests = rowIndexes.Select(i => new Request
+            {
+                DeleteDimension = new DeleteDimensionRequest
+                {
+                    Range = new DimensionRange { SheetId = tabId, Dimension = "ROWS", StartIndex = i, EndIndex = i + 1 },
+                },
+            }).ToList(),
+        }, sheetId).ExecuteAsync(cancellationToken);
+        return rowIndexes.Count;
+    }
+
     private async Task<SheetsService> GetClientAsync(CancellationToken cancellationToken)
     {
         if (_client != null) return _client;

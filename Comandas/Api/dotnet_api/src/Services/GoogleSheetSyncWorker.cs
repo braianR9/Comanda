@@ -1,4 +1,5 @@
 using BarIceCreamShop.Api.Data;
+using BarIceCreamShop.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace BarIceCreamShop.Api.Services;
@@ -60,8 +61,24 @@ public sealed class GoogleSheetSyncWorker(
                 return true;
             }
 
-            var rows = await reports.SaleLinesAsync(order.IdEmpresa, order.IdSucursal, order.Id);
-            await sheets.AppendSaleRowsAsync(branch.GoogleSheetId, rows, cancellationToken);
+            if (await db.SaleVoids.AnyAsync(v => v.OrderId == order.Id, cancellationToken))
+            {
+                // Venta anulada que ya estaba en la planilla: se borran sus filas.
+                var printedNumber = (await db.Orders.AsNoTracking().Include(o => o.Commands)
+                    .SingleAsync(o => o.Id == order.Id, cancellationToken)).PrintedNumber;
+                var items = await (from item in db.Set<OrderItem>().AsNoTracking()
+                    join product in db.Productos.AsNoTracking() on item.ProductId equals product.Id
+                    where item.OrderId == order.Id && item.Estado == "Activo"
+                    select new { item.ProductName, product.Nombre }).ToListAsync(cancellationToken);
+                var names = items.SelectMany(x => new[] { x.ProductName.Trim(), x.Nombre.Trim() }).ToHashSet();
+                var deleted = await sheets.DeleteSaleRowsAsync(branch.GoogleSheetId, printedNumber, names, items.Count, cancellationToken);
+                logger.LogInformation("Venta {OrderId} anulada: {Deleted} filas borradas de Google Sheets.", order.Id, deleted);
+            }
+            else
+            {
+                var rows = await reports.SaleLinesAsync(order.IdEmpresa, order.IdSucursal, order.Id);
+                await sheets.AppendSaleRowsAsync(branch.GoogleSheetId, rows, cancellationToken);
+            }
 
             job.Status = "Enviado";
             await db.SaveChangesAsync(cancellationToken);

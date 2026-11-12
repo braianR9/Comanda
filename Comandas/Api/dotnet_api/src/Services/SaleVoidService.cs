@@ -41,8 +41,12 @@ public sealed class SaleVoidService(AppDbContext db, StockMovementService stock)
         sale.Estado = "Cancelada";
         sale.Version++;
         // La fecha de cobro, los productos, los pagos y las mesas actuales se conservan.
-        foreach (var job in await db.GoogleSheetJobs.Where(j => j.OrderId == id && j.Status == "Pendiente").ToListAsync())
+        // Google Sheets: si todavía no se mandó, no se manda; si ya está en la planilla, se encola el borrado.
+        var sheetJobs = await db.GoogleSheetJobs.Where(j => j.OrderId == id).ToListAsync();
+        foreach (var job in sheetJobs.Where(j => j.Status == "Pendiente"))
             job.Status = "Cancelado";
+        if (sheetJobs.Any(j => j.Status == "Enviado"))
+            db.GoogleSheetJobs.Add(new GoogleSheetJob { OrderId = id, BranchId = branch, Status = "Pendiente", CreatedAt = DateTime.UtcNow });
         db.SystemEvents.Add(new SystemEvent { Type = "Audit", Level = "Information", Source = "Ventas",
             Message = $"Venta {sale.Numero} anulada: {reason}", CompanyId = company, BranchId = branch, UserId = user,
             Detail = System.Text.Json.JsonSerializer.Serialize(new { saleId = id, cashId = cash.Id, refunded = total, stockRestored = true }) });

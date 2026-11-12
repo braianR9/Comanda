@@ -13,6 +13,7 @@ import 'providers/sales_report_provider.dart';
 import 'providers/google_sheet_provider.dart';
 import 'providers/caja_provider.dart';
 import 'providers/price_list_provider.dart';
+import 'screens/system/system_admin_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'theme/app_theme.dart';
@@ -84,7 +85,12 @@ class _AppEntryState extends State<_AppEntry> {
     final auth = context.read<AuthProvider>();
     await auth.tryRestoreSession();
     if (!mounted) return;
-    if (auth.isAuthenticated) {
+    // El acceso de sistemas no se muestra en el login: se entra por app.focobr.net/sistemas.
+    if (_isSystemsEntry) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SystemAdminScreen()),
+      );
+    } else if (auth.isAuthenticated) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
@@ -93,6 +99,11 @@ class _AppEntryState extends State<_AppEntry> {
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
+  }
+
+  static bool get _isSystemsEntry {
+    final segments = Uri.base.pathSegments.where((s) => s.isNotEmpty);
+    return segments.isNotEmpty && segments.last.toLowerCase() == 'sistemas';
   }
 
   @override

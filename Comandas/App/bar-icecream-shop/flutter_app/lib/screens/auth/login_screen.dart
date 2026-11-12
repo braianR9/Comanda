@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../home/home_screen.dart';
-import '../system/system_admin_screen.dart';
 import '../../theme/brand_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -180,6 +179,9 @@ class _LoginScreenState extends State<LoginScreen>
                 _FeatureChip(icon: Icons.inventory_2_rounded, label: 'Stock'),
                 _FeatureChip(
                     icon: Icons.account_balance_wallet_rounded, label: 'Caja'),
+                _FeatureChip(
+                    icon: Icons.receipt_long_rounded,
+                    label: 'Facturación electrónica'),
                 _FeatureChip(
                     icon: Icons.bar_chart_rounded, label: 'Estadísticas'),
                 _FeatureChip(icon: Icons.people_rounded, label: 'Clientes'),
@@ -374,14 +376,6 @@ class _LoginScreenState extends State<LoginScreen>
                     isLoading: auth.isLoading,
                   );
                 },
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const SystemAdminScreen(),
-                )),
-                icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
-                label: const Text('Acceso de sistemas'),
               ),
             ],
           ),

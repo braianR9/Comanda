@@ -175,9 +175,11 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         return (await GetAsync(company, branch, id))!;
     }
 
-    /// Usuarios activos de la sucursal que se pueden asignar como mozo.
+    private const string WaiterRole = "EMPLEADO";
+
+    /// Mozos: empleados activos de la sucursal.
     public async Task<List<WaiterDto>> WaitersAsync(int company, int branch) =>
-        await context.Usuarios.AsNoTracking().Where(u => u.IdEmpresa == company && u.IdSucursal == branch && u.Activo)
+        await context.Usuarios.AsNoTracking().Where(u => u.IdEmpresa == company && u.IdSucursal == branch && u.Activo && u.Rol.Nombre == WaiterRole)
             .OrderBy(u => u.Nombre).ThenBy(u => u.Apellido)
             .Select(u => new WaiterDto(u.Id, (u.Nombre + " " + u.Apellido).Trim())).ToListAsync();
 
@@ -194,8 +196,8 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
 
     private async Task ValidateWaiterAsync(int company, int branch, int? waiterId)
     {
-        if (waiterId is int waiter && !await context.Usuarios.AnyAsync(u => u.Id == waiter && u.IdEmpresa == company && u.IdSucursal == branch && u.Activo))
-            throw new SaleException("El mozo elegido no existe o está inactivo en esta sucursal.");
+        if (waiterId is int waiter && !await context.Usuarios.AnyAsync(u => u.Id == waiter && u.IdEmpresa == company && u.IdSucursal == branch && u.Activo && u.Rol.Nombre == WaiterRole))
+            throw new SaleException("El mozo elegido no es un empleado activo de esta sucursal.");
     }
 
     public async Task<SaleDto> ChangeItemPriceAsync(int company, int branch, int id, int itemId, ChangeSaleItemPriceRequest request)

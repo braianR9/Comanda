@@ -38,6 +38,9 @@ public class AfipClient(HttpClient http, ILogger<AfipClient> logger)
         : "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
 
     public static DateTime ArgentinaNow() => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Argentina);
+    /// Hora argentina de una fecha guardada en UTC; el servidor (Render) corre en UTC.
+    public static DateTime ToArgentina(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Argentina);
 
     // ─── WSAA ───────────────────────────────────────────────────────────────
     public async Task<AfipTicket> LoginAsync(string env, X509Certificate2 certificate, RSA key, string service, CancellationToken ct = default)

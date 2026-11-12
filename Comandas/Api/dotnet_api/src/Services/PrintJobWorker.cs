@@ -241,7 +241,7 @@ public sealed class PrintJobWorker : BackgroundService
             text.Append("\u001ba\u0000");
         }
         text.AppendLine(new string('=', width));
-        text.AppendLine($"Fecha: {(command?.Fecha ?? DateTime.UtcNow).ToLocalTime():dd/MM/yyyy HH:mm}");
+        text.AppendLine($"Fecha: {AfipClient.ToArgentina(command?.Fecha ?? DateTime.UtcNow):dd/MM/yyyy HH:mm}");
         AppendCommandText(text, $"Mozo: {waiterName}", width);
         text.AppendLine(new string('-', width));
         text.AppendLine($"{"Cant.",-7}Descripcion");
@@ -318,7 +318,7 @@ public sealed class PrintJobWorker : BackgroundService
             AppendFiscalHeader(text, invoice, billing, width, reprint);
             companyName = "";
         }
-        var closedAt = (sale.FechaCierre ?? DateTime.UtcNow).ToLocalTime();
+        var closedAt = AfipClient.ToArgentina(sale.FechaCierre ?? DateTime.UtcNow);
         var tableName = sale.Table?.Nombre ?? sale.TableId.ToString(CultureInfo.InvariantCulture);
         var sectorName = sale.Table?.Sector?.Nombre;
         var tableDescription = string.IsNullOrWhiteSpace(sectorName)
@@ -496,11 +496,11 @@ public sealed class PrintJobWorker : BackgroundService
         text.Append(normal);
         text.AppendLine(new string('=', width));
         text.AppendLine($"Abrió: {caja.UsuarioApertura.Nombre} {caja.UsuarioApertura.Apellido}".Trim());
-        text.AppendLine($"Fecha apertura: {caja.FechaApertura.ToLocalTime():dd/MM/yyyy HH:mm}");
+        text.AppendLine($"Fecha apertura: {AfipClient.ToArgentina(caja.FechaApertura):dd/MM/yyyy HH:mm}");
         if (caja.UsuarioCierre is not null && caja.FechaCierre.HasValue)
         {
             text.AppendLine($"Cerró: {caja.UsuarioCierre.Nombre} {caja.UsuarioCierre.Apellido}".Trim());
-            text.AppendLine($"Fecha cierre: {caja.FechaCierre.Value.ToLocalTime():dd/MM/yyyy HH:mm}");
+            text.AppendLine($"Fecha cierre: {AfipClient.ToArgentina(caja.FechaCierre.Value):dd/MM/yyyy HH:mm}");
         }
 
         // Efectivo: apertura, lo que tendría que haber, lo que se contó y la diferencia.

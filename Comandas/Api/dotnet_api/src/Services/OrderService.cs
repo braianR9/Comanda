@@ -46,6 +46,7 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         await RequireOpenCashAsync(company, branch);
         var table = await ValidateFreeTable(company, branch, request.TableId, null);
+        await ValidateWaiterAsync(company, branch, request.WaiterId);
         var sale = new Order { IdEmpresa = company, IdSucursal = branch, Numero = await NextNumber(company, false, tx), TableId = request.TableId, MozoId = request.WaiterId, Estado = "EnPedido", FechaApertura = DateTime.UtcNow, UsuarioId = user, Version = 1, IdListaPrecio = priceListId };
         if (!table.EsMostrador) table.Status = "Ocupada";
         context.Orders.Add(sale); await context.SaveChangesAsync();
@@ -172,6 +173,29 @@ public class OrderService(AppDbContext context, IConfiguration configuration, St
         sale.Version++;
         await context.SaveChangesAsync();
         return (await GetAsync(company, branch, id))!;
+    }
+
+    /// Usuarios activos de la sucursal que se pueden asignar como mozo.
+    public async Task<List<WaiterDto>> WaitersAsync(int company, int branch) =>
+        await context.Usuarios.AsNoTracking().Where(u => u.IdEmpresa == company && u.IdSucursal == branch && u.Activo)
+            .OrderBy(u => u.Nombre).ThenBy(u => u.Apellido)
+            .Select(u => new WaiterDto(u.Id, (u.Nombre + " " + u.Apellido).Trim())).ToListAsync();
+
+    /// El mozo se puede cambiar aunque la venta tenga pagos; las próximas comandas salen con el nuevo.
+    public async Task<SaleDto> ChangeWaiterAsync(int company, int branch, int id, ChangeSaleWaiterRequest request)
+    {
+        var sale = await Editable(company, branch, id, request.Version, allowPayments: true);
+        await ValidateWaiterAsync(company, branch, request.WaiterId);
+        sale.MozoId = request.WaiterId;
+        sale.Version++;
+        await context.SaveChangesAsync();
+        return (await GetAsync(company, branch, id))!;
+    }
+
+    private async Task ValidateWaiterAsync(int company, int branch, int? waiterId)
+    {
+        if (waiterId is int waiter && !await context.Usuarios.AnyAsync(u => u.Id == waiter && u.IdEmpresa == company && u.IdSucursal == branch && u.Activo))
+            throw new SaleException("El mozo elegido no existe o está inactivo en esta sucursal.");
     }
 
     public async Task<SaleDto> ChangeItemPriceAsync(int company, int branch, int id, int itemId, ChangeSaleItemPriceRequest request)

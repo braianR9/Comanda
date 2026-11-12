@@ -158,6 +158,8 @@ public record UpdateSaleItemRequest([param: Range(typeof(decimal), "0.001", "999
 public record ChangeSaleItemPriceRequest(
     [param: Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal UnitPrice,
     long Version);
+public record ChangeSaleWaiterRequest(int? WaiterId, long? Version);
+public record WaiterDto(int Id, string Name);
 public record ChangeSalePriceListRequest([param: Range(1, int.MaxValue)] int PriceListId, bool RepreciarRenglonesExistentes, long? Version);
 public record ApplyDiscountRequest(int? DiscountId, string? Name, string Type, decimal Value, long? Version);
 public record PaymentRequest([param: Range(1, int.MaxValue)] int? PaymentTypeId, [param: Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal Amount, [param: MaxLength(500)] string? Reference, [param: Range(1, int.MaxValue)] int? CardId = null, decimal? BaseAmount = null);

@@ -47,6 +47,10 @@ class _SalesScreenState extends State<SalesScreen> {
   final _barcodeController = TextEditingController();
   final _barcodeFocus = FocusNode();
   bool _barcodeLookupInProgress = false;
+  List<SaleCatalogItem> _waiters = [];
+
+  String? _waiterName(int? id) =>
+      _waiters.where((waiter) => waiter.id == id).firstOrNull?.name;
 
   @override
   void initState() {
@@ -70,6 +74,11 @@ class _SalesScreenState extends State<SalesScreen> {
             .then((_) => products.refreshSalesCatalog()),
         context.read<CajaProvider>().load(session.token),
         context.read<PriceListProvider>().load(session.token),
+        context
+            .read<SalesProvider>()
+            .waiters()
+            .then((values) => _waiters = values)
+            .catchError((_) => _waiters),
       ]);
       if (!mounted) return;
       await _restoreActiveSales();
@@ -388,7 +397,7 @@ class _SalesScreenState extends State<SalesScreen> {
             OutlinedButton.icon(
               onPressed: order.editLocked ? null : () => _selectWaiter(order),
               icon: const Icon(Icons.person_outline_rounded),
-              label: Text(order.waiter ?? 'Sin mozo'),
+              label: Text(_waiterName(order.waiterId) ?? 'Sin mozo'),
             ),
             if (canCheckout &&
                 context.watch<PriceListProvider>().activeLists.length > 1) ...[
@@ -777,15 +786,27 @@ class _SalesScreenState extends State<SalesScreen> {
       _runOrderOperation(order, () => _selectWaiterImpl(order));
 
   Future<void> _selectWaiterImpl(_OrderDraft order) async {
-    final waiter = await showDialog<String?>(
+    // 0 = sin asignar; null = se canceló el diálogo.
+    final selected = await showDialog<int>(
       context: context,
-      builder: (_) => const _WaiterDialog(),
+      builder: (_) => _WaiterDialog(waiters: _waiters),
     );
-    if (!mounted || waiter == null) return;
-    setState(() {
-      order.waiter = waiter == '__none__' ? null : waiter;
-      if (order.sent) order.metadataDirty = true;
-    });
+    if (!mounted || selected == null) return;
+    final waiterId = selected == 0 ? null : selected;
+    if (!order.sent) {
+      setState(() => order.waiterId = waiterId);
+      return;
+    }
+    try {
+      final snapshot = await context
+          .read<SalesProvider>()
+          .changeWaiter(order.orderId!, waiterId, order.serverVersion);
+      if (mounted) setState(() => order.updateFromServer(snapshot));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', ''))));
+    }
   }
 
   Future<void> _runOrderOperation(
@@ -1011,7 +1032,7 @@ class _SalesScreenState extends State<SalesScreen> {
         barrierDismissible: false,
         builder: (_) => _CommandTicketDialog(
           tableName: table.name,
-          waiter: order.waiter,
+          waiter: _waiterName(order.waiterId),
           rows: ticketRows,
           isModification: !firstSend,
         ),
@@ -1039,6 +1060,7 @@ class _SalesScreenState extends State<SalesScreen> {
         snapshot = await provider.createSale(
           tableId: order.tableId,
           lines: lines,
+          waiterId: order.waiterId,
           priceListId: order.priceListId,
         );
       } else {
@@ -2464,16 +2486,20 @@ class _DialogKeys extends StatelessWidget {
 }
 
 class _WaiterDialog extends StatelessWidget {
-  const _WaiterDialog();
+  final List<SaleCatalogItem> waiters;
+  const _WaiterDialog({required this.waiters});
   @override
   Widget build(BuildContext context) => SimpleDialog(
         title: const Text('Asignar mozo'),
-        children: ['__none__', 'Juan', 'María', 'Carlos']
-            .map((name) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(context, name),
-                  child: Text(name == '__none__' ? 'Sin asignar' : name),
-                ))
-            .toList(),
+        children: [
+          SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 0),
+              child: const Text('Sin asignar')),
+          for (final waiter in waiters)
+            SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, waiter.id),
+                child: Text(waiter.name)),
+        ],
       );
 }
 
@@ -2550,13 +2576,13 @@ class _OrderDraft {
   int serverVersion = 0;
   DateTime? openedAt;
   final Map<String, int> serverItemIds = {};
-  String? waiter;
+  int? waiterId;
   final List<_OrderLine> lines = [];
   final Set<int> joinedTableIds = {};
   _DiscountValue? discount;
   final Map<String, int> sentQuantities = {};
   final Map<String, String?> sentComments = {};
-  String? sentWaiter;
+  int? sentWaiterId;
   bool metadataDirty = false;
   double paidAmount = 0;
   double? serverTotal;
@@ -2588,6 +2614,7 @@ class _OrderDraft {
     openedAt = snapshot.openedAt ?? openedAt;
     tableId = snapshot.tableId;
     priceListId = snapshot.priceListId ?? priceListId;
+    waiterId = snapshot.waiterId;
     for (final item in snapshot.items) {
       final line =
           lines.where((l) => l.product.id == '${item.productId}').firstOrNull;
@@ -2653,7 +2680,7 @@ class _OrderDraft {
       ..clear()
       ..addEntries(
           lines.map((line) => MapEntry(line.product.id, line.comment)));
-    sentWaiter = waiter;
+    sentWaiterId = waiterId;
     metadataDirty = false;
   }
 
@@ -2666,7 +2693,7 @@ class _OrderDraft {
           ..quantity = entry.value
           ..comment = sentComments[entry.key];
       }));
-    waiter = sentWaiter;
+    waiterId = sentWaiterId;
     metadataDirty = false;
   }
 

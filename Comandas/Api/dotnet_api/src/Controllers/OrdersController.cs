@@ -29,6 +29,8 @@ public class SalesController(OrderService service) : ControllerBase
     [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpDelete("{id:int}/discount")] public async Task<ActionResult<ApiResponse<SaleDto>>> RemoveDiscount(int id, [FromQuery] long? version) => await Run(() => service.RemoveDiscountAsync(Company, Branch, id, version));
     [Authorize(Policy = SalePermissions.CashierPolicy)]
+    [HttpGet("waiters")] public async Task<ActionResult<ApiResponse<List<WaiterDto>>>> Waiters() => Ok(ApiResponse<List<WaiterDto>>.Ok(await service.WaitersAsync(Company, Branch)));
+    [HttpPut("{id:int}/waiter")] public async Task<ActionResult<ApiResponse<SaleDto>>> Waiter(int id, ChangeSaleWaiterRequest r) => await Run(() => service.ChangeWaiterAsync(Company, Branch, id, r));
     [HttpPut("{id:int}/price-list")] public async Task<ActionResult<ApiResponse<SaleDto>>> PriceList(int id, ChangeSalePriceListRequest r) => await Run(() => service.ChangePriceListAsync(Company, Branch, id, r));
     [Authorize(Policy = SalePermissions.CashierPolicy)]
     [HttpPut("{id:int}/items/{itemId:int}/price")]

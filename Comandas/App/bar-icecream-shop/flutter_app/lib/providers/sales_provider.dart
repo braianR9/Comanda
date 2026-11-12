@@ -59,6 +59,7 @@ class SaleSnapshot {
   final double paymentAdjustment;
   final SaleCatalogItem? discount;
   final int? priceListId;
+  final int? waiterId;
 
   const SaleSnapshot({
     required this.id,
@@ -76,6 +77,7 @@ class SaleSnapshot {
     this.paymentAdjustment = 0,
     this.discount,
     this.priceListId,
+    this.waiterId,
   });
 
   factory SaleSnapshot.fromJson(Map<String, dynamic> json) => SaleSnapshot(
@@ -105,6 +107,7 @@ class SaleSnapshot {
         openedAt:
             DateTime.tryParse(json['openedAt']?.toString() ?? '')?.toLocal(),
         priceListId: (json['priceListId'] as num?)?.toInt(),
+        waiterId: (json['waiterId'] as num?)?.toInt(),
         items: [
           for (final item in (json['items'] as List? ?? const []))
             if (item is Map<String, dynamic>)
@@ -418,6 +421,21 @@ class SalesProvider extends ChangeNotifier {
               Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/$action'),
               headers: _headers,
               body: jsonEncode({'tableId': tableId, 'version': version}),
+            )
+            .timeout(ApiConfig.timeout),
+      );
+
+  /// Usuarios activos de la sucursal que se pueden asignar como mozo.
+  Future<List<SaleCatalogItem>> waiters() => _catalog('/api/sales/waiters');
+
+  Future<SaleSnapshot> changeWaiter(
+          int saleId, int? waiterId, int version) async =>
+      _sale(
+        await http
+            .put(
+              Uri.parse('${ApiConfig.baseUrl}/api/sales/$saleId/waiter'),
+              headers: _headers,
+              body: jsonEncode({'waiterId': waiterId, 'version': version}),
             )
             .timeout(ApiConfig.timeout),
       );

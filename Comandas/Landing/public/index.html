@@ -3,234 +3,199 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>focobr · Gestión para bares y heladerías</title>
-  <meta name="description" content="Sistema en la nube para bares, heladerías y cafeterías: salón y mesas, mostrador, comandas a cocina, caja y facturación electrónica.">
+  <title>focobr · Sistema para bares, cafés y heladerías</title>
+  <meta name="description" content="Salón y mesas, mostrador, comandas a cocina, caja y facturación electrónica para bares, cafés y heladerías. Contactanos para dar de alta tu local.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #1A0A2E;
-      --ink-2: #2A1748;
-      --primary: #6C5CE7;
-      --primary-soft: #A29BFE;
-      --accent: #FF8C42;
-      --bg: #F5F5F8;
-      --card: #FFFFFF;
-      --text: #1A0A2E;
-      --muted: #6B6280;
-      --line: #E4E1F0;
-      --on-dark: #FFFFFF;
-      --on-dark-muted: rgba(255, 255, 255, .68);
+      --paper: #F5EFE4;
+      --paper-2: #EDE4D3;
+      --card: #FBF8F2;
+      --ink: #1F1B16;
+      --muted: #6A6157;
+      --line: #D9CDB8;
+      --accent: #B4502B;
+      --accent-ink: #FFFFFF;
+      --olive: #3E4F36;
     }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --bg: #120722;
-        --card: #1E1036;
-        --text: #F2EFFA;
-        --muted: #B7AECB;
-        --line: #33224F;
+        --paper: #1B1814;
+        --paper-2: #23201B;
+        --card: #26221C;
+        --ink: #F1EADD;
+        --muted: #B5AA99;
+        --line: #3A342B;
+        --accent: #D7714A;
+        --olive: #9DB58E;
       }
     }
     :root[data-theme="dark"] {
-      --bg: #120722;
-      --card: #1E1036;
-      --text: #F2EFFA;
-      --muted: #B7AECB;
-      --line: #33224F;
+      --paper: #1B1814;
+      --paper-2: #23201B;
+      --card: #26221C;
+      --ink: #F1EADD;
+      --muted: #B5AA99;
+      --line: #3A342B;
+      --accent: #D7714A;
+      --olive: #9DB58E;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      overflow-x: hidden;
-      font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: 'Work Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
       line-height: 1.6;
+      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
-    a { color: inherit; text-decoration: none; }
-    .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+    a { color: inherit; }
+    .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 16px; }
     @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+    h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-spacing: -.01em; }
 
-    /* Botones */
     .btn {
-      display: inline-flex; align-items: center; gap: 10px;
-      padding: 15px 30px; border-radius: 14px;
-      font-weight: 700; font-size: 16px; letter-spacing: .2px;
-      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+      display: inline-block; padding: 14px 26px; border-radius: 6px;
+      font-weight: 600; font-size: 16px; text-decoration: none;
+      border: 1.5px solid var(--ink); transition: background .15s ease, color .15s ease;
     }
-    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 10px 28px rgba(255, 140, 66, .35); }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(255, 140, 66, .45); }
-    .btn-ghost { color: var(--on-dark); border: 1.5px solid rgba(255, 255, 255, .28); }
-    .btn-ghost:hover { background: rgba(255, 255, 255, .08); }
-    .btn svg { width: 18px; height: 18px; }
+    .btn-solid { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    .btn-solid:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+    .btn-line:hover { background: var(--ink); color: var(--paper); }
 
-    /* Encabezado y portada */
-    .hero {
-      position: relative; overflow: hidden;
-      background: radial-gradient(1100px 520px at 85% -10%, rgba(108, 92, 231, .55), transparent 60%),
-                  radial-gradient(700px 420px at -10% 110%, rgba(255, 140, 66, .22), transparent 60%),
-                  var(--ink);
-      color: var(--on-dark);
-    }
-    nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
-    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; letter-spacing: 2px; }
-    .brand svg { width: 38px; height: 38px; }
-    .nav-link { font-weight: 600; font-size: 15px; color: var(--on-dark-muted); }
-    .nav-link:hover { color: #fff; }
+    /* Encabezado */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 24px; text-decoration: none; }
+    .brand svg { width: 30px; height: 30px; color: var(--ink); }
+    .nav-links { display: flex; gap: 22px; font-weight: 500; font-size: 15px; }
+    .nav-links a { text-decoration: none; color: var(--muted); }
+    .nav-links a:hover { color: var(--ink); }
+    @media (max-width: 480px) { .nav-links .hide-sm { display: none; } }
 
-    .hero-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; padding: 56px 0 88px; align-items: center; }
-    @media (min-width: 960px) { .hero-body { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); padding: 72px 0 112px; } }
-    .eyebrow {
-      display: inline-block; padding: 6px 14px; border-radius: 999px;
-      background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14);
-      font-size: 13px; font-weight: 600; color: var(--primary-soft); margin-bottom: 22px;
-    }
-    h1 { font-size: clamp(36px, 6.4vw, 60px); line-height: 1.08; font-weight: 800; letter-spacing: -1px; }
-    h1 span { color: var(--accent); }
-    .lead { margin-top: 20px; font-size: clamp(16px, 2.2vw, 19px); color: var(--on-dark-muted); max-width: 540px; }
-    .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 34px; }
-    .chips span {
-      font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 10px;
-      background: rgba(255, 255, 255, .06); color: var(--on-dark-muted);
-    }
+    /* Portada */
+    .hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; padding: 64px 0 80px; align-items: center; }
+    @media (min-width: 900px) { .hero { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); padding: 88px 0 104px; } }
+    .tag { font-size: 14px; font-weight: 600; color: var(--olive); letter-spacing: .06em; text-transform: uppercase; }
+    h1 { font-size: clamp(38px, 6.2vw, 64px); line-height: 1.05; margin-top: 14px; }
+    h1 em { font-style: italic; color: var(--accent); }
+    .lead { margin-top: 22px; font-size: clamp(17px, 2.1vw, 19px); color: var(--muted); max-width: 520px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .note { margin-top: 18px; font-size: 14px; color: var(--muted); }
+    .note a { color: var(--accent); font-weight: 600; }
 
-    /* Maqueta del plano de mesas */
-    .mock {
-      background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
-      border-radius: 22px; padding: 18px; box-shadow: 0 30px 60px rgba(0, 0, 0, .35);
-      backdrop-filter: blur(6px);
-    }
-    .mock-top { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-    .mock-top span { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--on-dark-muted); }
-    .mock-top span.on { background: var(--primary); color: #fff; }
-    .floor {
-      position: relative; aspect-ratio: 16 / 10; border-radius: 16px;
-      background: #FDFDFC; overflow: hidden;
-    }
-    .t {
-      position: absolute; display: grid; place-items: center; text-align: center;
-      font-size: 11px; font-weight: 700; color: var(--ink); line-height: 1.2;
-      border: 2px solid #CFC9E5; background: #fff;
-    }
-    .t small { display: block; font-weight: 600; font-size: 10px; }
-    .t.round { width: 17%; aspect-ratio: 1; border-radius: 50%; }
-    .t.rect { width: 22%; aspect-ratio: 1.45; border-radius: 12px; }
-    .t.busy { background: #FFF1E6; border-color: var(--accent); }
-    .t.busy small { color: #C56A22; }
-    .t.sent { background: #EEEBFF; border-color: var(--primary); }
-    .t.sent small { color: var(--primary); }
+    /* Ticket de comanda impreso */
     .ticket {
-      position: absolute; right: 4%; bottom: 6%; width: 34%;
-      background: #fff; border-radius: 10px; padding: 10px 12px;
-      box-shadow: 0 12px 26px rgba(26, 10, 46, .22);
-      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9.5px; color: var(--ink); line-height: 1.5;
+      justify-self: center; width: 100%; max-width: 330px;
+      background: var(--card); color: var(--ink);
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.55;
+      padding: 26px 24px 30px; transform: rotate(1.5deg);
+      border: 1px solid var(--line);
+      -webkit-mask: radial-gradient(circle 6px at 50% 0, #0000 98%, #000) 0 0 / 16px 51% repeat-x,
+                    radial-gradient(circle 6px at 50% 100%, #0000 98%, #000) 0 100% / 16px 51% repeat-x;
+              mask: radial-gradient(circle 6px at 50% 0, #0000 98%, #000) 0 0 / 16px 51% repeat-x,
+                    radial-gradient(circle 6px at 50% 100%, #0000 98%, #000) 0 100% / 16px 51% repeat-x;
     }
-    .ticket b { display: block; text-align: center; font-size: 10.5px; margin-bottom: 4px; }
-    @media (max-width: 520px) {
-      .ticket { display: none; }
-      .t { font-size: 10px; }
-      .t.round { width: 22%; }
-      .t.rect { width: 27%; }
-    }
+    .ticket .c { text-align: center; }
+    .ticket .big { font-size: 17px; font-weight: 700; }
+    .ticket hr { border: 0; border-top: 1px dashed var(--muted); margin: 10px 0; }
+    .ticket .row { display: flex; justify-content: space-between; gap: 10px; }
 
     /* Secciones */
-    section { padding: 88px 0; }
-    .section-head { max-width: 640px; margin-bottom: 44px; }
-    .kicker { color: var(--primary); font-weight: 700; font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; }
-    h2 { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.15; font-weight: 800; margin-top: 8px; letter-spacing: -.5px; }
-    .section-head p { color: var(--muted); margin-top: 14px; font-size: 17px; }
+    section { padding: 80px 0; border-top: 1px solid var(--line); }
+    .head { display: grid; gap: 14px; margin-bottom: 44px; max-width: 640px; }
+    h2 { font-size: clamp(30px, 4.4vw, 44px); line-height: 1.1; }
+    .head p { color: var(--muted); font-size: 17px; }
 
-    .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
-    @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (min-width: 980px) { .grid { grid-template-columns: repeat(3, 1fr); } }
-    .card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px;
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(26, 10, 46, .08); }
-    .icon {
-      width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
-      background: rgba(108, 92, 231, .12); color: var(--primary); margin-bottom: 16px;
-    }
-    .icon svg { width: 23px; height: 23px; }
-    .card h3 { font-size: 18px; font-weight: 700; }
-    .card p { color: var(--muted); font-size: 15px; margin-top: 6px; }
-    .card.highlight { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
-    .card.highlight p { color: var(--on-dark-muted); }
-    .card.highlight .icon { background: rgba(255, 140, 66, .18); color: var(--accent); }
+    /* Funciones como lista numerada */
+    .features { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 56px; }
+    @media (min-width: 760px) { .features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .feature { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; padding: 22px 0; border-top: 1px solid var(--line); }
+    .feature .n { font-family: 'Fraunces', Georgia, serif; font-size: 15px; font-weight: 600; color: var(--accent); padding-top: 3px; }
+    .feature h3 { font-size: 21px; }
+    .feature p { grid-column: 2; color: var(--muted); font-size: 15.5px; }
 
-    .steps { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); counter-reset: step; }
-    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
-    .step { position: relative; padding: 28px 26px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
-    .step::before {
-      counter-increment: step; content: counter(step);
-      display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
-      background: var(--primary); color: #fff; font-weight: 800; margin-bottom: 14px;
-    }
-    .step h3 { font-size: 18px; font-weight: 700; }
-    .step p { color: var(--muted); font-size: 15px; margin-top: 6px; }
+    /* Pasos */
+    .steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    @media (min-width: 820px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .step .n { font-family: 'Fraunces', Georgia, serif; font-size: 52px; line-height: 1; color: var(--accent); font-weight: 600; }
+    .step h3 { font-size: 22px; margin-top: 12px; }
+    .step p { color: var(--muted); margin-top: 6px; font-size: 15.5px; }
 
-    .band {
-      border-radius: 26px; padding: 56px 28px; text-align: center; color: var(--on-dark);
-      background: radial-gradient(600px 300px at 80% 0%, rgba(108, 92, 231, .6), transparent 70%), var(--ink);
-    }
-    .band h2 { margin-top: 0; }
-    .band p { color: var(--on-dark-muted); margin: 14px auto 30px; max-width: 520px; font-size: 17px; }
+    /* Contacto */
+    /* Verde oscuro fijo: en modo claro y oscuro el texto claro tiene que contrastar. */
+    .contact { background: #3E4F36; color: #F5EFE4; border-top: 0; }
+    .contact .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: start; }
+    @media (min-width: 860px) { .contact .grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); } }
+    .contact h2 { color: #F5EFE4; }
+    .contact p { color: rgba(245, 239, 228, .82); font-size: 17px; margin-top: 16px; max-width: 520px; }
+    .contact ul { list-style: none; margin-top: 20px; display: grid; gap: 8px; }
+    .contact li { padding-left: 22px; position: relative; color: rgba(245, 239, 228, .9); }
+    .contact li::before { content: "—"; position: absolute; left: 0; color: #E8A27F; }
+    .contact-box { background: #F5EFE4; color: #1F1B16; border-radius: 8px; padding: 28px; display: grid; gap: 12px; }
+    .contact-box h3 { font-size: 22px; }
+    .contact-box p { color: #6A6157; font-size: 15px; margin: 0; }
+    .contact-box .btn { text-align: center; border-color: #1F1B16; }
+    .contact-box .btn-solid { background: #B4502B; border-color: #B4502B; color: #fff; }
+    .contact-box .btn-solid:hover { background: #1F1B16; border-color: #1F1B16; }
+    .contact-box .btn-line { color: #1F1B16; }
+    .contact-box .btn-line:hover { background: #1F1B16; color: #F5EFE4; }
 
-    footer { padding: 34px 0 48px; color: var(--muted); font-size: 14px; }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+    footer { padding: 30px 0 44px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+    footer a { text-decoration: none; }
   </style>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="logo" viewBox="0 0 32 32">
-      <rect width="32" height="32" rx="7" fill="#2A1748"/>
-      <g stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <g stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
         <polyline points="4,10 4,4 10,4"/><polyline points="22,4 28,4 28,10"/>
         <polyline points="4,22 4,28 10,28"/><polyline points="22,28 28,28 28,22"/>
       </g>
-      <circle cx="16" cy="16" r="2.8" fill="#FF8C42"/>
+      <circle cx="16" cy="16" r="3" fill="#B4502B"/>
     </symbol>
-    <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </svg>
 
-  <header class="hero">
-    <div class="wrap">
-      <nav>
-        <a class="brand" href="#"><svg><use href="#logo"/></svg>focobr</a>
-        <a class="nav-link" href="/ingresar">Ingresar</a>
-      </nav>
+  <header class="wrap">
+    <nav>
+      <a class="brand" href="#"><svg><use href="#logo"/></svg>focobr</a>
+      <div class="nav-links">
+        <a class="hide-sm" href="#funciones">Qué incluye</a>
+        <a href="#contacto">Contacto</a>
+        <a href="/ingresar">Ingresar</a>
+      </div>
+    </nav>
 
-      <div class="hero-body">
-        <div>
-          <span class="eyebrow">Gestión para bares, heladerías y cafeterías</span>
-          <h1>Tu negocio<br>en <span>nuestras manos.</span></h1>
-          <p class="lead">Salón, mostrador, comandas a cocina, caja y facturación electrónica en un solo sistema en la nube. Lo usás desde la computadora, la tablet o el celular.</p>
-          <div class="cta">
-            <a class="btn btn-primary" href="/ingresar">Comenzar <svg><use href="#arrow"/></svg></a>
-            <a class="btn btn-ghost" href="#funciones">Ver qué incluye</a>
-          </div>
-          <div class="chips">
-            <span>Ventas</span><span>Stock</span><span>Caja</span><span>Facturación electrónica</span><span>Clientes</span><span>Reportes</span>
-          </div>
+    <div class="hero">
+      <div>
+        <span class="tag">Bares · Cafés · Heladerías</span>
+        <h1>El sistema que trabaja <em>al ritmo de tu local.</em></h1>
+        <p class="lead">Tomá pedidos en las mesas, mandá la comanda a cocina, cobrá, facturá y cerrá la caja. Todo desde la compu, la tablet o el celular.</p>
+        <div class="actions">
+          <a class="btn btn-solid" href="/ingresar">Comenzar</a>
+          <a class="btn btn-line" href="#contacto">Quiero sumar mi local</a>
         </div>
+        <p class="note">¿Todavía no tenés usuario? <a href="#contacto">Contactanos</a> y damos de alta tu local y sus sucursales.</p>
+      </div>
 
-        <div class="mock" aria-hidden="true">
-          <div class="mock-top"><span class="on">Salón</span><span>Patio</span><span>Mostrador</span></div>
-          <div class="floor">
-            <div class="t round" style="left:6%;top:10%">Mesa 1<small>Libre</small></div>
-            <div class="t round busy" style="left:30%;top:10%">Mesa 2<small>$ 18.400</small></div>
-            <div class="t rect sent" style="left:55%;top:8%">Mesa 3<small>En cocina</small></div>
-            <div class="t rect" style="left:6%;top:56%">Mesa 4<small>Libre</small></div>
-            <div class="t round busy" style="left:33%;top:58%">Mesa 5<small>$ 9.250</small></div>
-            <div class="ticket"><b>COMANDA</b>Mesa: MESA 3<br>Mozo: Sofía<br>-------------------<br>2  Café con leche<br>1  Medialunas x3<br>1  Helado 1/4 kg</div>
-          </div>
-        </div>
+      <div class="ticket" aria-hidden="true">
+        <div class="c big">COMANDA</div>
+        <div class="c">Mesa: MESA 3 · Salón</div>
+        <hr>
+        <div>Mozo: Sofía</div>
+        <div>Fecha: 14/11 21:42</div>
+        <hr>
+        <div class="row"><span>2</span><span style="flex:1">Café con leche</span></div>
+        <div class="row"><span>1</span><span style="flex:1">Medialunas x3</span></div>
+        <div class="row"><span>1</span><span style="flex:1">Helado 1/4 kg</span></div>
+        <div style="padding-left:22px">» dulce de leche y limón</div>
+        <hr>
+        <div class="c">Pedido Nro: 128</div>
       </div>
     </div>
   </header>
@@ -238,81 +203,58 @@
   <main>
     <section id="funciones">
       <div class="wrap">
-        <div class="section-head">
-          <span class="kicker">Qué hacemos</span>
-          <h2>Todo lo que pasa en tu local, en un solo lugar</h2>
-          <p>Desde que el mozo toma el pedido hasta el cierre de caja y la factura de AFIP.</p>
+        <div class="head">
+          <span class="tag">Qué incluye</span>
+          <h2>Del pedido al cierre de caja, sin papelitos.</h2>
         </div>
-        <div class="grid">
-          <article class="card highlight">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><circle cx="17.5" cy="17.5" r="3.5"/></svg></div>
-            <h3>Salón y mesas</h3>
-            <p>Armá el plano de cada sector y mirá de un vistazo qué mesas están libres, ocupadas o con pedidos en cocina. Mové y uní mesas cuando haga falta.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12l1 5H5z"/><path d="M5 7v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M9 11h6"/></svg></div>
-            <h3>Mostrador</h3>
-            <p>Venta rápida para llevar, con buscador y lector de código de barras.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg></div>
-            <h3>Comandas a cocina</h3>
-            <p>El pedido sale solo en la impresora que corresponde, aunque el mozo lo cargue desde el celular. Funciona con impresoras USB o de red, en Windows y Mac.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 6V4h12v2"/></svg></div>
-            <h3>Caja</h3>
-            <p>Apertura, ingresos y egresos, y cierre con arqueo: efectivo esperado, contado, diferencia y ticket con el detalle por salón y medio de pago.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></div>
-            <h3>Facturación electrónica</h3>
-            <p>Facturas A, B y C y notas de crédito autorizadas por AFIP, con QR, directo desde la venta.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
-            <h3>Productos y stock</h3>
-            <p>Rubros, stock por sucursal, movimientos y compras a proveedores. Importá tu catálogo desde Excel.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div>
-            <h3>Listas de precios</h3>
-            <p>Varias listas, descuentos, recargos por medio de pago y cambios de precio programados.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
-            <h3>Reportes</h3>
-            <p>Listado de ventas y Libro de IVA Ventas, con filtros por fecha y hora y exportación a Excel.</p>
-          </article>
-          <article class="card">
-            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></svg></div>
-            <h3>Clientes y equipo</h3>
-            <p>Clientes, usuarios con permisos para mozos, caja y administración, y varias sucursales.</p>
-          </article>
+        <div class="features">
+          <div class="feature"><span class="n">01</span><h3>Salón y mesas</h3><p>El plano de cada sector con el estado de cada mesa. Mové o uní mesas cuando haga falta.</p></div>
+          <div class="feature"><span class="n">02</span><h3>Mostrador</h3><p>Venta rápida para llevar, con buscador y lector de código de barras.</p></div>
+          <div class="feature"><span class="n">03</span><h3>Comandas a cocina</h3><p>El pedido sale solo en la impresora que corresponde, aunque el mozo lo cargue desde el celular.</p></div>
+          <div class="feature"><span class="n">04</span><h3>Caja</h3><p>Apertura, ingresos y egresos, y cierre con arqueo, diferencia y ticket detallado por salón y medio de pago.</p></div>
+          <div class="feature"><span class="n">05</span><h3>Facturación electrónica</h3><p>Facturas A, B y C y notas de crédito autorizadas por AFIP, directo desde la venta.</p></div>
+          <div class="feature"><span class="n">06</span><h3>Productos y stock</h3><p>Rubros, stock por sucursal, compras a proveedores e importación desde Excel.</p></div>
+          <div class="feature"><span class="n">07</span><h3>Listas de precios</h3><p>Varias listas, descuentos, recargos por medio de pago y cambios de precio programados.</p></div>
+          <div class="feature"><span class="n">08</span><h3>Reportes</h3><p>Listado de ventas y Libro de IVA Ventas, con exportación a Excel.</p></div>
+          <div class="feature"><span class="n">09</span><h3>Clientes y equipo</h3><p>Clientes, usuarios para mozos, caja y administración, y varias sucursales.</p></div>
+          <div class="feature"><span class="n">10</span><h3>En la nube</h3><p>Sin servidores en el local: entrás desde el navegador y tus datos quedan respaldados.</p></div>
         </div>
       </div>
     </section>
 
-    <section style="padding-top:0">
+    <section>
       <div class="wrap">
-        <div class="section-head">
-          <span class="kicker">Cómo empezar</span>
-          <h2>En marcha en una tarde</h2>
+        <div class="head">
+          <span class="tag">Cómo empezar</span>
+          <h2>Tres pasos y estás vendiendo.</h2>
         </div>
         <div class="steps">
-          <div class="step"><h3>Entrá desde el navegador</h3><p>No hay nada que instalar en las computadoras ni en los celulares de los mozos.</p></div>
-          <div class="step"><h3>Cargá tu local</h3><p>Productos, precios, mesas por sector e impresoras. Si ya tenés tu catálogo en Excel, lo importás.</p></div>
-          <div class="step"><h3>Empezá a vender</h3><p>Tomá pedidos, mandá comandas, cobrá, facturá y cerrá la caja con el ticket del día.</p></div>
+          <div class="step"><div class="n">1</div><h3>Contactanos</h3><p>Contanos cómo es tu local: cuántas sucursales tenés, si facturás y qué impresoras usás.</p></div>
+          <div class="step"><div class="n">2</div><h3>Damos de alta tu local</h3><p>Creamos tu empresa, tus sucursales y los usuarios, y te ayudamos con la facturación electrónica.</p></div>
+          <div class="step"><div class="n">3</div><h3>Cargás y vendés</h3><p>Productos, mesas e impresoras. Si tenés el catálogo en Excel, lo importás y empezás a vender.</p></div>
         </div>
       </div>
     </section>
 
-    <section style="padding-top:0">
-      <div class="wrap">
-        <div class="band">
-          <h2>¿Listo para ordenar tu negocio?</h2>
-          <p>Ingresá con tu usuario y empezá a trabajar con focobr.</p>
-          <a class="btn btn-primary" href="/ingresar">Comenzar <svg><use href="#arrow"/></svg></a>
+    <section class="contact" id="contacto">
+      <div class="wrap grid">
+        <div>
+          <span class="tag" style="color:#E8A27F">Contacto</span>
+          <h2 style="margin-top:12px">Para usar focobr, tu local tiene que estar dado de alta.</h2>
+          <p>No hay registro automático: cada local lo configuramos con vos para que arranque funcionando. Escribinos y coordinamos.</p>
+          <ul>
+            <li>Alta de la empresa y de cada sucursal</li>
+            <li>Usuarios para administración, caja y mozos</li>
+            <li>Configuración de facturación electrónica con AFIP</li>
+            <li>Ayuda para instalar las impresoras de comandas y tickets</li>
+          </ul>
+        </div>
+        <div class="contact-box">
+          <h3>Escribinos</h3>
+          <p>Te respondemos para coordinar el alta de tu local o de una nueva sucursal.</p>
+          <a class="btn btn-solid" data-contact="whatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a>
+          <a class="btn btn-line" data-contact="email" href="#">Enviar un mail</a>
+          <p style="font-size:14px">¿Ya tenés usuario? <a href="/ingresar" style="color:#B4502B;font-weight:600">Ingresá acá</a>.</p>
         </div>
       </div>
     </section>
@@ -324,5 +266,22 @@
       <a href="/ingresar">Ingresar al sistema</a>
     </div>
   </footer>
+
+  <script>
+    // Datos de contacto: completar acá. Si un dato queda vacío, su botón no se muestra.
+    const CONTACTO = {
+      whatsapp: '',   // solo números, con código de país: 5493511234567
+      email: '',      // ejemplo: hola@focobr.net
+    };
+    const mensaje = encodeURIComponent('Hola, quiero dar de alta mi local en focobr.');
+    document.querySelectorAll('[data-contact]').forEach((link) => {
+      const tipo = link.dataset.contact;
+      const valor = CONTACTO[tipo];
+      if (!valor) { link.remove(); return; }
+      link.href = tipo === 'whatsapp'
+        ? `https://wa.me/${valor}?text=${mensaje}`
+        : `mailto:${valor}?subject=${encodeURIComponent('Alta de local en focobr')}`;
+    });
+  </script>
 </body>
 </html>

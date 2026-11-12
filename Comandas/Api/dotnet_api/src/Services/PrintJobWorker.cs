@@ -128,7 +128,14 @@ public sealed class PrintJobWorker : BackgroundService
             var companyName = await db.Empresas.AsNoTracking().Where(x => x.Id == companyId).Select(x => x.Nombre).SingleAsync(cancellationToken);
             var branch = await db.Sucursales.AsNoTracking().Where(x => x.Id == branchId).Select(x => x.Nombre).SingleAsync(cancellationToken);
             var sectores = await CajaService.DetalleSectoresAsync(db, caja, caja.FechaCierre ?? DateTime.UtcNow);
-        ticket = BuildCajaTicket(caja, detalle, sectores, movimientos, companyName, branch);
+        var anuladas = await (from v in db.SaleVoids.AsNoTracking()
+            join o in db.Orders on v.OrderId equals o.Id
+            join u in db.Usuarios on v.UserId equals u.Id
+            where v.CashId == caja.Id
+            orderby v.Date
+            select new CajaVoidedSale(o.Numero, o.Table.Nombre, v.Date, v.Reason, v.Refunded, (u.Nombre + " " + u.Apellido).Trim()))
+            .ToListAsync(cancellationToken);
+        ticket = BuildCajaTicket(caja, detalle, sectores, anuladas, movimientos, companyName, branch);
         }
         else
         {
@@ -470,6 +477,7 @@ public sealed class PrintJobWorker : BackgroundService
         Caja caja,
         List<CajaCierreDetalle> detalle,
         List<(string Grupo, string MedioPago, decimal Total)> sectores,
+        List<CajaVoidedSale> anuladas,
         List<CajaMovimiento> movimientos,
         string companyName,
         string branchName)
@@ -541,6 +549,20 @@ public sealed class PrintJobWorker : BackgroundService
             text.AppendLine("TOTAL POR MEDIO DE PAGO");
             foreach (var item in detalle.OrderByDescending(x => x.Total))
                 Line($"  {item.MedioPago}", item.Total);
+        }
+
+        // Ventas anuladas con esta caja abierta (no las notas de crédito): lo devuelto ya está descontado arriba.
+        if (anuladas.Count > 0)
+        {
+            Title("VENTAS ANULADAS");
+            foreach (var venta in anuladas)
+            {
+                foreach (var line in Wrap($"Venta {venta.Numero} - {venta.Mesa} - {AfipClient.ToArgentina(venta.Fecha):HH:mm}", width)) text.AppendLine(line);
+                Line("  Devuelto:", venta.Devuelto);
+                foreach (var line in Wrap($"Motivo: {venta.Motivo} ({venta.Usuario})", width - 2)) text.AppendLine("  " + line);
+            }
+            text.AppendLine(new string('-', width));
+            Line($"Total devuelto ({anuladas.Count}):", anuladas.Sum(x => x.Devuelto));
         }
 
         void Movimientos(string title, string sign, List<CajaMovimiento> items, decimal extra, string? extraLabel)
@@ -629,3 +651,6 @@ public sealed class PrintJobWorker : BackgroundService
         return result.ToString().Normalize(NormalizationForm.FormC);
     }
 }
+
+/// Venta anulada mientras la caja estaba abierta, para el ticket de cierre.
+public sealed record CajaVoidedSale(int Numero, string Mesa, DateTime Fecha, string Motivo, decimal Devuelto, string Usuario);

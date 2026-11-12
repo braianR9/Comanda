@@ -124,10 +124,10 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Detalle de productos vendidos por pedido',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.fraunces(
                           color: Brand.ink,
                           fontSize: 22,
-                          fontWeight: FontWeight.w800)),
+                          fontWeight: FontWeight.w600)),
                   Text('Ventas · Listado de ventas',
                       style: TextStyle(color: Brand.subtle)),
                 ],
@@ -293,7 +293,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       DataTable(
                                         headingRowColor:
                                             MaterialStateProperty.all(
-                                                const Color(0xFFF0F0F2)),
+                                                const Color(0xFFEFE7D9)),
                                         headingRowHeight: 44,
                                         dataRowMinHeight: 44,
                                         dataRowMaxHeight: 52,
@@ -356,8 +356,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 
   String _qty(double value) => value == value.roundToDouble()

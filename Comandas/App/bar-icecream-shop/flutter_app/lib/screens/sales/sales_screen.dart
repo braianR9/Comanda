@@ -171,9 +171,9 @@ class _SalesScreenState extends State<SalesScreen> {
     return PopScope(
       canPop: !_operationInProgress,
       child: widget.embedded
-          ? ColoredBox(color: const Color(0xFFF5F5F8), child: guardedBody)
+          ? ColoredBox(color: const Color(0xFFF5EFE4), child: guardedBody)
           : Scaffold(
-              backgroundColor: const Color(0xFFF5F5F8), body: guardedBody),
+              backgroundColor: const Color(0xFFF5EFE4), body: guardedBody),
     );
   }
 
@@ -290,9 +290,9 @@ class _SalesScreenState extends State<SalesScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFDFDFC),
+                  color: const Color(0xFFFBF8F2),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFB9B9B4), width: 2),
+                  border: Border.all(color: const Color(0xFFC2B49C), width: 2),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: tables.isEmpty
@@ -376,7 +376,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(table.name,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.workSans(
                           color: Brand.ink,
                           fontSize: 20,
                           fontWeight: FontWeight.w700)),
@@ -1318,7 +1318,7 @@ class _SaleTableCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final open = order != null && (order!.lines.isNotEmpty || order!.sent);
     final color = joined
-        ? const Color(0xFFE5E7EB)
+        ? const Color(0xFFD9CDB8)
         : open
             ? const Color(0xFFFFF1D6)
             : const Color(0xFFEAF7EC);
@@ -1350,7 +1350,7 @@ class _SaleTableCard extends StatelessWidget {
             Text(table.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
                     color: joined ? const Color(0xFF6B7280) : null)),
@@ -1658,7 +1658,7 @@ class _ProductOptionCard extends StatelessWidget {
           Text(product.category,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF77718E), fontSize: 11)),
+              style: const TextStyle(color: Color(0xFF6F665B), fontSize: 11)),
           Text('\$${product.price.toStringAsFixed(2)}',
               style:
                   TextStyle(color: Brand.primary, fontWeight: FontWeight.w700)),
@@ -1698,7 +1698,7 @@ class _OrderTicket extends StatelessWidget {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('Comanda',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 5),
           _OrderPhase(order: order, canCheckout: canCheckout),
@@ -1773,7 +1773,7 @@ class _OrderTicket extends StatelessWidget {
                                 : Icons.comment_rounded,
                             size: 20,
                             color: line.comment == null
-                                ? const Color(0xFF77718E)
+                                ? const Color(0xFF6F665B)
                                 : Brand.primary,
                           ),
                         ),
@@ -1859,9 +1859,9 @@ class _OrderTicket extends StatelessWidget {
                   style: TextStyle(
                       fontWeight: strong ? FontWeight.w700 : FontWeight.w400))),
           Text('\$${value.toStringAsFixed(2)}',
-              style: TextStyle(
+              style: GoogleFonts.fraunces(
                   fontSize: strong ? 18 : 14,
-                  fontWeight: strong ? FontWeight.w800 : FontWeight.w500)),
+                  fontWeight: strong ? FontWeight.w600 : FontWeight.w500)),
         ]),
       );
 }
@@ -1943,8 +1943,8 @@ class _SendOrderButtonState extends State<_SendOrderButton>
                       minimumSize: const Size.fromHeight(60),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 16),
-                      textStyle: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w800),
+                      textStyle: GoogleFonts.fraunces(
+                          fontSize: 17, fontWeight: FontWeight.w600),
                       backgroundColor: Brand.primary,
                       foregroundColor: Brand.onPrimary,
                       iconSize: 26,
@@ -2048,7 +2048,7 @@ class _OrderPhase extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              color: index == current ? Brand.tint : const Color(0xFFF3F2F5),
+              color: index == current ? Brand.tint : const Color(0xFFF1E9DC),
               borderRadius: BorderRadius.circular(7),
             ),
             child: Text(labels[index],
@@ -2104,9 +2104,9 @@ class _CommandTicketDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('COMANDA A CONFIRMAR',
+              Text('COMANDA A CONFIRMAR',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w600)),
               Text(isModification ? 'MODIFICACIÓN' : 'NUEVO PEDIDO',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -2129,9 +2129,9 @@ class _CommandTicketDialog extends StatelessWidget {
                         SizedBox(
                           width: 48,
                           child: Text(row.displayQuantity,
-                              style: TextStyle(
+                              style: GoogleFonts.fraunces(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                                 color: row.delta == 0
                                     ? Colors.black
                                     : row.delta > 0
@@ -2162,7 +2162,7 @@ class _CommandTicketDialog extends StatelessWidget {
               const Divider(height: 24),
               const Text('Al aceptar se enviará a la impresora',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF77737E))),
+                  style: TextStyle(color: Color(0xFF6F665B))),
             ],
           ),
         ),
@@ -2429,8 +2429,8 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
             Row(children: [
               const Expanded(child: Text('Total a cobrar')),
               Text('\$${finalTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w800)),
+                  style: GoogleFonts.fraunces(
+                      fontSize: 22, fontWeight: FontWeight.w600)),
             ]),
           ])),
         ),

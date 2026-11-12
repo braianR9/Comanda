@@ -56,10 +56,10 @@ class _SectorsScreenState extends State<SectorsScreen> {
                   Expanded(
                     child: Text(
                       'Sectores',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.fraunces(
                         color: Brand.ink,
                         fontSize: 26,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -107,8 +107,8 @@ class _SectorsScreenState extends State<SectorsScreen> {
     );
 
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: body)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: body);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: body)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: body);
   }
 
   Widget _desktopTable() {
@@ -124,7 +124,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
             final sector = sectors[index];
             return Material(
               key: ValueKey(sector.id),
-              color: sector.active ? Colors.white : const Color(0xFFFAFAF8),
+              color: sector.active ? Colors.white : const Color(0xFFFBF8F2),
               child: InkWell(
                 onTap: () => _openLayout(sector),
                 child: Container(
@@ -140,7 +140,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
                       child: const Padding(
                         padding: EdgeInsets.only(right: 12),
                         child: Icon(Icons.drag_indicator_rounded,
-                            color: Color(0xFFAAA5B8)),
+                            color: Color(0xFFA89D8D)),
                       ),
                     ),
                     SizedBox(
@@ -193,7 +193,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
           key: ValueKey(sector.id),
           margin: const EdgeInsets.only(bottom: 10),
           elevation: 0,
-          color: sector.active ? Colors.white : const Color(0xFFF5F5F3),
+          color: sector.active ? Colors.white : const Color(0xFFF2EBDF),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: Color(0xFFE4E1EC)),
@@ -206,7 +206,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
               ReorderableDragStartListener(
                 index: index,
                 child: const Icon(Icons.drag_indicator_rounded,
-                    color: Color(0xFFAAA5B8)),
+                    color: Color(0xFFA89D8D)),
               ),
             ]),
             title: Text(sector.name,
@@ -311,10 +311,10 @@ class _SectorsScreenState extends State<SectorsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Distribución · ${sector.name}',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.fraunces(
                         color: Brand.ink,
                         fontSize: 23,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       )),
                   Text('Arrastrá las mesas y tocá una para editarla.',
                       style: TextStyle(color: Brand.subtle)),
@@ -331,9 +331,9 @@ class _SectorsScreenState extends State<SectorsScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFFDFDFC),
+                color: const Color(0xFFFBF8F2),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFB9B9B4), width: 2),
+                border: Border.all(color: const Color(0xFFC2B49C), width: 2),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x12000000),
@@ -349,7 +349,7 @@ class _SectorsScreenState extends State<SectorsScreen> {
                     left: 18,
                     top: 14,
                     child: Text(sector.name.toUpperCase(),
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.workSans(
                           color: const Color(0xFFB2B0B7),
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -387,8 +387,8 @@ class _SectorsScreenState extends State<SectorsScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 
   void _moveTable(
@@ -558,7 +558,7 @@ class _SectorTableHeader extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 18),
-        color: const Color(0xFFF1F1EF),
+        color: const Color(0xFFF2EBDF),
         child: const Row(children: [
           SizedBox(width: 36),
           SizedBox(width: 54, child: Text('Orden')),
@@ -634,11 +634,11 @@ class _TableDialogState extends State<_TableDialog> {
 
   @override
   Widget build(BuildContext context) => Dialog(
-        backgroundColor: const Color(0xFFF5F5F3),
+        backgroundColor: const Color(0xFFF2EBDF),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFD0D1CE)),
+          side: const BorderSide(color: Color(0xFFD9CDB8)),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -651,7 +651,7 @@ class _TableDialogState extends State<_TableDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(widget.initial == null ? 'Nueva mesa' : 'Editar mesa',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.workSans(
                         color: const Color(0xFF45474A),
                         fontSize: 21,
                         fontWeight: FontWeight.w700,
@@ -840,11 +840,11 @@ class _SectorDialogState extends State<_SectorDialog> {
 
   @override
   Widget build(BuildContext context) => Dialog(
-        backgroundColor: const Color(0xFFF5F5F3),
+        backgroundColor: const Color(0xFFF2EBDF),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFD0D1CE)),
+          side: const BorderSide(color: Color(0xFFD9CDB8)),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -857,7 +857,7 @@ class _SectorDialogState extends State<_SectorDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(widget.sector == null ? 'Nuevo sector' : 'Editar sector',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.workSans(
                         color: const Color(0xFF45474A),
                         fontSize: 21,
                         fontWeight: FontWeight.w700,
@@ -1126,10 +1126,10 @@ class _FloorTable extends StatelessWidget {
             const SizedBox(height: 2),
             Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.person_outline_rounded,
-                  size: 13, color: Color(0xFF77737E)),
+                  size: 13, color: Color(0xFF6F665B)),
               Text('${table.seats}',
                   style:
-                      const TextStyle(color: Color(0xFF77737E), fontSize: 11)),
+                      const TextStyle(color: Color(0xFF6F665B), fontSize: 11)),
             ]),
             const Icon(Icons.edit_outlined, size: 13, color: Color(0xFF8A8790)),
           ],
@@ -1164,7 +1164,7 @@ class _LegendItem extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 17, color: const Color(0xFF77737E)),
+          Icon(icon, size: 17, color: const Color(0xFF6F665B)),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(color: Brand.subtle)),
         ],

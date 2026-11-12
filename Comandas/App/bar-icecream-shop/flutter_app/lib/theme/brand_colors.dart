@@ -7,8 +7,8 @@ import '../models/user_session.dart';
 class Brand {
   Brand._();
 
-  /// El lila original del sistema.
-  static const defaultColor = Color(0xFF6C5CE7);
+  /// Terracota, el color de la landing y el del sistema si la sucursal no eligió otro.
+  static const defaultColor = Color(0xFFB4502B);
 
   static Color _base = defaultColor;
   static Color get base => _base;
@@ -86,7 +86,8 @@ class Brand {
 /// Colores sugeridos en la paleta. Todos admiten texto blanco encima (contraste ≥ 3,9:1),
 /// porque la barra lateral y los botones usan texto blanco.
 const brandPresets = <(String, Color)>[
-  ('Lila', Brand.defaultColor),
+  ('Terracota', Brand.defaultColor),
+  ('Lila', Color(0xFF6C5CE7)),
   ('Violeta', Color(0xFF8E44AD)),
   ('Azul', Color(0xFF2F6FDE)),
   ('Celeste', Color(0xFF0A7FB3)),

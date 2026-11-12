@@ -69,10 +69,10 @@ class _GoogleSheetSettingsScreenState extends State<GoogleSheetSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Google Sheets',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.fraunces(
                     color: Brand.ink,
                     fontSize: 25,
-                    fontWeight: FontWeight.w800)),
+                    fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text(
                 'Cada venta finalizada se agrega como una fila nueva a la planilla configurada.',
@@ -166,7 +166,7 @@ class _GoogleSheetSettingsScreenState extends State<GoogleSheetSettingsScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 }

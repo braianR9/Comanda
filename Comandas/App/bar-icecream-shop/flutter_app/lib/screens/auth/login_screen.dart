@@ -132,7 +132,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildBrandSide() {
     return Container(
-      color: Brand.primary,
+      // Verde oliva de la landing: el login se ve igual antes de elegir sucursal.
+      color: const Color(0xFF3E4F36),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
         child: Column(
@@ -143,9 +144,9 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 20),
             Text(
               'focobr',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.fraunces(
                 fontSize: 28,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
                 letterSpacing: 2,
               ),
@@ -153,9 +154,9 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 16),
             Text(
               'Tu negocio\nen nuestras manos.',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.fraunces(
                 fontSize: 44,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
                 height: 1.15,
               ),
@@ -163,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 16),
             Text(
               'Gestioná ventas, stock y tu negocio\ndesde cualquier lugar.',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.6),
                 height: 1.6,
@@ -200,16 +201,16 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 14),
         Text(
           'focobr',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.fraunces(
             fontSize: 24,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             color: Brand.ink,
             letterSpacing: 3,
           ),
         ),
         Text(
           'Gestioná tu negocio',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.workSans(
             fontSize: 13,
             color: Brand.subtle,
           ),
@@ -242,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               Text(
                 'Iniciá sesión',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: Brand.ink,
@@ -251,7 +252,7 @@ class _LoginScreenState extends State<LoginScreen>
               const SizedBox(height: 6),
               Text(
                 'Accedé al panel de tu negocio',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                   fontSize: 14,
                   color: Brand.subtle,
                 ),
@@ -262,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen>
                 Text(
                   'Falta la API Key: ejecutá la app con '
                   '--dart-define-from-file=config/local.json',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.workSans(
                       fontSize: 13, color: const Color(0xFFC62828)),
                 ),
               ],
@@ -325,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   child: Text(
                     '¿Olvidaste tu contraseña?',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.workSans(
                       color: Brand.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -358,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Expanded(
                           child: Text(
                             auth.errorMessage!,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.workSans(
                               color: AppColors.error,
                               fontSize: 13,
                             ),
@@ -391,7 +392,7 @@ class _AnimatedBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: const Color(0xFFF5F5F8));
+    return Container(color: const Color(0xFFF5EFE4));
   }
 }
 
@@ -417,11 +418,11 @@ class _FeatureChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: const Color(0xFFFF8C42), size: 15),
+              Icon(icon, color: const Color(0xFFE8A27F), size: 15),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                   color: Colors.white.withOpacity(0.8),
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -471,17 +472,17 @@ class _GlassField extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
-      style: GoogleFonts.poppins(color: Brand.ink, fontSize: 15),
+      style: GoogleFonts.workSans(color: Brand.ink, fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.poppins(
+        labelStyle: GoogleFonts.workSans(
           color: Brand.subtle,
           fontSize: 14,
         ),
         prefixIcon: Icon(icon, color: Brand.muted, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: const Color(0xFFF8F7FC),
+        fillColor: const Color(0xFFF7F2E9),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
@@ -504,7 +505,7 @@ class _GlassField extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.error),
         ),
-        errorStyle: GoogleFonts.poppins(
+        errorStyle: GoogleFonts.workSans(
             color: AppColors.error.withOpacity(0.9), fontSize: 12),
       ),
     );
@@ -558,7 +559,7 @@ class _LoginButton extends StatelessWidget {
                 )
               : Text(
                   'Ingresar al panel',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.workSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),

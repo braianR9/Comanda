@@ -200,7 +200,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
 
     if (widget.embedded) {
       return ColoredBox(
-        color: const Color(0xFFF5F5F8),
+        color: const Color(0xFFF5EFE4),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -215,7 +215,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
               Expanded(
                 child: Text(
                   widget.product == null ? 'Nuevo producto' : 'Editar producto',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.workSans(
                     color: Brand.ink,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -235,11 +235,11 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F8),
+      backgroundColor: const Color(0xFFF5EFE4),
       appBar: AppBar(
         title: Text(
             widget.product == null ? 'Nuevo producto' : 'Editar producto',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
         actions: [
           Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -296,7 +296,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
                 Text(name.text.isEmpty ? 'Nuevo producto' : name.text,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.workSans(
                         color: Brand.ink, fontWeight: FontWeight.w700)),
                 Text(code.text.isEmpty ? 'Sin código' : code.text,
                     style: TextStyle(color: Brand.subtle, fontSize: 12)),
@@ -356,7 +356,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
               name.text.isEmpty ? 'Nuevo producto' : name.text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                 color: Brand.ink,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -408,7 +408,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         ),
         Text(
           '\$${value.toStringAsFixed(2)}',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.workSans(
             color: strong ? Brand.primary : Brand.ink,
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -422,7 +422,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         children: [
           Text(label, style: TextStyle(color: Brand.subtle, fontSize: 11)),
           Text('\$ ${value.toStringAsFixed(2)}',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                 color: strong ? Brand.primary : Brand.ink,
                 fontWeight: FontWeight.w700,
               )),
@@ -612,7 +612,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text('Actualizar sobre',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   color: Brand.ink, fontWeight: FontWeight.w600)),
         ),
         Wrap(spacing: 12, children: [
@@ -731,12 +731,12 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
           labelText: label,
           prefixText: '\$  ',
           filled: true,
-          fillColor: const Color(0xFFF0F0F2),
+          fillColor: const Color(0xFFEFE7D9),
         ),
         child: Text(
           value.toStringAsFixed(2),
           textAlign: TextAlign.right,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.workSans(
             color: const Color(0xFF5F5B70),
             fontWeight: FontWeight.w500,
           ),
@@ -747,7 +747,7 @@ class _ProductEditorScreenState extends State<ProductEditorScreen> {
         decoration: InputDecoration(
           labelText: label,
           filled: true,
-          fillColor: const Color(0xFFF0F0F2),
+          fillColor: const Color(0xFFEFE7D9),
         ),
         child: Text(value.isEmpty ? '—' : value),
       );
@@ -1095,10 +1095,10 @@ class _GroupDialogState extends State<_GroupDialog> {
       colorScheme: baseTheme.colorScheme.copyWith(
         primary: neutral,
         secondary: neutral,
-        surface: const Color(0xFFF5F5F3),
+        surface: const Color(0xFFF2EBDF),
       ),
       inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
-        fillColor: const Color(0xFFFAFAF8),
+        fillColor: const Color(0xFFFBF8F2),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: neutral, width: 2),
@@ -1108,11 +1108,11 @@ class _GroupDialogState extends State<_GroupDialog> {
     return Theme(
       data: neutralTheme,
       child: Dialog(
-        backgroundColor: const Color(0xFFF5F5F3),
+        backgroundColor: const Color(0xFFF2EBDF),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFD0D1CE)),
+          side: const BorderSide(color: Color(0xFFD9CDB8)),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
@@ -1128,7 +1128,7 @@ class _GroupDialogState extends State<_GroupDialog> {
                     widget.isSubgroup
                         ? 'Nuevo Sub Rubro de ${widget.parentName}'
                         : 'Nuevo Rubro',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.workSans(
                       color: const Color(0xFF45474A),
                       fontSize: 21,
                       fontWeight: FontWeight.w700,

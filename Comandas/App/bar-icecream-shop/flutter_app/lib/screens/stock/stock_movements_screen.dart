@@ -56,10 +56,10 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                           Text('Movimientos de stock',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.fraunces(
                                   color: Brand.ink,
                                   fontSize: 25,
-                                  fontWeight: FontWeight.w800)),
+                                  fontWeight: FontWeight.w600)),
                           Text('Ingresos y salidas de mercadería.',
                               style: TextStyle(color: Brand.subtle)),
                         ])),
@@ -223,8 +223,8 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                                           }))),
                 ])));
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 
   void _reload() {

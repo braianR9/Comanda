@@ -47,10 +47,10 @@ class _SalesCatalogsScreenState extends State<SalesCatalogsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text('Descuentos y tipos de pago',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.fraunces(
                         color: Brand.ink,
                         fontSize: 25,
-                        fontWeight: FontWeight.w800)),
+                        fontWeight: FontWeight.w600)),
                 Text('Configuración de beneficios y medios de cobro.',
                     style: TextStyle(color: Brand.subtle)),
               ])),
@@ -81,8 +81,8 @@ class _SalesCatalogsScreenState extends State<SalesCatalogsScreen>
       ]),
     ));
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 
   Widget _discounts(SalesCatalogsProvider provider) =>

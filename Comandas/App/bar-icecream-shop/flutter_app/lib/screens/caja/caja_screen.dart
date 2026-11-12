@@ -116,10 +116,10 @@ class _CajaScreenState extends State<CajaScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
                     children: [
                       Text('Caja',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.fraunces(
                               color: Brand.ink,
                               fontSize: 26,
-                              fontWeight: FontWeight.w800)),
+                              fontWeight: FontWeight.w600)),
                       const SizedBox(height: 20),
                       _CajaStatusCard(
                         caja: provider.current,
@@ -130,7 +130,7 @@ class _CajaScreenState extends State<CajaScreen> {
                       ),
                       const SizedBox(height: 28),
                       Text('Historial de cajas',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.workSans(
                               color: Brand.ink,
                               fontSize: 18,
                               fontWeight: FontWeight.w700)),
@@ -139,7 +139,7 @@ class _CajaScreenState extends State<CajaScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Text('Todavía no hay cajas cerradas.',
-                              style: GoogleFonts.poppins(color: Brand.muted)),
+                              style: GoogleFonts.workSans(color: Brand.muted)),
                         )
                       else
                         ...provider.history.map((caja) => _CajaHistoryTile(
@@ -156,8 +156,8 @@ class _CajaScreenState extends State<CajaScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 }
 
@@ -193,7 +193,7 @@ class _CajaStatusCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(abierta ? 'Caja abierta' : 'Caja cerrada',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: abierta
@@ -203,7 +203,7 @@ class _CajaStatusCard extends StatelessWidget {
         const SizedBox(height: 16),
         if (caja == null)
           Text('No hay ninguna caja abierta en esta sucursal.',
-              style: GoogleFonts.poppins(color: const Color(0xFF6B6280)))
+              style: GoogleFonts.workSans(color: const Color(0xFF6A6157)))
         else ...[
           _row('Abierta por',
               '${caja!.usuarioApertura} · ${_fmt(caja!.fechaApertura)}'),
@@ -217,7 +217,7 @@ class _CajaStatusCard extends StatelessWidget {
           if (caja!.detalle.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('Por medio de pago',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                     fontWeight: FontWeight.w700, color: Brand.ink)),
             for (final item in caja!.detalle)
               _row(item.medioPago, '\$${item.total.toStringAsFixed(2)}'),
@@ -229,7 +229,7 @@ class _CajaStatusCard extends StatelessWidget {
               abierta
                   ? 'No podés cerrar la caja: pedile a Caja o a un admin.'
                   : 'No podés abrir la caja: pedile a Caja o a un admin.',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   color: Colors.orange.shade800, fontSize: 13))
         else
           Wrap(spacing: 12, runSpacing: 8, children: [
@@ -257,9 +257,9 @@ class _CajaStatusCard extends StatelessWidget {
         child: Row(children: [
           Expanded(
               child: Text(label,
-                  style: GoogleFonts.poppins(color: const Color(0xFF6B6280)))),
+                  style: GoogleFonts.workSans(color: const Color(0xFF6A6157)))),
           Text(value,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   fontWeight: FontWeight.w700, color: Brand.ink)),
         ]),
       );
@@ -287,16 +287,16 @@ class _CajaHistoryTile extends StatelessWidget {
           title: Text(
               '${_fmt(caja.fechaApertura)}'
               '${caja.fechaCierre != null ? ' — ${_fmt(caja.fechaCierre!)}' : ''}',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              style: GoogleFonts.workSans(fontWeight: FontWeight.w600)),
           subtitle: Text(
               'Abrió: ${caja.usuarioApertura}'
               '${caja.usuarioCierre != null ? ' · Cerró: ${caja.usuarioCierre}' : ''}',
-              style: GoogleFonts.poppins(fontSize: 12, color: Brand.muted)),
+              style: GoogleFonts.workSans(fontSize: 12, color: Brand.muted)),
           trailing: Text(
               caja.abierta
                   ? 'Abierta'
                   : '\$${(caja.totalEfectivoEsperado ?? 0).toStringAsFixed(2)}',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
         ),
       );
 }
@@ -381,7 +381,7 @@ class _CajaDetailDialogState extends State<_CajaDetailDialog> {
                 if (caja.detalle.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text('Por medio de pago',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                      style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
                   for (final item in caja.detalle)
                     _detailRow(
                         item.medioPago, '\$${item.total.toStringAsFixed(2)}'),
@@ -389,7 +389,7 @@ class _CajaDetailDialogState extends State<_CajaDetailDialog> {
                 if (caja.movimientos.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text('Movimientos manuales',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                      style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
                   for (final movimiento in caja.movimientos)
                     _detailRow(
                         '${movimiento.isIngreso ? '+' : '-'} ${movimiento.motivo}',
@@ -422,11 +422,11 @@ Widget _detailRow(String label, String value) => Padding(
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             child: Text(label,
-                style: GoogleFonts.poppins(color: const Color(0xFF6B6280)))),
+                style: GoogleFonts.workSans(color: const Color(0xFF6A6157)))),
         Flexible(
             child: Text(value,
                 textAlign: TextAlign.right,
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700))),
+                style: GoogleFonts.workSans(fontWeight: FontWeight.w700))),
       ]),
     );
 
@@ -580,7 +580,7 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
                   Text(
                       'Se va a cerrar la caja abierta por ${caja.usuarioApertura} el '
                       '${_fmt(caja.fechaApertura)}.',
-                      style: GoogleFonts.poppins()),
+                      style: GoogleFonts.workSans()),
                   const SizedBox(height: 12),
                   _row('Monto inicial',
                       '\$${caja.montoInicial.toStringAsFixed(2)}'),
@@ -619,7 +619,7 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
                               : diferencia > 0
                                   ? 'Sobran \$${diferencia.toStringAsFixed(2)}'
                                   : 'Faltan \$${(-diferencia).toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.workSans(
                               fontWeight: FontWeight.w600,
                               color: diferencia == 0
                                   ? Colors.green.shade700
@@ -651,7 +651,7 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
                       padding: const EdgeInsets.only(top: 6, left: 4),
                       child: Text(
                           'Se retiran \$${retiro.toStringAsFixed(2)} (sale como egreso en el ticket).',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.workSans(
                               fontSize: 13, color: Brand.muted)),
                     ),
                   const SizedBox(height: 14),
@@ -681,12 +681,12 @@ class _CerrarCajaDialogState extends State<_CerrarCajaDialog> {
         child: Row(children: [
           Expanded(
               child: Text(label,
-                  style: GoogleFonts.poppins(
-                      color: highlight ? Brand.ink : const Color(0xFF6B6280),
+                  style: GoogleFonts.workSans(
+                      color: highlight ? Brand.ink : const Color(0xFF6A6157),
                       fontWeight:
                           highlight ? FontWeight.w700 : FontWeight.w400))),
           Text(value,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   fontWeight: FontWeight.w700,
                   fontSize: highlight ? 16 : 14,
                   color: Brand.ink)),

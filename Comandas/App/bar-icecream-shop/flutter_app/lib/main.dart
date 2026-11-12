@@ -110,9 +110,9 @@ class _AppEntryState extends State<_AppEntry> {
   Widget build(BuildContext context) {
     // Pantalla de carga mientras se restaura sesión
     return const Scaffold(
-      backgroundColor: Color(0xFF1A0A2E),
+      backgroundColor: Color(0xFF1F1B16),
       body: Center(
-        child: CircularProgressIndicator(color: Color(0xFFFF8C42)),
+        child: CircularProgressIndicator(color: Color(0xFFB4502B)),
       ),
     );
   }

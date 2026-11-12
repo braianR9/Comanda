@@ -3,21 +3,23 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'brand_colors.dart';
 
+/// Paleta cálida de la landing: papel, tinta y bordes tostados.
 class AppColors {
   // Primarios
-  static const primary = Color(0xFF1A1A2E); // azul noche oscuro
-  static const primaryLight = Color(0xFF16213E);
-  static const accent = Color(0xFFE94560); // rojo/rosa vibrante
-  static const accentLight = Color(0xFFFF6B6B);
+  static const primary = Color(0xFF1F1B16); // tinta
+  static const primaryLight = Color(0xFF2B261F);
+  static const accent = Color(0xFFB4502B); // terracota
+  static const accentLight = Color(0xFFD7714A);
 
   // Secundarios
-  static const surface = Color(0xFFFFFFFF);
-  static const background = Color(0xFFF5F6FA);
-  static const cardBg = Color(0xFFFFFFFF);
+  static const surface = Color(0xFFFBF8F2); // tarjetas y diálogos
+  static const background = Color(0xFFF5EFE4); // papel
+  static const cardBg = Color(0xFFFBF8F2);
+  static const line = Color(0xFFD9CDB8);
 
   // Texto
-  static const textDark = Color(0xFF1A1A2E);
-  static const textMedium = Color(0xFF6B7280);
+  static const textDark = Color(0xFF1F1B16);
+  static const textMedium = Color(0xFF6A6157);
   static const textLight = Color(0xFFFFFFFF);
 
   // Estado
@@ -38,28 +40,48 @@ class AppTheme {
         background: AppColors.background,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFFF1F1F1),
+      // Texto en Work Sans y títulos en Fraunces, como la landing.
+      fontFamily: GoogleFonts.workSans().fontFamily,
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
+        foregroundColor: AppColors.textDark,
+        titleTextStyle: GoogleFonts.fraunces(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.cardBg,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerColor: AppColors.line,
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: GoogleFonts.fraunces(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFD2D2D2)),
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.line),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFFFFFDF9),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderSide: const BorderSide(color: AppColors.line),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderSide: const BorderSide(color: AppColors.line),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -80,7 +102,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: 0,
-          textStyle: GoogleFonts.poppins(
+          textStyle: GoogleFonts.workSans(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),

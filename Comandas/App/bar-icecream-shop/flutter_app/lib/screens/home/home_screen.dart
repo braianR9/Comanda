@@ -73,7 +73,7 @@ class _HomeBg extends StatelessWidget {
   const _HomeBg();
   @override
   Widget build(BuildContext context) {
-    return Container(color: const Color(0xFFF5F5F8));
+    return Container(color: const Color(0xFFF5EFE4));
   }
 }
 
@@ -109,10 +109,10 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             'FOCO',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.fraunces(
               color: Brand.strong,
               fontSize: 17,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               letterSpacing: 2,
             ),
           ),
@@ -129,7 +129,7 @@ class _TopBar extends StatelessWidget {
               child: Text(session.sucursal.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(color: Brand.muted, fontSize: 13)),
+                  style: GoogleFonts.workSans(color: Brand.muted, fontSize: 13)),
             ),
             const SizedBox(width: 20),
           ],
@@ -171,7 +171,7 @@ class _UserChip extends StatelessWidget {
               const SizedBox(width: 10),
               Text('Cerrar sesión',
                   style:
-                      GoogleFonts.poppins(color: Brand.strong, fontSize: 14)),
+                      GoogleFonts.workSans(color: Brand.strong, fontSize: 14)),
             ],
           ),
         ),
@@ -193,7 +193,7 @@ class _UserChip extends StatelessWidget {
                 session.nombre.isNotEmpty
                     ? session.nombre[0].toUpperCase()
                     : '?',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -212,7 +212,7 @@ class _UserChip extends StatelessWidget {
                       session.nombreCompleto,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.workSans(
                           color: Brand.strong,
                           fontSize: 13,
                           fontWeight: FontWeight.w500),
@@ -220,7 +220,7 @@ class _UserChip extends StatelessWidget {
                     Text(
                       session.rol.nombre,
                       style:
-                          GoogleFonts.poppins(color: Brand.muted, fontSize: 11),
+                          GoogleFonts.workSans(color: Brand.muted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -713,7 +713,7 @@ class _SidebarItem extends StatelessWidget {
             title: showLabel
                 ? Text(
                     label,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.workSans(
                       color: active ? Colors.white : Colors.white70,
                       fontSize: 13,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
@@ -908,9 +908,9 @@ class _HomeContentState extends State<_HomeContent> {
   void _showSnack(String msg, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.poppins(fontSize: 13)),
+        content: Text(msg, style: GoogleFonts.workSans(fontSize: 13)),
         backgroundColor:
-            success ? const Color(0xFF10B981) : const Color(0xFF1A0A2E),
+            success ? const Color(0xFF10B981) : const Color(0xFF1F1B16),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -981,7 +981,7 @@ class _LogoUpload extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             'Subir logo',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.workSans(
                               color: Brand.muted,
                               fontSize: 12,
                             ),
@@ -996,7 +996,7 @@ class _LogoUpload extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF8C42),
+                color: const Color(0xFFB4502B),
                 borderRadius: BorderRadius.circular(8),
               ),
               child:
@@ -1046,10 +1046,10 @@ class _EmpresaInfo extends StatelessWidget {
       children: [
         Text(
           empresa.nombre,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.fraunces(
             color: Brand.ink,
             fontSize: 28,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             height: 1.1,
           ),
         ),
@@ -1104,11 +1104,11 @@ class _SalonSummary extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
         Text('Salón',
-            style: GoogleFonts.poppins(
-                color: Brand.ink, fontSize: 22, fontWeight: FontWeight.w800)),
+            style: GoogleFonts.fraunces(
+                color: Brand.ink, fontSize: 22, fontWeight: FontWeight.w600)),
         const Spacer(),
         Text('$totalTables mesas en total',
-            style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 13)),
+            style: GoogleFonts.workSans(color: Brand.subtle, fontSize: 13)),
       ]),
       const SizedBox(height: 18),
       if (wide)
@@ -1174,12 +1174,12 @@ class _SalonMetric extends StatelessWidget {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label,
                   style:
-                      GoogleFonts.poppins(color: Brand.subtle, fontSize: 13)),
+                      GoogleFonts.workSans(color: Brand.subtle, fontSize: 13)),
               Text(value,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.fraunces(
                       color: Brand.ink,
                       fontSize: 30,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       height: 1.15)),
             ]),
           ),
@@ -1203,7 +1203,7 @@ class _DataChip extends StatelessWidget {
         Flexible(
           child: Text(
             text,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.workSans(
               color: Brand.subtle,
               fontSize: 14,
             ),

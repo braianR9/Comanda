@@ -172,10 +172,10 @@ class _VatSalesScreenState extends State<VatSalesScreen> {
           Row(children: [
             Expanded(
               child: Text('Libro de IVA Ventas',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.fraunces(
                       color: Brand.ink,
                       fontSize: 22,
-                      fontWeight: FontWeight.w800)),
+                      fontWeight: FontWeight.w600)),
             ),
             OutlinedButton.icon(
               onPressed: exporting || items.isEmpty ? null : _export,
@@ -254,7 +254,7 @@ class _VatSalesScreenState extends State<VatSalesScreen> {
                                   child: SingleChildScrollView(
                                     child: DataTable(
                                       headingRowColor: WidgetStateProperty.all(
-                                          const Color(0xFFF0F0F2)),
+                                          const Color(0xFFEFE7D9)),
                                       columnSpacing: 16,
                                       horizontalMargin: 12,
                                       headingRowHeight: 40,
@@ -296,7 +296,7 @@ class _VatSalesScreenState extends State<VatSalesScreen> {
                                         // Totales arriba, como en el libro de referencia.
                                         DataRow(
                                             color: WidgetStateProperty.all(
-                                                const Color(0xFFF7F7F9)),
+                                                const Color(0xFFF6F0E6)),
                                             cells: [
                                               for (var i = 0; i < 6; i++)
                                                 const DataCell(Text('')),
@@ -344,8 +344,8 @@ class _VatSalesScreenState extends State<VatSalesScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 }
 

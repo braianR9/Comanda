@@ -70,10 +70,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     Expanded(
                       child: Text(
                         'Mis productos',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.fraunces(
                           color: Brand.ink,
                           fontSize: 26,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -200,17 +200,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
 
     if (widget.embedded) {
-      return ColoredBox(color: const Color(0xFFF5F5F8), child: content);
+      return ColoredBox(color: const Color(0xFFF5EFE4), child: content);
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F8),
+      backgroundColor: const Color(0xFFF5EFE4),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         foregroundColor: Brand.strong,
         title: Text('Mis productos',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openProductForm(),
@@ -218,7 +218,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: Text('Nuevo producto',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            style: GoogleFonts.workSans(fontWeight: FontWeight.w600)),
       ),
       body: content,
     );
@@ -292,7 +292,7 @@ class _EmptyProducts extends StatelessWidget {
               hasSearch
                   ? 'No encontramos productos'
                   : 'Todavía no hay productos',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   color: Brand.strong,
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
@@ -302,7 +302,7 @@ class _EmptyProducts extends StatelessWidget {
                   ? 'Probá con otra búsqueda.'
                   : 'Creá el primero desde el botón “Nuevo producto”.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Brand.subtle)),
+              style: GoogleFonts.workSans(color: Brand.subtle)),
         ]),
       );
 }
@@ -319,14 +319,14 @@ class _ApiError extends StatelessWidget {
               size: 58, color: Color(0xFFEF4444)),
           const SizedBox(height: 14),
           Text('No se pudieron cargar los productos',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.workSans(
                   color: Brand.ink, fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: Text(message,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(color: Brand.subtle)),
+                style: GoogleFonts.workSans(color: Brand.subtle)),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -358,7 +358,7 @@ class _PaginationBar extends StatelessWidget {
     final to = (currentPage * pageSize).clamp(0, totalItems);
     return Row(children: [
       Text('$from–$to de $totalItems',
-          style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 12)),
+          style: GoogleFonts.workSans(color: Brand.subtle, fontSize: 12)),
       const Spacer(),
       IconButton(
         tooltip: 'Página anterior',
@@ -373,7 +373,7 @@ class _PaginationBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text('$currentPage de ${totalPages < 1 ? 1 : totalPages}',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.workSans(
                 color: Brand.strong,
                 fontSize: 12,
                 fontWeight: FontWeight.w600)),
@@ -439,7 +439,7 @@ class _ProductsTableState extends State<_ProductsTable> {
                 children: [
                   DataTable(
                     headingRowColor:
-                        MaterialStateProperty.all(const Color(0xFFF0F0F2)),
+                        MaterialStateProperty.all(const Color(0xFFEFE7D9)),
                     headingRowHeight: 44,
                     dataRowMinHeight: 58,
                     dataRowMaxHeight: 58,
@@ -631,22 +631,22 @@ class _ProductCard extends StatelessWidget {
             Text(product.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.workSans(
                     color: Brand.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w700)),
             Text(product.category,
-                style: GoogleFonts.poppins(color: Brand.subtle, fontSize: 12)),
+                style: GoogleFonts.workSans(color: Brand.subtle, fontSize: 12)),
             const Spacer(),
             Row(children: [
               Text('\$ ${product.price.toStringAsFixed(2)}',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.workSans(
                       color: Brand.primary,
                       fontSize: 17,
                       fontWeight: FontWeight.w700)),
               const Spacer(),
               Text(product.active ? 'Activo' : 'Inactivo',
-                  style: GoogleFonts.poppins(fontSize: 11)),
+                  style: GoogleFonts.workSans(fontSize: 11)),
               Switch(value: product.active, onChanged: onToggle),
             ]),
           ]),

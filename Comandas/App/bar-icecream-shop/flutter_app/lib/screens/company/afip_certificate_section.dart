@@ -195,7 +195,7 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
             Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                color: const Color(0xFFF4F4F6),
+                color: const Color(0xFFF1E9DC),
                 child: SelectableText(csr,
                     style: const TextStyle(
                         fontFamily: 'monospace', fontSize: 11))),

@@ -147,8 +147,8 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: content)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: content);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: content)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: content);
   }
 
   Widget _buildOverview() {
@@ -157,8 +157,8 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
       Row(children: [
         Expanded(
           child: Text('Listas de precios',
-              style: GoogleFonts.poppins(
-                  color: Brand.ink, fontSize: 26, fontWeight: FontWeight.w800)),
+              style: GoogleFonts.fraunces(
+                  color: Brand.ink, fontSize: 26, fontWeight: FontWeight.w600)),
         ),
         FilledButton.icon(
             onPressed: _create,
@@ -195,7 +195,7 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Text('Todavía no hay listas de precios.',
-              style: GoogleFonts.poppins(color: Brand.muted)),
+              style: GoogleFonts.workSans(color: Brand.muted)),
         )
       else
         Expanded(
@@ -211,7 +211,7 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
                             onTap: () => setState(() => _selected = lista),
                             title: Row(children: [
                               Text(lista.nombre,
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.workSans(
                                       fontWeight: FontWeight.w700)),
                               if (lista.esPredeterminada) ...[
                                 const SizedBox(width: 8),
@@ -222,14 +222,14 @@ class _PriceListsScreenState extends State<PriceListsScreen> {
                                       color: Brand.tint,
                                       borderRadius: BorderRadius.circular(20)),
                                   child: Text('Predeterminada',
-                                      style: GoogleFonts.poppins(
+                                      style: GoogleFonts.workSans(
                                           fontSize: 11, color: Brand.strong)),
                                 ),
                               ],
                             ]),
                             subtitle: Text(
                                 '${lista.cantidadPrecios} productos con precio configurado',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.workSans(
                                     fontSize: 12, color: Brand.muted)),
                             trailing:
                                 Row(mainAxisSize: MainAxisSize.min, children: [
@@ -310,7 +310,7 @@ class _CreatePriceListDialogState extends State<_CreatePriceListDialog> {
           Align(
               alignment: Alignment.centerLeft,
               child: Text('Crear a partir de:',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600))),
+                  style: GoogleFonts.workSans(fontWeight: FontWeight.w600))),
           RadioListTile<int?>(
             value: null,
             groupValue: _copiarDesdeListaId,
@@ -451,8 +451,8 @@ class _PriceListDetailState extends State<_PriceListDetail> {
             icon: const Icon(Icons.arrow_back_rounded)),
         Expanded(
           child: Text('Lista: ${widget.lista.nombre}',
-              style: GoogleFonts.poppins(
-                  color: Brand.ink, fontSize: 22, fontWeight: FontWeight.w800)),
+              style: GoogleFonts.fraunces(
+                  color: Brand.ink, fontSize: 22, fontWeight: FontWeight.w600)),
         ),
         OutlinedButton.icon(
             onPressed: _bulkEdit,
@@ -536,7 +536,7 @@ class _PriceListDetailState extends State<_PriceListDetail> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Text('No hay productos para estos filtros.',
-              style: GoogleFonts.poppins(color: Brand.muted)),
+              style: GoogleFonts.workSans(color: Brand.muted)),
         )
       else ...[
         // La página de productos ocupa el alto disponible y scrollea sola.
@@ -564,8 +564,8 @@ class _PriceListDetailState extends State<_PriceListDetail> {
         const SizedBox(height: 12),
         Row(children: [
           Text('${page.totalItems} productos',
-              style: GoogleFonts.poppins(
-                  fontSize: 12, color: const Color(0xFF6B6280))),
+              style: GoogleFonts.workSans(
+                  fontSize: 12, color: const Color(0xFF6A6157))),
           const Spacer(),
           IconButton(
               onPressed: _currentPage > 1
@@ -632,11 +632,11 @@ class _ProductPriceRowState extends State<_ProductPriceRow> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(widget.item.nombre,
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                  style: GoogleFonts.workSans(fontWeight: FontWeight.w600)),
               Text(
                   '${widget.item.codigo} · ${widget.item.rubro.nombre}'
                   '${widget.item.subRubro != null ? ' / ${widget.item.subRubro!.nombre}' : ''}',
-                  style: GoogleFonts.poppins(fontSize: 12, color: Brand.muted)),
+                  style: GoogleFonts.workSans(fontSize: 12, color: Brand.muted)),
             ]),
           ),
           SizedBox(
@@ -826,13 +826,13 @@ class _BulkPriceDialogState extends State<_BulkPriceDialog> {
                   'Se aplica sobre los productos que coinciden con los filtros actuales de la '
                   'grilla (rubro/subrubro/búsqueda). Los productos sin precio configurado en '
                   'esta lista no se modifican.',
-                  style: GoogleFonts.poppins(fontSize: 12, color: Brand.muted)),
+                  style: GoogleFonts.workSans(fontSize: 12, color: Brand.muted)),
             ] else if (preview.isEmpty)
               const Text(
                   'No hay productos con precio configurado para estos filtros.')
             else ...[
               Text('${preview.length} productos serán actualizados:',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                  style: GoogleFonts.workSans(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 320),

@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,14 +38,14 @@ class _PrintersScreenState extends State<PrintersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Impresoras',
-                        style: TextStyle(
+                        style: GoogleFonts.fraunces(
                             fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: Brand.ink)),
                     SizedBox(height: 4),
                     Text(
                         'Configurá dónde se imprimen las comandas y los tickets de venta.',
-                        style: TextStyle(color: Color(0xFF747386))),
+                        style: TextStyle(color: Color(0xFF6A6157))),
                   ]),
             ),
             FilledButton.icon(
@@ -352,7 +353,7 @@ class _PrinterCard extends StatelessWidget {
                 Text(
                     '${printer.connectionType} · $destination · Uso: ${_usage(printer.usage)}'
                     '${agentName == null ? '' : ' · Computadora: $agentName'}',
-                    style: const TextStyle(color: Color(0xFF747386))),
+                    style: const TextStyle(color: Color(0xFF6A6157))),
               ])),
           IconButton(
               tooltip: 'Imprimir prueba',
@@ -608,7 +609,7 @@ class _AgentsCard extends StatelessWidget {
                     const Text(
                         'En cada computadora que tenga impresoras enchufadas se instala el agente de impresión. '
                         'Las demás (mozos, celulares) no necesitan nada.',
-                        style: TextStyle(color: Color(0xFF747386))),
+                        style: TextStyle(color: Color(0xFF6A6157))),
                   ])),
             ]),
             const SizedBox(height: 12),
@@ -668,7 +669,7 @@ class _AgentsCard extends StatelessWidget {
                   Text(
                       'Si Windows muestra "Windows protegió su PC", tocá "Más información" y "Ejecutar de todas formas". '
                       'Si la Mac no lo deja abrir, andá a Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".',
-                      style: TextStyle(color: Color(0xFF747386), fontSize: 13)),
+                      style: TextStyle(color: Color(0xFF6A6157), fontSize: 13)),
                 ],
               ),
             ),

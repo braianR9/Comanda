@@ -53,10 +53,10 @@ class _ProductGroupsScreenState extends State<ProductGroupsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('Rubros y subrubros',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.fraunces(
                       color: Brand.ink,
                       fontSize: 26,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     )),
                 const SizedBox(height: 6),
                 Text(
@@ -124,8 +124,8 @@ class _ProductGroupsScreenState extends State<ProductGroupsScreen> {
       ),
     );
     return widget.embedded
-        ? ColoredBox(color: const Color(0xFFF5F5F8), child: body)
-        : Scaffold(backgroundColor: const Color(0xFFF5F5F8), body: body);
+        ? ColoredBox(color: const Color(0xFFF5EFE4), child: body)
+        : Scaffold(backgroundColor: const Color(0xFFF5EFE4), body: body);
   }
 
   Future<void> _addRubro() async {
@@ -179,7 +179,7 @@ class _GroupPanel extends StatelessWidget {
                 child: Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.workSans(
                         color: Brand.ink,
                         fontSize: 17,
                         fontWeight: FontWeight.w700)),

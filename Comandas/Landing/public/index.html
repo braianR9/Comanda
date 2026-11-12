@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>focobr · Gestión para bares y heladerías</title>
+  <meta name="description" content="Sistema en la nube para bares, heladerías y cafeterías: salón y mesas, mostrador, comandas a cocina, caja y facturación electrónica.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1A0A2E;
+      --ink-2: #2A1748;
+      --primary: #6C5CE7;
+      --primary-soft: #A29BFE;
+      --accent: #FF8C42;
+      --bg: #F5F5F8;
+      --card: #FFFFFF;
+      --text: #1A0A2E;
+      --muted: #6B6280;
+      --line: #E4E1F0;
+      --on-dark: #FFFFFF;
+      --on-dark-muted: rgba(255, 255, 255, .68);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #120722;
+        --card: #1E1036;
+        --text: #F2EFFA;
+        --muted: #B7AECB;
+        --line: #33224F;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #120722;
+      --card: #1E1036;
+      --text: #F2EFFA;
+      --muted: #B7AECB;
+      --line: #33224F;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      overflow-x: hidden;
+      font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+    /* Botones */
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 15px 30px; border-radius: 14px;
+      font-weight: 700; font-size: 16px; letter-spacing: .2px;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 10px 28px rgba(255, 140, 66, .35); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(255, 140, 66, .45); }
+    .btn-ghost { color: var(--on-dark); border: 1.5px solid rgba(255, 255, 255, .28); }
+    .btn-ghost:hover { background: rgba(255, 255, 255, .08); }
+    .btn svg { width: 18px; height: 18px; }
+
+    /* Encabezado y portada */
+    .hero {
+      position: relative; overflow: hidden;
+      background: radial-gradient(1100px 520px at 85% -10%, rgba(108, 92, 231, .55), transparent 60%),
+                  radial-gradient(700px 420px at -10% 110%, rgba(255, 140, 66, .22), transparent 60%),
+                  var(--ink);
+      color: var(--on-dark);
+    }
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; letter-spacing: 2px; }
+    .brand svg { width: 38px; height: 38px; }
+    .nav-link { font-weight: 600; font-size: 15px; color: var(--on-dark-muted); }
+    .nav-link:hover { color: #fff; }
+
+    .hero-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; padding: 56px 0 88px; align-items: center; }
+    @media (min-width: 960px) { .hero-body { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); padding: 72px 0 112px; } }
+    .eyebrow {
+      display: inline-block; padding: 6px 14px; border-radius: 999px;
+      background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14);
+      font-size: 13px; font-weight: 600; color: var(--primary-soft); margin-bottom: 22px;
+    }
+    h1 { font-size: clamp(36px, 6.4vw, 60px); line-height: 1.08; font-weight: 800; letter-spacing: -1px; }
+    h1 span { color: var(--accent); }
+    .lead { margin-top: 20px; font-size: clamp(16px, 2.2vw, 19px); color: var(--on-dark-muted); max-width: 540px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 34px; }
+    .chips span {
+      font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 10px;
+      background: rgba(255, 255, 255, .06); color: var(--on-dark-muted);
+    }
+
+    /* Maqueta del plano de mesas */
+    .mock {
+      background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 22px; padding: 18px; box-shadow: 0 30px 60px rgba(0, 0, 0, .35);
+      backdrop-filter: blur(6px);
+    }
+    .mock-top { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .mock-top span { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--on-dark-muted); }
+    .mock-top span.on { background: var(--primary); color: #fff; }
+    .floor {
+      position: relative; aspect-ratio: 16 / 10; border-radius: 16px;
+      background: #FDFDFC; overflow: hidden;
+    }
+    .t {
+      position: absolute; display: grid; place-items: center; text-align: center;
+      font-size: 11px; font-weight: 700; color: var(--ink); line-height: 1.2;
+      border: 2px solid #CFC9E5; background: #fff;
+    }
+    .t small { display: block; font-weight: 600; font-size: 10px; }
+    .t.round { width: 17%; aspect-ratio: 1; border-radius: 50%; }
+    .t.rect { width: 22%; aspect-ratio: 1.45; border-radius: 12px; }
+    .t.busy { background: #FFF1E6; border-color: var(--accent); }
+    .t.busy small { color: #C56A22; }
+    .t.sent { background: #EEEBFF; border-color: var(--primary); }
+    .t.sent small { color: var(--primary); }
+    .ticket {
+      position: absolute; right: 4%; bottom: 6%; width: 34%;
+      background: #fff; border-radius: 10px; padding: 10px 12px;
+      box-shadow: 0 12px 26px rgba(26, 10, 46, .22);
+      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9.5px; color: var(--ink); line-height: 1.5;
+    }
+    .ticket b { display: block; text-align: center; font-size: 10.5px; margin-bottom: 4px; }
+    @media (max-width: 520px) {
+      .ticket { display: none; }
+      .t { font-size: 10px; }
+      .t.round { width: 22%; }
+      .t.rect { width: 27%; }
+    }
+
+    /* Secciones */
+    section { padding: 88px 0; }
+    .section-head { max-width: 640px; margin-bottom: 44px; }
+    .kicker { color: var(--primary); font-weight: 700; font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; }
+    h2 { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.15; font-weight: 800; margin-top: 8px; letter-spacing: -.5px; }
+    .section-head p { color: var(--muted); margin-top: 14px; font-size: 17px; }
+
+    .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 980px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(26, 10, 46, .08); }
+    .icon {
+      width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+      background: rgba(108, 92, 231, .12); color: var(--primary); margin-bottom: 16px;
+    }
+    .icon svg { width: 23px; height: 23px; }
+    .card h3 { font-size: 18px; font-weight: 700; }
+    .card p { color: var(--muted); font-size: 15px; margin-top: 6px; }
+    .card.highlight { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+    .card.highlight p { color: var(--on-dark-muted); }
+    .card.highlight .icon { background: rgba(255, 140, 66, .18); color: var(--accent); }
+
+    .steps { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); counter-reset: step; }
+    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+    .step { position: relative; padding: 28px 26px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
+    .step::before {
+      counter-increment: step; content: counter(step);
+      display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
+      background: var(--primary); color: #fff; font-weight: 800; margin-bottom: 14px;
+    }
+    .step h3 { font-size: 18px; font-weight: 700; }
+    .step p { color: var(--muted); font-size: 15px; margin-top: 6px; }
+
+    .band {
+      border-radius: 26px; padding: 56px 28px; text-align: center; color: var(--on-dark);
+      background: radial-gradient(600px 300px at 80% 0%, rgba(108, 92, 231, .6), transparent 70%), var(--ink);
+    }
+    .band h2 { margin-top: 0; }
+    .band p { color: var(--on-dark-muted); margin: 14px auto 30px; max-width: 520px; font-size: 17px; }
+
+    footer { padding: 34px 0 48px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="logo" viewBox="0 0 32 32">
+      <rect width="32" height="32" rx="7" fill="#2A1748"/>
+      <g stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <polyline points="4,10 4,4 10,4"/><polyline points="22,4 28,4 28,10"/>
+        <polyline points="4,22 4,28 10,28"/><polyline points="22,28 28,28 28,22"/>
+      </g>
+      <circle cx="16" cy="16" r="2.8" fill="#FF8C42"/>
+    </symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <header class="hero">
+    <div class="wrap">
+      <nav>
+        <a class="brand" href="#"><svg><use href="#logo"/></svg>focobr</a>
+        <a class="nav-link" href="https://app.focobr.net">Ingresar</a>
+      </nav>
+
+      <div class="hero-body">
+        <div>
+          <span class="eyebrow">Gestión para bares, heladerías y cafeterías</span>
+          <h1>Tu negocio<br>en <span>nuestras manos.</span></h1>
+          <p class="lead">Salón, mostrador, comandas a cocina, caja y facturación electrónica en un solo sistema en la nube. Lo usás desde la computadora, la tablet o el celular.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="https://app.focobr.net">Comenzar <svg><use href="#arrow"/></svg></a>
+            <a class="btn btn-ghost" href="#funciones">Ver qué incluye</a>
+          </div>
+          <div class="chips">
+            <span>Ventas</span><span>Stock</span><span>Caja</span><span>Facturación electrónica</span><span>Clientes</span><span>Reportes</span>
+          </div>
+        </div>
+
+        <div class="mock" aria-hidden="true">
+          <div class="mock-top"><span class="on">Salón</span><span>Patio</span><span>Mostrador</span></div>
+          <div class="floor">
+            <div class="t round" style="left:6%;top:10%">Mesa 1<small>Libre</small></div>
+            <div class="t round busy" style="left:30%;top:10%">Mesa 2<small>$ 18.400</small></div>
+            <div class="t rect sent" style="left:55%;top:8%">Mesa 3<small>En cocina</small></div>
+            <div class="t rect" style="left:6%;top:56%">Mesa 4<small>Libre</small></div>
+            <div class="t round busy" style="left:33%;top:58%">Mesa 5<small>$ 9.250</small></div>
+            <div class="ticket"><b>COMANDA</b>Mesa: MESA 3<br>Mozo: Sofía<br>-------------------<br>2  Café con leche<br>1  Medialunas x3<br>1  Helado 1/4 kg</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="funciones">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker">Qué hacemos</span>
+          <h2>Todo lo que pasa en tu local, en un solo lugar</h2>
+          <p>Desde que el mozo toma el pedido hasta el cierre de caja y la factura de AFIP.</p>
+        </div>
+        <div class="grid">
+          <article class="card highlight">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><circle cx="17.5" cy="17.5" r="3.5"/></svg></div>
+            <h3>Salón y mesas</h3>
+            <p>Armá el plano de cada sector y mirá de un vistazo qué mesas están libres, ocupadas o con pedidos en cocina. Mové y uní mesas cuando haga falta.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12l1 5H5z"/><path d="M5 7v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M9 11h6"/></svg></div>
+            <h3>Mostrador</h3>
+            <p>Venta rápida para llevar, con buscador y lector de código de barras.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg></div>
+            <h3>Comandas a cocina</h3>
+            <p>El pedido sale solo en la impresora que corresponde, aunque el mozo lo cargue desde el celular. Funciona con impresoras USB o de red, en Windows y Mac.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 6V4h12v2"/></svg></div>
+            <h3>Caja</h3>
+            <p>Apertura, ingresos y egresos, y cierre con arqueo: efectivo esperado, contado, diferencia y ticket con el detalle por salón y medio de pago.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></div>
+            <h3>Facturación electrónica</h3>
+            <p>Facturas A, B y C y notas de crédito autorizadas por AFIP, con QR, directo desde la venta.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+            <h3>Productos y stock</h3>
+            <p>Rubros, stock por sucursal, movimientos y compras a proveedores. Importá tu catálogo desde Excel.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div>
+            <h3>Listas de precios</h3>
+            <p>Varias listas, descuentos, recargos por medio de pago y cambios de precio programados.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+            <h3>Reportes</h3>
+            <p>Listado de ventas y Libro de IVA Ventas, con filtros por fecha y hora y exportación a Excel.</p>
+          </article>
+          <article class="card">
+            <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></svg></div>
+            <h3>Clientes y equipo</h3>
+            <p>Clientes, usuarios con permisos para mozos, caja y administración, y varias sucursales.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="kicker">Cómo empezar</span>
+          <h2>En marcha en una tarde</h2>
+        </div>
+        <div class="steps">
+          <div class="step"><h3>Entrá desde el navegador</h3><p>No hay nada que instalar en las computadoras ni en los celulares de los mozos.</p></div>
+          <div class="step"><h3>Cargá tu local</h3><p>Productos, precios, mesas por sector e impresoras. Si ya tenés tu catálogo en Excel, lo importás.</p></div>
+          <div class="step"><h3>Empezá a vender</h3><p>Tomá pedidos, mandá comandas, cobrá, facturá y cerrá la caja con el ticket del día.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <div class="band">
+          <h2>¿Listo para ordenar tu negocio?</h2>
+          <p>Ingresá con tu usuario y empezá a trabajar con focobr.</p>
+          <a class="btn btn-primary" href="https://app.focobr.net">Comenzar <svg><use href="#arrow"/></svg></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 focobr</span>
+      <a href="https://app.focobr.net">Ingresar al sistema</a>
+    </div>
+  </footer>
+</body>
+</html>

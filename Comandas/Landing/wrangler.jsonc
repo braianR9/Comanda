@@ -1,0 +1,13 @@
+// Landing pública en focobr.net (Cloudflare Workers). El botón "Comenzar" lleva a app.focobr.net.
+//   cd Landing && npx wrangler deploy
+{
+  "name": "foco-landing",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [
+    { "pattern": "focobr.net", "custom_domain": true },
+    { "pattern": "www.focobr.net", "custom_domain": true }
+  ]
+}

@@ -153,25 +153,16 @@ public class CajaService(AppDbContext context)
         return caja == null ? null : await MapAsync(caja);
     }
 
-    /// Cobros de la caja por salón (sector de la mesa) o mostrador y medio de pago, descontando devoluciones.
+    /// Cobros de la caja por salón (sector de la mesa) o mostrador y medio de pago, sin las ventas anuladas.
     public static async Task<List<(string Grupo, string MedioPago, decimal Total)>> DetalleSectoresAsync(AppDbContext context, Caja caja, DateTime hasta)
     {
         var pagos = await (from p in context.SalePayments.AsNoTracking()
             join o in context.Orders on p.OrderId equals o.Id
             where o.IdEmpresa == caja.IdEmpresa && o.IdSucursal == caja.IdSucursal && p.Fecha >= caja.FechaApertura && p.Fecha <= hasta
+                && !context.SaleVoids.Any(v => v.OrderId == o.Id && v.Date <= hasta)
             group p by new { Grupo = o.Table.EsMostrador ? "Mostrador" : o.Table.Sector.Nombre, p.PaymentTypeName } into g
             select new { g.Key.Grupo, g.Key.PaymentTypeName, Total = g.Sum(p => p.Amount) }).ToListAsync();
-        var devoluciones = await (from r in context.SaleRefunds.AsNoTracking()
-            join v in context.SaleVoids on r.OrderId equals v.OrderId
-            join o in context.Orders on r.OrderId equals o.Id
-            where v.CashId == caja.Id && v.Date <= hasta
-            group r by new { Grupo = o.Table.EsMostrador ? "Mostrador" : o.Table.Sector.Nombre, r.PaymentTypeName } into g
-            select new { g.Key.Grupo, g.Key.PaymentTypeName, Total = -g.Sum(r => r.Amount) }).ToListAsync();
-        return pagos.Concat(devoluciones)
-            .GroupBy(x => (x.Grupo, x.PaymentTypeName))
-            .Select(g => (g.Key.Grupo, g.Key.PaymentTypeName, g.Sum(x => x.Total)))
-            .Where(x => x.Item3 != 0)
-            .ToList();
+        return pagos.Where(x => x.Total != 0).Select(x => (x.Grupo, x.PaymentTypeName, x.Total)).ToList();
     }
 
     private IQueryable<Caja> Query(int company) => context.Cajas.AsNoTracking().Where(c => c.IdEmpresa == company)
@@ -179,35 +170,35 @@ public class CajaService(AppDbContext context)
 
     private async Task<(List<CajaMedioPagoDto> Detalle, decimal TotalVentas, decimal Ingresos, decimal Egresos, decimal EfectivoEsperado)> ComputeTotalsAsync(Caja caja, DateTime hasta)
     {
+        // Las ventas anuladas no cuentan como vendidas: se detallan aparte en el ticket.
         var pagos = await context.SalePayments.AsNoTracking()
-            .Where(p => p.Fecha >= caja.FechaApertura && p.Fecha <= hasta)
+            .Where(p => p.Fecha >= caja.FechaApertura && p.Fecha <= hasta
+                && !context.SaleVoids.Any(v => v.OrderId == p.OrderId && v.Date <= hasta))
             .Join(context.Orders.Where(o => o.IdEmpresa == caja.IdEmpresa && o.IdSucursal == caja.IdSucursal), p => p.OrderId, o => o.Id, (p, o) => p)
             .GroupBy(p => p.PaymentTypeName)
             .Select(g => new CajaMedioPagoDto { MedioPago = g.Key, Total = g.Sum(p => p.Amount) })
             .ToListAsync();
 
+        // Una venta cobrada en una caja anterior y anulada en esta: el efectivo devuelto sale de este cajón.
         var refunds = await (from r in context.SaleRefunds.AsNoTracking()
             join v in context.SaleVoids on r.OrderId equals v.OrderId
             where v.CashId == caja.Id && v.Date <= hasta
-            group r by r.PaymentTypeName into g
-            select new { Method = g.Key, Amount = g.Sum(r => r.Amount) }).ToListAsync();
-        foreach (var refund in refunds)
-        {
-            var method = pagos.FirstOrDefault(p => p.MedioPago == refund.Method);
-            if (method == null) pagos.Add(new CajaMedioPagoDto { MedioPago = refund.Method, Total = -refund.Amount });
-            else method.Total -= refund.Amount;
-        }
+                && !context.SalePayments.Any(p => p.OrderId == r.OrderId && p.Fecha >= caja.FechaApertura)
+            select new { r.PaymentTypeName, r.Amount }).ToListAsync();
+        var efectivoDevuelto = refunds.Where(r => IsCash(r.PaymentTypeName)).Sum(r => r.Amount);
 
         var movimientos = await context.CajaMovimientos.AsNoTracking()
             .Where(m => m.CajaId == caja.Id && m.Fecha <= hasta).ToListAsync();
         var ingresos = movimientos.Where(m => m.Tipo == "Ingreso").Sum(m => m.Monto);
         var egresos = movimientos.Where(m => m.Tipo == "Egreso").Sum(m => m.Monto);
-        // El medio de pago puede estar cargado como "EFECTIVO" o "Efectivo".
-        var efectivo = pagos.Where(p => string.Equals(p.MedioPago.Trim(), EfectivoNombre, StringComparison.OrdinalIgnoreCase)).Sum(p => p.Total);
+        var efectivo = pagos.Where(p => IsCash(p.MedioPago)).Sum(p => p.Total);
         var totalVentas = pagos.Sum(p => p.Total);
-        var efectivoEsperado = caja.MontoInicial + efectivo + ingresos - egresos;
+        var efectivoEsperado = caja.MontoInicial + efectivo + ingresos - egresos - efectivoDevuelto;
         return (pagos, totalVentas, ingresos, egresos, efectivoEsperado);
     }
+
+    // El medio de pago puede estar cargado como "EFECTIVO" o "Efectivo".
+    private static bool IsCash(string medioPago) => string.Equals(medioPago.Trim(), EfectivoNombre, StringComparison.OrdinalIgnoreCase);
 
     private async Task<CajaDto> MapAsync(Caja caja)
     {

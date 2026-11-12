@@ -232,14 +232,9 @@ class _SalesScreenState extends State<SalesScreen> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 30),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-                child: _title('Ventas', 'Seleccioná un sector y una mesa')),
-            _SaleLegend(),
-          ]),
           if (!context.watch<CajaProvider>().isOpen) ...[
             const SizedBox(height: 14),
             Container(
@@ -261,77 +256,73 @@ class _SalesScreenState extends State<SalesScreen> {
               ]),
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 10),
           if (sectorProvider.loading && sectors.isEmpty)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (sectorProvider.errorMessage != null && sectors.isEmpty)
             Expanded(child: Center(child: Text(sectorProvider.errorMessage!)))
           else ...[
-            SizedBox(
-              height: 46,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: sectors.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, index) {
-                  final sector = sectors[index];
-                  return ChoiceChip(
-                    avatar: const Icon(Icons.grid_view_rounded, size: 17),
-                    label: Text(sector.name),
-                    selected: sector.id == _selectedSectorId,
-                    onSelected: (_) =>
-                        setState(() => _selectedSectorId = sector.id),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFDFDFC),
-                      borderRadius: BorderRadius.circular(24),
-                      border:
-                          Border.all(color: const Color(0xFFB9B9B4), width: 2),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: tables.isEmpty
-                        ? const Center(
-                            child: Text('No hay mesas en este sector.'))
-                        : LayoutBuilder(builder: (context, constraints) {
-                            return Stack(children: [
-                              for (final table in tables)
-                                Positioned(
-                                  left: table.positionX *
-                                      (constraints.maxWidth -
-                                          _saleTableSize(table).width),
-                                  top: table.positionY *
-                                      (constraints.maxHeight -
-                                          _saleTableSize(table).height),
-                                  width: _saleTableSize(table).width,
-                                  height: _saleTableSize(table).height,
-                                  child: _SaleTableCard(
-                                    table: table,
-                                    order: _orderForTable(table.id),
-                                    joined: _isJoinedTable(table.id),
-                                    onTap: () => setState(() {
-                                      _selectedTableId =
-                                          _ownerTableId(table.id);
-                                      _tableOpeningGuard?.cancel();
-                                      _tableOpeningGuard = Timer(
-                                          const Duration(milliseconds: 500),
-                                          () {});
-                                    }),
-                                  ),
-                                ),
-                            ]);
-                          }),
+            // Sectores y leyenda en una sola fila: el resto del alto es para el plano.
+            Row(children: [
+              Expanded(
+                child: SizedBox(
+                  height: 46,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: sectors.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, index) {
+                      final sector = sectors[index];
+                      return ChoiceChip(
+                        avatar: const Icon(Icons.grid_view_rounded, size: 17),
+                        label: Text(sector.name),
+                        selected: sector.id == _selectedSectorId,
+                        onSelected: (_) =>
+                            setState(() => _selectedSectorId = sector.id),
+                      );
+                    },
                   ),
                 ),
+              ),
+              _SaleLegend(),
+            ]),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDFDFC),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFB9B9B4), width: 2),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: tables.isEmpty
+                    ? const Center(child: Text('No hay mesas en este sector.'))
+                    : LayoutBuilder(builder: (context, constraints) {
+                        return Stack(children: [
+                          for (final table in tables)
+                            Positioned(
+                              left: table.positionX *
+                                  (constraints.maxWidth -
+                                      _saleTableSize(table).width),
+                              top: table.positionY *
+                                  (constraints.maxHeight -
+                                      _saleTableSize(table).height),
+                              width: _saleTableSize(table).width,
+                              height: _saleTableSize(table).height,
+                              child: _SaleTableCard(
+                                table: table,
+                                order: _orderForTable(table.id),
+                                joined: _isJoinedTable(table.id),
+                                onTap: () => setState(() {
+                                  _selectedTableId = _ownerTableId(table.id);
+                                  _tableOpeningGuard?.cancel();
+                                  _tableOpeningGuard = Timer(
+                                      const Duration(milliseconds: 500), () {});
+                                }),
+                              ),
+                            ),
+                        ]);
+                      }),
               ),
             ),
           ],
@@ -535,16 +526,6 @@ class _SalesScreenState extends State<SalesScreen> {
       ]),
     );
   }
-
-  Widget _title(String title, String subtitle) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: GoogleFonts.poppins(
-                  color: Brand.ink, fontSize: 26, fontWeight: FontWeight.w800)),
-          Text(subtitle, style: TextStyle(color: Brand.subtle)),
-        ],
-      );
 
   String _status(_OrderDraft order) =>
       order.lines.isEmpty && !order.sent ? 'Cerrada' : 'Abierta';

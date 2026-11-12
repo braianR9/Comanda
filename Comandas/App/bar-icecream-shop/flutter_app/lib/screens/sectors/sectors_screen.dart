@@ -329,63 +329,56 @@ class _SectorsScreenState extends State<SectorsScreen> {
           ]),
           const SizedBox(height: 16),
           Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFDFDFC),
-                    borderRadius: BorderRadius.circular(24),
-                    border:
-                        Border.all(color: const Color(0xFFB9B9B4), width: 2),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x12000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDFDFC),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFB9B9B4), width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 6),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: LayoutBuilder(builder: (context, constraints) {
-                    return Stack(children: [
-                      Positioned(
-                        left: 18,
-                        top: 14,
-                        child: Text(sector.name.toUpperCase(),
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFFB2B0B7),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.4,
-                            )),
-                      ),
-                      for (var index = 0; index < tables.length; index++)
-                        Positioned(
-                          left: tables[index].x *
-                              (constraints.maxWidth -
-                                  _floorTableSize(tables[index]).width),
-                          top: tables[index].y *
-                              (constraints.maxHeight -
-                                  _floorTableSize(tables[index]).height),
-                          child: GestureDetector(
-                            onTap: () => _editTable(tables[index]),
-                            onPanUpdate: (details) => _moveTable(
-                              sector.id,
-                              index,
-                              details.delta,
-                              constraints.biggest,
-                              _floorTableSize(tables[index]),
-                            ),
-                            onPanEnd: (_) => _saveTablePosition(tables[index]),
-                            child: _FloorTable(table: tables[index]),
-                          ),
-                        ),
-                    ]);
-                  }),
-                ),
+                ],
               ),
+              clipBehavior: Clip.antiAlias,
+              child: LayoutBuilder(builder: (context, constraints) {
+                return Stack(children: [
+                  Positioned(
+                    left: 18,
+                    top: 14,
+                    child: Text(sector.name.toUpperCase(),
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFFB2B0B7),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.4,
+                        )),
+                  ),
+                  for (var index = 0; index < tables.length; index++)
+                    Positioned(
+                      left: tables[index].x *
+                          (constraints.maxWidth -
+                              _floorTableSize(tables[index]).width),
+                      top: tables[index].y *
+                          (constraints.maxHeight -
+                              _floorTableSize(tables[index]).height),
+                      child: GestureDetector(
+                        onTap: () => _editTable(tables[index]),
+                        onPanUpdate: (details) => _moveTable(
+                          sector.id,
+                          index,
+                          details.delta,
+                          constraints.biggest,
+                          _floorTableSize(tables[index]),
+                        ),
+                        onPanEnd: (_) => _saveTablePosition(tables[index]),
+                        child: _FloorTable(table: tables[index]),
+                      ),
+                    ),
+                ]);
+              }),
             ),
           ),
           const SizedBox(height: 12),

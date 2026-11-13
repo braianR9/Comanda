@@ -1,32 +1,34 @@
 {
-    "name": "focobr",
-    "short_name": "focobr",
-    "start_url": ".",
+    "name": "foco",
+    "short_name": "foco",
+    "id": "/ingresar",
+    "start_url": "/ingresar",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "focobr - Gestión de pedidos y caja.",
-    "orientation": "portrait-primary",
+    "background_color": "#F5EFE4",
+    "theme_color": "#1F1B16",
+    "description": "foco: salón, mostrador, comandas, caja y facturación electrónica.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
-            "src": "icons/Icon-192.png",
+            "src": "/icons/Icon-192.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "icons/Icon-512.png",
+            "src": "/icons/Icon-512.png",
             "sizes": "512x512",
             "type": "image/png"
         },
         {
-            "src": "icons/Icon-maskable-192.png",
+            "src": "/icons/Icon-maskable-192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "maskable"
         },
         {
-            "src": "icons/Icon-maskable-512.png",
+            "src": "/icons/Icon-maskable-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"

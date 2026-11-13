@@ -57,7 +57,7 @@ class BarApp extends StatelessWidget {
       ],
       child: Consumer<BrandProvider>(
         builder: (_, brand, __) => MaterialApp(
-          title: 'focobr',
+          title: 'foco',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           home: const _AppEntry(),

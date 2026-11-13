@@ -34,6 +34,9 @@ class SalesScreen extends StatefulWidget {
   State<SalesScreen> createState() => _SalesScreenState();
 }
 
+/// Por debajo de este ancho la pantalla de ventas usa el diseño para celular.
+const _kPhoneWidth = 600.0;
+
 class _SalesScreenState extends State<SalesScreen> {
   final Map<int, _OrderDraft> _orders = {};
   int? _selectedSectorId;
@@ -42,6 +45,11 @@ class _SalesScreenState extends State<SalesScreen> {
   String _productSearch = '';
   bool _productsAsGrid = true;
   Timer? _occupationTimer;
+  Timer? _refreshTimer;
+  bool _refreshing = false;
+
+  /// En el celular: true muestra el pedido, false el catálogo de productos.
+  bool _phoneShowsTicket = false;
   bool _operationInProgress = false;
   String? _directSaleError;
   final _barcodeController = TextEditingController();
@@ -58,6 +66,16 @@ class _SalesScreenState extends State<SalesScreen> {
     _occupationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted && _orders.values.any((order) => order.openedAt != null)) {
         setState(() {});
+      }
+    });
+    // Mientras se ve el plano, las mesas se actualizan solas con lo que cargan
+    // otros equipos (por ejemplo, un mozo desde el celular).
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted &&
+          _selectedTableId == null &&
+          !widget.directSale &&
+          !_operationInProgress) {
+        _restoreActiveSales(replace: true);
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -111,20 +129,28 @@ class _SalesScreenState extends State<SalesScreen> {
   @override
   void dispose() {
     _occupationTimer?.cancel();
+    _refreshTimer?.cancel();
     _tableOpeningGuard?.cancel();
     _barcodeController.dispose();
     _barcodeFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _restoreActiveSales() async {
+  /// [replace]: refresco del plano; reemplaza las mesas por lo que hay en el servidor
+  /// (incluye las que se cerraron en otro equipo) y no muestra errores.
+  Future<void> _restoreActiveSales({bool replace = false}) async {
+    if (replace && _refreshing) return;
+    _refreshing = true;
     try {
       final salesProvider = context.read<SalesProvider>();
       final productProvider = context.read<ProductProvider>();
       final sales = await salesProvider.getActiveSales();
       final products = productProvider.salesCatalog;
       if (!mounted) return;
+      // Si mientras tanto se abrió una mesa, no se pisa lo que se está cargando.
+      if (replace && _selectedTableId != null) return;
       setState(() {
+        if (replace) _orders.clear();
         for (final sale in sales) {
           final draft = _OrderDraft(sale.tableId)..updateFromServer(sale);
           for (final item in sale.items) {
@@ -147,9 +173,20 @@ class _SalesScreenState extends State<SalesScreen> {
         }
       });
     } catch (error) {
-      _showApiError(error);
+      if (!replace) _showApiError(error);
+    } finally {
+      _refreshing = false;
     }
   }
+
+  void _openTable(RestaurantTable table) => setState(() {
+        _selectedTableId = _ownerTableId(table.id);
+        _phoneShowsTicket = false;
+        _tableOpeningGuard?.cancel();
+        _tableOpeningGuard = Timer(const Duration(milliseconds: 500), () {});
+      });
+
+  bool get _isPhone => MediaQuery.sizeOf(context).width < _kPhoneWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +269,9 @@ class _SalesScreenState extends State<SalesScreen> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: _isPhone
+            ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
+            : const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (!context.watch<CajaProvider>().isOpen) ...[
@@ -284,47 +323,71 @@ class _SalesScreenState extends State<SalesScreen> {
                   ),
                 ),
               ),
-              _SaleLegend(),
+              if (!_isPhone) _SaleLegend(),
             ]),
             const SizedBox(height: 10),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFBF8F2),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFC2B49C), width: 2),
-                ),
-                clipBehavior: Clip.antiAlias,
+            // En el celular, las mesas van en una grilla de botones en lugar del plano.
+            if (_isPhone)
+              Expanded(
                 child: tables.isEmpty
                     ? const Center(child: Text('No hay mesas en este sector.'))
-                    : LayoutBuilder(builder: (context, constraints) {
-                        return Stack(children: [
-                          for (final table in tables)
-                            Positioned(
-                              left: table.positionX *
-                                  (constraints.maxWidth -
-                                      _saleTableSize(table).width),
-                              top: table.positionY *
-                                  (constraints.maxHeight -
-                                      _saleTableSize(table).height),
-                              width: _saleTableSize(table).width,
-                              height: _saleTableSize(table).height,
-                              child: _SaleTableCard(
-                                table: table,
-                                order: _orderForTable(table.id),
-                                joined: _isJoinedTable(table.id),
-                                onTap: () => setState(() {
-                                  _selectedTableId = _ownerTableId(table.id);
-                                  _tableOpeningGuard?.cancel();
-                                  _tableOpeningGuard = Timer(
-                                      const Duration(milliseconds: 500), () {});
-                                }),
+                    : GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 116,
+                          mainAxisExtent: 92,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemCount: tables.length,
+                        itemBuilder: (_, index) {
+                          final table = tables[index];
+                          return _SaleTableCard(
+                            table: table,
+                            order: _orderForTable(table.id),
+                            joined: _isJoinedTable(table.id),
+                            squared: true,
+                            onTap: () => _openTable(table),
+                          );
+                        },
+                      ),
+              )
+            else
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBF8F2),
+                    borderRadius: BorderRadius.circular(24),
+                    border:
+                        Border.all(color: const Color(0xFFC2B49C), width: 2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: tables.isEmpty
+                      ? const Center(
+                          child: Text('No hay mesas en este sector.'))
+                      : LayoutBuilder(builder: (context, constraints) {
+                          return Stack(children: [
+                            for (final table in tables)
+                              Positioned(
+                                left: table.positionX *
+                                    (constraints.maxWidth -
+                                        _saleTableSize(table).width),
+                                top: table.positionY *
+                                    (constraints.maxHeight -
+                                        _saleTableSize(table).height),
+                                width: _saleTableSize(table).width,
+                                height: _saleTableSize(table).height,
+                                child: _SaleTableCard(
+                                  table: table,
+                                  order: _orderForTable(table.id),
+                                  joined: _isJoinedTable(table.id),
+                                  onTap: () => _openTable(table),
+                                ),
                               ),
-                            ),
-                        ]);
-                      }),
+                          ]);
+                        }),
+                ),
               ),
-            ),
           ],
         ]),
       ),
@@ -360,7 +423,8 @@ class _SalesScreenState extends State<SalesScreen> {
     return SafeArea(
       child: Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          padding: EdgeInsets.symmetric(
+              horizontal: _isPhone ? 4 : 18, vertical: _isPhone ? 4 : 10),
           color: Colors.white,
           child: Row(children: [
             IconButton(
@@ -380,17 +444,30 @@ class _SalesScreenState extends State<SalesScreen> {
                           color: Brand.ink,
                           fontSize: 20,
                           fontWeight: FontWeight.w700)),
-                  Text('${sector?.name ?? 'Sector'} · ${_status(order)}',
+                  Text(
+                      '${sector?.name ?? 'Sector'} · ${_status(order)}'
+                      '${_isPhone ? ' · ${_waiterName(order.waiterId) ?? 'Sin mozo'}' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: Brand.subtle)),
                 ],
               ),
             ),
-            OutlinedButton.icon(
-              onPressed: order.editLocked ? null : () => _selectWaiter(order),
-              icon: const Icon(Icons.person_outline_rounded),
-              label: Text(_waiterName(order.waiterId) ?? 'Sin mozo'),
-            ),
+            // En el celular el mozo va en el subtítulo y se elige desde el ícono.
+            if (_isPhone)
+              IconButton(
+                onPressed: order.editLocked ? null : () => _selectWaiter(order),
+                icon: const Icon(Icons.person_outline_rounded),
+                tooltip: 'Asignar mozo',
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: order.editLocked ? null : () => _selectWaiter(order),
+                icon: const Icon(Icons.person_outline_rounded),
+                label: Text(_waiterName(order.waiterId) ?? 'Sin mozo'),
+              ),
             if (canCheckout &&
+                !_isPhone &&
                 context.watch<PriceListProvider>().activeLists.length > 1) ...[
               const SizedBox(width: 8),
               _PriceListSelector(
@@ -511,6 +588,45 @@ class _SalesScreenState extends State<SalesScreen> {
                   ? () => _checkout(order)
                   : null,
             );
+            if (_isPhone) {
+              // Celular: una cosa por vez a pantalla completa; abajo se cambia
+              // entre productos y pedido, con la cantidad y el total a la vista.
+              final items = order.lines
+                  .fold<double>(0, (sum, line) => sum + line.quantity)
+                  .round();
+              return Column(children: [
+                Expanded(child: _phoneShowsTicket ? ticket : catalog),
+                Material(
+                  color: Colors.white,
+                  elevation: 6,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      child: SegmentedButton<bool>(
+                        showSelectedIcon: false,
+                        expandedInsets: EdgeInsets.zero,
+                        segments: [
+                          const ButtonSegment(
+                              value: false,
+                              icon: Icon(Icons.restaurant_menu_rounded),
+                              label: Text('Productos')),
+                          ButtonSegment(
+                              value: true,
+                              icon: const Icon(Icons.receipt_long_rounded),
+                              label: Text(items == 0
+                                  ? 'Pedido'
+                                  : 'Pedido ($items) · \$${order.total.toStringAsFixed(0)}')),
+                        ],
+                        selected: {_phoneShowsTicket},
+                        onSelectionChanged: (value) =>
+                            setState(() => _phoneShowsTicket = value.first),
+                      ),
+                    ),
+                  ),
+                ),
+              ]);
+            }
             if (compact) {
               return Column(children: [
                 Expanded(child: catalog),
@@ -1305,12 +1421,16 @@ class _SaleTableCard extends StatelessWidget {
   final RestaurantTable table;
   final _OrderDraft? order;
   final bool joined;
+
+  /// En la grilla del celular todas las mesas se ven como botones iguales.
+  final bool squared;
   final VoidCallback onTap;
 
   const _SaleTableCard({
     required this.table,
     this.order,
     this.joined = false,
+    this.squared = false,
     required this.onTap,
   });
 
@@ -1328,8 +1448,8 @@ class _SaleTableCard extends StatelessWidget {
             ? const Color(0xFFF0A83A)
             : const Color(0xFF64A96B);
     final shape = table.shape.toLowerCase();
-    final circular = shape == 'circular' || shape == 'redonda';
-    final rectangular = shape == 'rectangular';
+    final circular = !squared && (shape == 'circular' || shape == 'redonda');
+    final rectangular = squared || shape == 'rectangular';
     final cardShape = circular
         ? CircleBorder(side: BorderSide(color: border, width: 1.5))
         : RoundedRectangleBorder(
@@ -1523,7 +1643,8 @@ class _ProductCatalog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(
+            MediaQuery.sizeOf(context).width < _kPhoneWidth ? 10 : 18),
         child: Column(children: [
           Row(children: [
             Expanded(
@@ -2106,7 +2227,8 @@ class _CommandTicketDialog extends StatelessWidget {
             children: [
               Text('COMANDA A CONFIRMAR',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w600)),
+                  style: GoogleFonts.fraunces(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
               Text(isModification ? 'MODIFICACIÓN' : 'NUEVO PEDIDO',
                   textAlign: TextAlign.center,
                   style: TextStyle(

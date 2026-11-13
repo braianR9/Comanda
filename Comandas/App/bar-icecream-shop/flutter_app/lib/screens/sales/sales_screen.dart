@@ -1315,17 +1315,43 @@ class _SalesScreenState extends State<SalesScreen> {
                     !_orderForTable(item.id)!.hasPendingChanges &&
                     !_orderForTable(item.id)!.editLocked)) &&
             (!onlyClosed || _orderForTable(item.id) == null))
+        .toList()
+      ..sort((a, b) => a.number.compareTo(b.number));
+    // Agrupadas por sector (Interior, Patio...), en el orden de los sectores.
+    final sectors = _visibleSectors(context.read<SectorProvider>())
+        .where((sector) => tables.any((t) => t.sectorId == sector.id))
         .toList();
     return showDialog<RestaurantTable>(
       context: context,
       builder: (_) => SimpleDialog(
         title: Text(title),
-        children: tables
-            .map((table) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(context, table),
-                  child: Text(table.name),
-                ))
-            .toList(),
+        children: [
+          if (sectors.isEmpty)
+            const Padding(
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: Text('No hay mesas disponibles.')),
+          for (final sector in sectors) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
+              child: Text(sector.name.toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .8,
+                      color: Brand.subtle)),
+            ),
+            for (final table in tables.where((t) => t.sectorId == sector.id))
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, table),
+                child: Row(children: [
+                  Expanded(child: Text(table.name)),
+                  if (_orderForTable(table.id) != null)
+                    Text('Abierta',
+                        style: TextStyle(fontSize: 12, color: Brand.subtle)),
+                ]),
+              ),
+          ],
+        ],
       ),
     );
   }

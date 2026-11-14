@@ -125,7 +125,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
         var hasCertificate = await db.AfipCredentials.AsNoTracking().AnyAsync(x => x.CompanyId == company
             && x.Environment == billing.Environment && x.Certificate != null && x.CertificateExpiresAt > DateTime.UtcNow);
         var missing = !ValidCuit(billing.Cuit) ? "CUIT" : billing.PointOfSale is null ? "punto de venta"
-            : string.IsNullOrWhiteSpace(billing.TaxCondition) ? "condición frente al IVA" : !hasCertificate ? "certificado de AFIP" : null;
+            : string.IsNullOrWhiteSpace(billing.TaxCondition) ? "condición frente al IVA" : !hasCertificate ? "certificado de ARCA" : null;
         return (missing, billing);
     }
 
@@ -191,7 +191,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
         if (invoice.CreditNoteId.HasValue) throw new InvoiceException("La factura ya tiene nota de crédito.", 409);
         var billing = await RequireBilling(company);
         if (billing.Environment != invoice.Environment)
-            throw new InvoiceException("La factura es de otro ambiente de AFIP que el configurado actualmente.", 409);
+            throw new InvoiceException("La factura es de otro ambiente de ARCA que el configurado actualmente.", 409);
 
         var draft = new Invoice
         {
@@ -332,7 +332,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
         {
             // Queda "Procesando": el próximo intento consulta a AFIP si llegó a autorizarse.
             draft.Messages = e.Message; await db.SaveChangesAsync();
-            throw new InvoiceException("AFIP no respondió. El comprobante quedó pendiente de verificación: reintentá en unos minutos.", 503);
+            throw new InvoiceException("ARCA no respondió. El comprobante quedó pendiente de verificación: reintentá en unos minutos.", 503);
         }
         catch (AfipException e)
         {
@@ -344,7 +344,7 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
         if (!result.Approved)
         {
             draft.Status = "Rechazado"; await db.SaveChangesAsync();
-            throw new InvoiceException($"AFIP rechazó el comprobante. {draft.Messages}", 422);
+            throw new InvoiceException($"ARCA rechazó el comprobante. {draft.Messages}", 422);
         }
         await AuthorizedAsync(draft, result.Cae!, result.CaeExpiresAt);
         await lockTx.CommitAsync();
@@ -356,14 +356,14 @@ public class InvoiceService(AppDbContext db, AfipClient afip, AfipCredentialServ
         var found = await afip.FindAsync(row.Environment, auth, row.PointOfSale, row.Type, row.Number);
         if (found != null && found.Total == row.Total && found.DocNumber == row.DocNumber)
         {
-            row.Messages = "Confirmado en AFIP después de un corte de comunicación.";
+            row.Messages = "Confirmado en ARCA después de un corte de comunicación.";
             await AuthorizedAsync(row, found.Cae, found.CaeExpiresAt);
             return;
         }
         row.Status = "Rechazado";
         row.Messages = found == null
-            ? "AFIP no registró el comprobante; se emitió de nuevo con otro número."
-            : $"El número {Format(row)} corresponde a otro comprobante en AFIP.";
+            ? "ARCA no registró el comprobante; se emitió de nuevo con otro número."
+            : $"El número {Format(row)} corresponde a otro comprobante en ARCA.";
         await db.SaveChangesAsync();
     }
 

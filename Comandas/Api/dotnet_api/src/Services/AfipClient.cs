@@ -92,7 +92,7 @@ public class AfipClient(HttpClient http, ILogger<AfipClient> logger)
         var errors = Messages(result.Element(Fe + "Errors"), "Err");
         if (errors.Any(e => e.Code == 602)) return null; // No existe el comprobante.
         if (errors.Count > 0) throw new AfipException(Describe(errors));
-        var get = result.Element(Fe + "ResultGet") ?? throw new AfipException("AFIP no devolvió el comprobante consultado.");
+        var get = result.Element(Fe + "ResultGet") ?? throw new AfipException("ARCA no devolvió el comprobante consultado.");
         var cae = get.Element(Fe + "CodAutorizacion")?.Value;
         if (string.IsNullOrWhiteSpace(cae)) return null;
         return new AfipExistingInvoice(cae, ParseDate(get.Element(Fe + "FchVto")?.Value),
@@ -157,7 +157,7 @@ public class AfipClient(HttpClient http, ILogger<AfipClient> logger)
             new XElement(Soap + "Body", new XElement(Fe + method, content)));
         var body = await PostAsync(WsfeUrl(env), $"\"http://ar.gov.afip.dif.FEV1/{method}\"", envelope, ct);
         return body.Descendants(Fe + method + "Result").FirstOrDefault()
-            ?? throw new AfipException($"AFIP no devolvió la respuesta de {method}.");
+            ?? throw new AfipException($"ARCA no devolvió la respuesta de {method}.");
     }
 
     private async Task<XElement> PostAsync(string url, string action, XElement envelope, CancellationToken ct)
@@ -171,8 +171,8 @@ public class AfipClient(HttpClient http, ILogger<AfipClient> logger)
         try { response = await http.SendAsync(request, ct); }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            logger.LogWarning(e, "Sin respuesta de AFIP en {Url}.", url);
-            throw new AfipException("AFIP no responde. Revisá la conexión a internet o intentá más tarde.", transient: true);
+            logger.LogWarning(e, "Sin respuesta de ARCA en {Url}.", url);
+            throw new AfipException("ARCA no responde. Revisá la conexión a internet o intentá más tarde.", transient: true);
         }
         using (response)
         {
@@ -181,19 +181,19 @@ public class AfipClient(HttpClient http, ILogger<AfipClient> logger)
             try { document = XDocument.Parse(text); }
             catch (System.Xml.XmlException)
             {
-                logger.LogWarning("Respuesta no XML de AFIP ({Status}): {Body}", (int)response.StatusCode, text.Length > 500 ? text[..500] : text);
-                throw new AfipException($"AFIP respondió con un error ({(int)response.StatusCode}). Intentá más tarde.", transient: true);
+                logger.LogWarning("Respuesta no XML de ARCA ({Status}): {Body}", (int)response.StatusCode, text.Length > 500 ? text[..500] : text);
+                throw new AfipException($"ARCA respondió con un error ({(int)response.StatusCode}). Intentá más tarde.", transient: true);
             }
             var fault = document.Descendants().FirstOrDefault(e => e.Name.LocalName == "Fault");
             if (fault != null)
             {
                 var code = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultcode")?.Value ?? "";
-                var message = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultstring")?.Value ?? "Error de AFIP.";
+                var message = fault.Elements().FirstOrDefault(e => e.Name.LocalName == "faultstring")?.Value ?? "Error de ARCA.";
                 throw new AfipException(code.Contains("alreadyAuthenticated")
-                    ? "AFIP ya entregó un acceso vigente que este sistema no tiene guardado. Esperá unos minutos (hasta 12 h) e intentá de nuevo."
-                    : $"AFIP: {message}");
+                    ? "ARCA ya entregó un acceso vigente que este sistema no tiene guardado. Esperá unos minutos (hasta 12 h) e intentá de nuevo."
+                    : $"ARCA: {message}");
             }
-            return document.Root?.Element(Soap + "Body") ?? throw new AfipException("Respuesta de AFIP inválida.");
+            return document.Root?.Element(Soap + "Body") ?? throw new AfipException("Respuesta de ARCA inválida.");
         }
     }
 

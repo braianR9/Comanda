@@ -75,7 +75,7 @@ Future<void> offerInvoiceAfterCheckout(
             title: 'No se pudo facturar la venta N.º $saleNumber',
             message: last?.messages.isNotEmpty == true
                 ? last!.messages
-                : 'AFIP no autorizó el comprobante. Podés reintentar ahora o más tarde desde Comprobantes.'));
+                : 'ARCA no autorizó el comprobante. Podés reintentar ahora o más tarde desde Comprobantes.'));
     return;
   }
   await showDialog<void>(

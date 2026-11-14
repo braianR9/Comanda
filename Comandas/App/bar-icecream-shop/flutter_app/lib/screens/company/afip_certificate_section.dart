@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../purchases/purchase_api.dart';
 
-/// Certificado digital de AFIP del ambiente elegido: pedido (CSR), carga y prueba.
+/// Certificado digital de AFIP de un ambiente: pedido (CSR), carga y prueba.
 class AfipCertificateSection extends StatefulWidget {
   final PurchaseApi api;
   final String environment;
+
+  /// Ambiente elegido en la configuración (el que se usa para facturar).
+  final String activeEnvironment;
   const AfipCertificateSection(
-      {super.key, required this.api, required this.environment});
+      {super.key,
+      required this.api,
+      required this.environment,
+      required this.activeEnvironment});
   @override
   State<AfipCertificateSection> createState() => _AfipCertificateSectionState();
 }
@@ -74,7 +80,7 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
           builder: (_) => AlertDialog(
                 title: const Text('¿Generar un certificado nuevo?'),
                 content: const Text(
-                    'El certificado actual deja de usarse en este sistema hasta que cargues el nuevo que te entregue AFIP.'),
+                    'El certificado actual deja de usarse en este sistema hasta que cargues el nuevo que te entregue ARCA.'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -93,13 +99,13 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
       });
       final data = await widget.api.call('afip/certificado');
       if (mounted) setState(() => _status = Map<String, dynamic>.from(data));
-      _show('Pedido generado. Copialo y subilo en AFIP.');
+      _show('Pedido generado. Copialo y subilo en ARCA.');
     });
   }
 
   Future<void> _upload() => _run(() async {
         if (_certificate.text.trim().isEmpty) {
-          throw Exception('Pegá el certificado que te entregó AFIP.');
+          throw Exception('Pegá el certificado que te entregó ARCA.');
         }
         final data =
             await widget.api.call('afip/certificado', method: 'PUT', body: {
@@ -113,17 +119,11 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
 
   Future<void> _test() => _run(() async {
         final data = Map<String, dynamic>.from(
-            await widget.api.call('afip/probar', method: 'POST'));
+            await widget.api.call(
+                'afip/probar?environment=${widget.environment}',
+                method: 'POST'));
         _show('${data['message']}\n${data['servers']}');
       });
-
-  @override
-  void didUpdateWidget(covariant AfipCertificateSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.environment != widget.environment) {
-      setState(() => _message = null);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,9 +138,18 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-              'Certificado de AFIP · ${_production ? 'Producción' : 'Homologación'}',
-              style: theme.textTheme.titleMedium),
+          Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                    'Certificado de ARCA · ${_production ? 'Producción (facturas reales)' : 'Homologación (pruebas)'}',
+                    style: theme.textTheme.titleMedium),
+                if (widget.environment == widget.activeEnvironment)
+                  const Chip(
+                      label: Text('En uso'),
+                      visualDensity: VisualDensity.compact),
+              ]),
           const SizedBox(height: 8),
           if (_status == null && _busy) const LinearProgressIndicator(),
           if (_status?['encryptionConfigured'] == false)
@@ -152,8 +161,8 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
                 'Certificado cargado${expires == null ? '' : ', vence el ${expires.day}/${expires.month}/${expires.year}'}${current?['expired'] == true ? ' (VENCIDO)' : ''}.\n${current?['subject'] ?? ''}')
           else
             Text(_production
-                ? '1. Generá el pedido. 2. En AFIP, entrá a "Administración de Certificados Digitales", agregá un alias, subí el pedido y descargá el certificado. 3. En "Administrador de Relaciones de Clave Fiscal", autorizá ese alias al servicio "Facturación electrónica" (wsfe). 4. Pegá el certificado acá.'
-                : '1. Generá el pedido. 2. En AFIP, entrá a "WSASS - Autogestión Certificados Homologación", creá un certificado nuevo pegando el pedido y copiá el resultado. 3. En WSASS, creá la autorización del alias al servicio "wsfe". 4. Pegá el certificado acá.'),
+                ? '1. Generá el pedido. 2. En ARCA, entrá a "Administración de Certificados Digitales", agregá un alias, subí el pedido y descargá el certificado. 3. En "Administrador de Relaciones de Clave Fiscal", autorizá ese alias al servicio "Facturación electrónica" (wsfe). 4. Pegá el certificado acá.'
+                : '1. Generá el pedido. 2. En ARCA, entrá a "WSASS - Autogestión Certificados Homologación", creá un certificado nuevo pegando el pedido y copiá el resultado. 3. En WSASS, creá la autorización del alias al servicio "wsfe". 4. Pegá el certificado acá.'),
           const SizedBox(height: 16),
           Wrap(
               spacing: 12,
@@ -165,7 +174,7 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
                     child: TextField(
                         controller: _alias,
                         decoration:
-                            const InputDecoration(labelText: 'Alias en AFIP'))),
+                            const InputDecoration(labelText: 'Alias en ARCA'))),
                 OutlinedButton.icon(
                     onPressed: _busy ? null : _createRequest,
                     icon: const Icon(Icons.key),
@@ -176,14 +185,14 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
                   FilledButton.icon(
                       onPressed: _busy ? null : _test,
                       icon: const Icon(Icons.wifi_tethering),
-                      label: const Text('Probar conexión con AFIP')),
+                      label: const Text('Probar conexión con ARCA')),
               ]),
           if (csr != null) ...[
             const SizedBox(height: 16),
             Row(children: [
               const Expanded(
                   child:
-                      Text('Pedido de certificado (CSR) para subir a AFIP:')),
+                      Text('Pedido de certificado (CSR) para subir a ARCA:')),
               TextButton.icon(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: csr));
@@ -207,7 +216,7 @@ class _AfipCertificateSectionState extends State<AfipCertificateSection> {
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                 decoration: const InputDecoration(
                     labelText:
-                        'Certificado que entregó AFIP (-----BEGIN CERTIFICATE-----…)',
+                        'Certificado que entregó ARCA (-----BEGIN CERTIFICATE-----…)',
                     border: OutlineInputBorder())),
             const SizedBox(height: 8),
             FilledButton(

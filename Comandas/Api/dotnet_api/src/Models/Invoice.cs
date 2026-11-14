@@ -135,7 +135,7 @@ public static class AfipCodes
     public static int VatId(decimal rate) => rate switch
     {
         0m => 3, 2.5m => 9, 5m => 8, 10.5m => 4, 21m => 5, 27m => 6,
-        _ => throw new InvoiceException($"La alícuota de IVA {rate:0.##}% no es válida para AFIP. Revisá el maestro de alícuotas.", 409),
+        _ => throw new InvoiceException($"La alícuota de IVA {rate:0.##}% no es válida para ARCA. Revisá el maestro de alícuotas.", 409),
     };
 
     public static int DocType(string? name) => (name ?? "").Trim().ToUpperInvariant() switch

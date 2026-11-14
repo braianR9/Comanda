@@ -403,7 +403,7 @@ class _CreditNoteDialogState extends State<_CreditNoteDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    'Se emitirá una nota de crédito por ${_money(widget.invoice.total)} en AFIP. No se puede deshacer.'),
+                    'Se emitirá una nota de crédito por ${_money(widget.invoice.total)} en ARCA. No se puede deshacer.'),
                 const SizedBox(height: 16),
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final s in _suggestions)
@@ -599,7 +599,7 @@ class _PendingTabState extends _PagedState<_PendingTab, _Pending> {
                 Tooltip(
                     message: row.canVoid
                         ? 'Anular venta y reponer stock'
-                        : 'Para anular la venta, primero anulá su factura con nota de crédito o esperá la respuesta de AFIP.',
+                        : 'Para anular la venta, primero anulá su factura con nota de crédito o esperá la respuesta de ARCA.',
                     child: OutlinedButton(
                         style: _compactButton,
                         onPressed: row.canVoid && row.version > 0

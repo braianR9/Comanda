@@ -58,5 +58,5 @@ public class InvoicesController(InvoiceService invoices, AfipCredentialService c
     public Task<IActionResult> UploadCertificate(CertificateUploadInput input) => Run(() => credentials.UploadCertificateAsync(Company, input), true);
 
     [HttpPost("api/afip/probar")]
-    public Task<IActionResult> Test() => Run(() => credentials.TestAsync(Company), true);
+    public Task<IActionResult> Test([FromQuery] string? environment) => Run(() => credentials.TestAsync(Company, environment), true);
 }

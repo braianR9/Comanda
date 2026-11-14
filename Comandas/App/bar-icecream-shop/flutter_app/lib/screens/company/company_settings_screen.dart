@@ -250,7 +250,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           const Padding(
                               padding: EdgeInsets.only(bottom: 20),
                               child: Text(
-                                  'Datos fiscales para la factura electrónica de ARCA (AFIP). Guardalos antes de generar el certificado.')),
+                                  'Datos fiscales para la factura electrónica de ARCA. Guardalos antes de generar el certificado.')),
                           field('legalName', 'Razón social'),
                           field('cuit', 'CUIT', max: 20),
                           DropdownButtonFormField<String>(
@@ -285,7 +285,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           DropdownButtonFormField<String>(
                               initialValue: _environment,
                               decoration: const InputDecoration(
-                                  labelText: 'Ambiente de AFIP'),
+                                  labelText: 'Ambiente de ARCA'),
                               items: const [
                                 DropdownMenuItem(
                                     value: 'Homologacion',
@@ -328,8 +328,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               ],
                               onChanged: (v) =>
                                   setState(() => _invoicingMode = v!)),
-                          AfipCertificateSection(
-                              api: _api, environment: _environment),
+                          for (final env in ['Produccion', 'Homologacion'])
+                            AfipCertificateSection(
+                                key: ValueKey(env),
+                                api: _api,
+                                environment: env,
+                                activeEnvironment: _environment),
                         ]),
                       ])),
                       Padding(

@@ -75,7 +75,7 @@ public class AfipCredentialService(AppDbContext db, AfipClient afip, IConfigurat
                 : X509CertificateLoader.LoadCertificate(Convert.FromBase64String(text));
         }
         catch (Exception e) when (e is CryptographicException or FormatException)
-        { throw new InvoiceException("El archivo no es un certificado válido. Subí el .crt que descargaste de AFIP."); }
+        { throw new InvoiceException("El archivo no es un certificado válido. Subí el .crt que descargaste de ARCA."); }
         using (certificate)
         {
             using var key = LoadKey(row);
@@ -95,15 +95,16 @@ public class AfipCredentialService(AppDbContext db, AfipClient afip, IConfigurat
         return await StatusAsync(company);
     }
 
-    /// Verifica servidores, certificado y punto de venta en el ambiente configurado.
-    public async Task<object> TestAsync(int company)
+    /// Verifica servidores, certificado y punto de venta en el ambiente indicado (o el configurado).
+    public async Task<object> TestAsync(int company, string? environment = null)
     {
         var billing = await BillingAsync(company);
-        var servers = await afip.DummyAsync(billing.Environment);
-        var auth = await AuthAsync(company, billing.Environment, billing.Cuit);
+        var env = string.IsNullOrWhiteSpace(environment) ? billing.Environment : ValidEnvironment(environment);
+        var servers = await afip.DummyAsync(env);
+        var auth = await AuthAsync(company, env, billing.Cuit);
         if (billing.PointOfSale is not { } pos) return new { servers, authenticated = true, message = "Conexión correcta. Falta indicar el punto de venta." };
         var type = InvoiceService.EmitterIsResponsableInscripto(billing) ? AfipCodes.FacturaB : AfipCodes.FacturaC;
-        var last = await afip.LastAuthorizedAsync(billing.Environment, auth, pos, type);
+        var last = await afip.LastAuthorizedAsync(env, auth, pos, type);
         return new { servers, authenticated = true, message = $"Conexión correcta. Último {AfipCodes.TypeName(type)} del punto de venta {pos}: {last}." };
     }
 
@@ -116,9 +117,9 @@ public class AfipCredentialService(AppDbContext db, AfipClient afip, IConfigurat
 
         var row = await db.AfipCredentials.AsNoTracking().SingleOrDefaultAsync(x => x.CompanyId == company && x.Environment == env, ct);
         if (row?.Certificate == null)
-            throw new InvoiceException($"Falta el certificado de AFIP para {(env == "Produccion" ? "producción" : "homologación")}. Configuralo en Configuración › Empresa y facturación.", 409);
+            throw new InvoiceException($"Falta el certificado de ARCA para {(env == "Produccion" ? "producción" : "homologación")}. Configuralo en Configuración › Empresa y facturación.", 409);
         if (row.CertificateExpiresAt < DateTime.UtcNow)
-            throw new InvoiceException("El certificado de AFIP venció. Generá uno nuevo en Configuración › Empresa y facturación.", 409);
+            throw new InvoiceException("El certificado de ARCA venció. Generá uno nuevo en Configuración › Empresa y facturación.", 409);
         using var key = LoadKey(row);
         using var certificate = X509Certificate2.CreateFromPem(row.Certificate);
         var ticket = await afip.LoginAsync(env, certificate, key, Service, ct);

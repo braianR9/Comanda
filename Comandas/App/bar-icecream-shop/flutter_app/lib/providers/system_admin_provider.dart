@@ -114,7 +114,10 @@ class SystemAdminProvider extends ChangeNotifier {
     page = 1;
     search = '';
     companies = [company];
-    if (openSection != null) section = openSection;
+    if (openSection != null && openSection != section) {
+      section = openSection;
+      _clearRows();
+    }
     _notify();
     try {
       branches = _list(await request('GET', 'companies/$companyId/branches'));
@@ -126,10 +129,20 @@ class SystemAdminProvider extends ChangeNotifier {
   }
 
   Future<void> changeSection(int value) async {
+    if (value != section) _clearRows();
     section = value;
     page = 1;
     search = '';
     await load();
+  }
+
+  /// Las filas de cada sección tienen otra forma: al cambiar de sección se
+  /// vacían para no dibujar, mientras carga, filas de la sección anterior.
+  void _clearRows() {
+    rows = [];
+    daily = [];
+    total = 0;
+    amount = 0;
   }
 
   Future<void> load() async {

@@ -626,7 +626,7 @@ class _ResultCard extends StatelessWidget {
           : row['resolved'] == true
               ? Icons.check_circle_outline
               : Icons.error_outline),
-      title: Text(row['message'] as String),
+      title: Text(row['message'] as String? ?? '(sin mensaje)'),
       subtitle: Text(
           '${_dateTime(row['date'])} · ${row['source']}\n${row['path'] ?? ''}${row['traceId'] == null ? '' : ' · Ref. ${row['traceId']}'}'),
       isThreeLine: true,

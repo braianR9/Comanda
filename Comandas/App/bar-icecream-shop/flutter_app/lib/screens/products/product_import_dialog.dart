@@ -276,7 +276,7 @@ class _ProductImportDialogState extends State<ProductImportDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   const Text(
-                      'Completá la plantilla o usá el exportado de Productos con Código, Nombre, Costo, Precio, Rubro, Subrubro, Alicuota y Activo. Se crean rubros y subrubros faltantes. Los existentes por código importado o nombre se omiten.'),
+                      'Completá la plantilla o usá el exportado de Productos con Código, Nombre, Precio, Rubro, Alicuota y Activo (Costo y Subrubro son opcionales). Se crean rubros y subrubros faltantes. Los existentes por código importado o nombre se omiten.'),
                   const SizedBox(height: 8),
                   const Text(
                       'Se asignan códigos internos nuevos y se conserva el código del Excel como referencia. Stock, imágenes y componentes quedan sin configurar. La visibilidad en salón, delivery y carta queda desactivada hasta que la configures.'),

@@ -219,7 +219,7 @@ En **Mis productos**, el botón **Importar Excel** permite seleccionar un `.xlsx
 5 MB y 2000 productos), revisar todas las filas y confirmar. Es compatible con el
 exportado de Productos cuyo encabezado aparece después del título y fecha. Columnas:
 `Código`, `Nombre`, `Costo`, `Precio`, `Rubro`, `Subrubro`, `Alicuota`, `Activo`.
-Costo y Precio incluyen IVA; Alicuota es el porcentaje, no el ID. Los valores numéricos
+Costo y Subrubro son opcionales (sin columna o vacío: costo 0, sin subrubro). Costo y Precio incluyen IVA; Alicuota es el porcentaje, no el ID. Los valores numéricos
 nativos de Excel y los textos decimales con coma están admitidos.
 
 La vista previa no escribe datos. La confirmación vuelve a validar y guarda todo en una

@@ -49,7 +49,8 @@ public partial class ProductoService
         foreach (var cell in header.CellsUsed())
             if (!columns.TryAdd(CellText(cell), cell.Address.ColumnNumber))
                 throw new ProductoException("Hay encabezados de columna repetidos.");
-        foreach (var required in new[] { "Código", "Nombre", "Costo", "Precio", "Rubro", "Subrubro", "Alicuota", "Activo" })
+        // Costo y Subrubro son opcionales: si falta la columna, el costo queda en 0 y el producto sin subrubro.
+        foreach (var required in new[] { "Código", "Nombre", "Precio", "Rubro", "Alicuota", "Activo" })
             if (!columns.ContainsKey(required)) throw new ProductoException($"Falta la columna {required}.");
         var totalRows = sheet.Tables.Where(t => t.ShowTotalsRow)
             .Select(t => t.RangeAddress.LastAddress.RowNumber).ToHashSet();
@@ -58,7 +59,7 @@ public partial class ProductoService
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in sheet.RowsUsed().Where(r => r.RowNumber() > header.RowNumber() && !totalRows.Contains(r.RowNumber())))
         {
-            string Text(string key) => CellText(row.Cell(columns[key]));
+            string Text(string key) => columns.TryGetValue(key, out var column) ? CellText(row.Cell(column)) : "";
             if (columns.Values.All(c => row.Cell(c).IsEmpty())) continue;
             if (result.Filas.Count >= 2000) throw new ProductoException("El archivo admite hasta 2000 productos.");
             var item = new ProductImportRow { Fila = row.RowNumber(), Codigo = Text("Código"), Nombre = Text("Nombre"),
@@ -74,7 +75,7 @@ public partial class ProductoService
                 if (!valid || value < 0 || value > max) item.Errores.Add($"{key}: número inválido o fuera de rango.");
                 return value;
             }
-            item.Costo = Number("Costo", 9999999999999999.99m);
+            item.Costo = columns.ContainsKey("Costo") && Text("Costo").Length > 0 ? Number("Costo", 9999999999999999.99m) : 0;
             item.Precio = Number("Precio", 9999999999999999.99m);
             item.Alicuota = Number("Alicuota", 100);
             var active = Text("Activo").ToLowerInvariant();

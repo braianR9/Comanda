@@ -61,13 +61,18 @@ public class ProductosController : ControllerBase
                 await Send(new { tipo = "resultado", data = result });
             }
             catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { }
+            catch (ProductoException ex)
+            {
+                // Error del archivo (columna faltante, datos inválidos): se avisa al usuario, no es una falla del sistema.
+                if (!HttpContext.RequestAborted.IsCancellationRequested)
+                    await Send(new { tipo = "error", error = ex.Message });
+            }
             catch (Exception ex)
             {
                 HttpContext.RequestServices.GetRequiredService<ILogger<ProductosController>>()
                     .LogError(ex, "Error al importar productos para empresa {Company}", company);
                 if (!HttpContext.RequestAborted.IsCancellationRequested)
-                    await Send(new { tipo = "error", error = ex is ProductoException ? ex.Message
-                        : "No se pudo completar la importación. Revisá el archivo y la conexión con la base de datos." });
+                    await Send(new { tipo = "error", error = "No se pudo completar la importación. Revisá el archivo y la conexión con la base de datos." });
             }
             return new EmptyResult();
         }

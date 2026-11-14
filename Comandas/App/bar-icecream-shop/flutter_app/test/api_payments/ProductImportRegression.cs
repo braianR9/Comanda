@@ -43,6 +43,12 @@ static class ProductImportRegression
         Check(!Parse().Filas[0].Activo, "Preserve inactive status");
         for (int i = 1; i <= headers.Length; i++) sheet.Cell(7, i).Value = sheet.Cell(6, i).Value;
         Check(Parse().Filas[1].Errores.Count >= 2, "Reject repeated names and codes within workbook");
+        sheet.Cell(5, 3).Value = "Otro costo";
+        var withoutCost = Parse();
+        Check(withoutCost.Filas.All(r => r.Costo == 0) && withoutCost.Filas[0].Errores.Count == 0, "Accept workbook without Costo column, cost 0");
+        sheet.Cell(5, 3).Value = "Costo";
+        sheet.Cell(6, 3).Clear();
+        Check(Parse().Filas[0].Costo == 0 && Parse().Filas[0].Errores.Count == 0, "Empty cost cell imports as 0");
         sheet.Cell(5, 4).Value = "Otro";
         try { Parse(); throw new Exception("Missing header accepted"); }
         catch (ProductoException) { Console.WriteLine("PASS: Reject missing required column"); }

@@ -32,7 +32,7 @@ static class ProductImportTemplateRegression
         var tips = new[] {
             "Obligatorio. Código único de referencia (hasta 100 caracteres). Se conservan letras y ceros iniciales.",
             "Obligatorio. Nombre único del producto (hasta 200 caracteres).",
-            "Obligatorio. Costo con IVA incluido. Número mayor o igual a 0, sin símbolo de moneda.",
+            "Opcional. Costo con IVA incluido. Número mayor o igual a 0, sin símbolo de moneda. Vacío o sin columna: 0.",
             "Obligatorio. Precio de venta con IVA incluido. Número mayor o igual a 0, sin símbolo de moneda.",
             "Obligatorio. Rubro (hasta 150 caracteres). Si no existe se crea.",
             "Opcional. Subrubro (hasta 150 caracteres). Si no existe se crea dentro del rubro.",

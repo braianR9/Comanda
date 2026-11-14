@@ -36,10 +36,13 @@ public partial class ProductoService
         if (idSubRubro.HasValue) query = query.Where(p => p.IdSubRubro == idSubRubro);
         if (!string.IsNullOrWhiteSpace(texto))
         {
-            var term = texto.Trim();
-            query = int.TryParse(term, out var codigo)
-                ? query.Where(p => p.Codigo == codigo || EF.Functions.ILike(p.Nombre, $"%{term}%"))
-                : query.Where(p => EF.Functions.ILike(p.Nombre, $"%{term}%"));
+            // Busca por nombre, rubro o subrubro (y por código si es un número).
+            var pattern = $"%{texto.Trim()}%";
+            var hasCode = int.TryParse(texto.Trim(), out var codigo);
+            query = query.Where(p => (hasCode && p.Codigo == codigo)
+                || EF.Functions.ILike(p.Nombre, pattern)
+                || EF.Functions.ILike(p.Rubro.Nombre, pattern)
+                || (p.SubRubro != null && EF.Functions.ILike(p.SubRubro.Nombre, pattern)));
         }
 
         var total = await query.CountAsync();

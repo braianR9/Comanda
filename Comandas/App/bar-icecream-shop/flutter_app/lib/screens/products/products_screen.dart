@@ -49,12 +49,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProductProvider>();
-    final query = _query.trim().toLowerCase();
-    final products = provider.products.where((product) {
-      return query.isEmpty ||
-          product.name.toLowerCase().contains(query) ||
-          product.category.toLowerCase().contains(query);
-    }).toList()
+    // La API ya filtra por nombre, código, rubro y subrubro.
+    final products = provider.products.toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
     final content = SafeArea(
@@ -115,7 +111,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           });
                         },
                         decoration: InputDecoration(
-                          hintText: 'Buscar por nombre o categoría',
+                          hintText: 'Buscar por nombre, código, rubro o subrubro',
                           prefixIcon: const Icon(Icons.search_rounded),
                           suffixIcon: _query.isEmpty
                               ? null
@@ -147,7 +143,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   },
                                 )
                               : products.isEmpty
-                                  ? _EmptyProducts(hasSearch: query.isNotEmpty)
+                                  ? _EmptyProducts(hasSearch: _query.trim().isNotEmpty)
                                   : LayoutBuilder(
                                       builder: (context, constraints) {
                                       if (constraints.maxWidth >= 760) {

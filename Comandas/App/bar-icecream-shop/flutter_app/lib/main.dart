@@ -15,6 +15,7 @@ import 'providers/caja_provider.dart';
 import 'providers/price_list_provider.dart';
 import 'screens/system/system_admin_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/session_guard.dart';
 import 'screens/home/home_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/brand_colors.dart';
@@ -27,6 +28,8 @@ Future<void> main() async {
   await brand.restoreLast();
   runApp(BarApp(brand: brand));
 }
+
+final _navigatorKey = GlobalKey<NavigatorState>();
 
 class BarApp extends StatelessWidget {
   final BrandProvider brand;
@@ -60,6 +63,11 @@ class BarApp extends StatelessWidget {
           title: 'foco',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
+          navigatorKey: _navigatorKey,
+          // Cierre de sesión por inactividad (no desde el login).
+          builder: (_, child) => SessionGuard(
+              navigatorKey: _navigatorKey,
+              child: child ?? const SizedBox.shrink()),
           home: const _AppEntry(),
         ),
       ),
@@ -87,6 +95,7 @@ class _AppEntryState extends State<_AppEntry> {
     if (!mounted) return;
     // El acceso de sistemas no se muestra en el login: se entra por app.focobr.net/sistemas.
     if (_isSystemsEntry) {
+      SessionGuard.disabled = true;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const SystemAdminScreen()),
       );

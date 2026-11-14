@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../../config/api_config.dart';
 import '../../utils/api_response.dart';
+import '../../utils/session_token.dart';
 
 class PurchaseApi {
   final String token;
@@ -14,7 +15,7 @@ class PurchaseApi {
       final request = http.Request(
           method, Uri.parse('${ApiConfig.baseUrl}/api/$path'))
         ..headers
-            .addAll({...ApiConfig.headers, 'Authorization': 'Bearer $token'});
+            .addAll({...ApiConfig.headers, 'Authorization': 'Bearer ${SessionToken.use(token)}'});
       if (body != null) request.body = jsonEncode(body);
       final response = await client
           .send(request)

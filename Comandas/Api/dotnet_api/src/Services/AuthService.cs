@@ -62,6 +62,18 @@ namespace BarIceCreamShop.Api.Services
             };
         }
 
+        /// Emite un token nuevo para una sesión vigente, si el usuario sigue activo.
+        /// La app lo pide mientras se usa: la sesión solo vence por inactividad.
+        public async Task<string?> RenewAsync(int userId)
+        {
+            var usuario = await _context.Usuarios
+                .AsNoTracking()
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.Activo &&
+                    u.Empresa.Activa && u.Sucursal.Activa && u.Sucursal.IdEmpresa == u.IdEmpresa);
+            return usuario == null ? null : CreateToken(usuario);
+        }
+
         private string CreateToken(Usuario usuario)
         {
             var jwt = _configuration.GetSection("Jwt");

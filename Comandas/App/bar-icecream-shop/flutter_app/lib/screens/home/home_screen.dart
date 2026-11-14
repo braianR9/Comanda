@@ -35,6 +35,7 @@ import '../invoices/invoices_screen.dart';
 import '../settings/brand_settings_screen.dart';
 import 'setup_guide_card.dart';
 import '../../theme/brand_colors.dart';
+import '../../utils/session_token.dart';
 
 /// Secciones visibles según el rol de la sesión.
 /// 0 Inicio · 1 Productos · 2 Rubros · 3 Sectores · 4 Salón · 5 Descuentos y
@@ -884,7 +885,7 @@ class _HomeContentState extends State<_HomeContent> {
       final request = http.MultipartRequest('POST', uri)
         ..headers.addAll({
           ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
-          'Authorization': 'Bearer ${widget.session.token}',
+          'Authorization': 'Bearer ${SessionToken.use(widget.session.token)}',
         })
         ..files.add(http.MultipartFile.fromBytes(
           'Imagen',

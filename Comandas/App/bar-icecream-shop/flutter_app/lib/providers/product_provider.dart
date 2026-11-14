@@ -12,6 +12,7 @@ import '../models/product.dart';
 import '../models/product_component.dart';
 import '../models/product_group.dart';
 import '../models/product_tax.dart';
+import '../utils/session_token.dart';
 
 class ProductProvider extends ChangeNotifier {
   final List<Product> _products = [];
@@ -40,22 +41,24 @@ class ProductProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get totalItems => _totalItems;
   Map<String, String> get imageHeaders => {
-    ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
-    if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
-  };
+        ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
+        if (_token.isNotEmpty)
+          'Authorization': 'Bearer ${SessionToken.use(_token)}',
+      };
 
   String resolveImageUrl(String url) =>
       url.startsWith('http://') || url.startsWith('https://')
-      ? url
-      : '${ApiConfig.baseUrl}$url';
+          ? url
+          : '${ApiConfig.baseUrl}$url';
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: query);
 
   Map<String, String> get _headers => {
-    ...ApiConfig.headers,
-    if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
-  };
+        ...ApiConfig.headers,
+        if (_token.isNotEmpty)
+          'Authorization': 'Bearer ${SessionToken.use(_token)}',
+      };
 
   Future<void> load(
     int companyId, {
@@ -83,13 +86,29 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadProducts({required int page, String? text}) async {
+  // Filtros de la lista de productos: texto, rubro y subrubro se combinan.
+  String _textFilter = '';
+  String? _groupFilter;
+  String? _subgroupFilter;
+  bool get hasFilters =>
+      _textFilter.isNotEmpty || _groupFilter != null || _subgroupFilter != null;
+
+  Future<void> _loadProducts(
+      {required int page,
+      String? text,
+      String? groupId,
+      String? subgroupId}) async {
+    _textFilter = text?.trim() ?? '';
+    _groupFilter = groupId;
+    _subgroupFilter = subgroupId;
     final response = await http
         .get(
           _uri('/api/productos', {
             'page': '$page',
             'pageSize': '$pageSize',
-            if (text != null && text.trim().isNotEmpty) 'texto': text.trim(),
+            if (_textFilter.isNotEmpty) 'texto': _textFilter,
+            if (groupId != null) 'idRubro': groupId,
+            if (subgroupId != null) 'idSubRubro': subgroupId,
           }),
           headers: _headers,
         )
@@ -145,13 +164,18 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadProductsPage({required int page, String? text}) async {
+  Future<void> loadProductsPage(
+      {required int page,
+      String? text,
+      String? groupId,
+      String? subgroupId}) async {
     if (_loading || page < 1 || (page > _totalPages && _totalItems > 0)) return;
     _loading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      await _loadProducts(page: page, text: text);
+      await _loadProducts(
+          page: page, text: text, groupId: groupId, subgroupId: subgroupId);
     } catch (error) {
       _errorMessage = error.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -242,23 +266,21 @@ class ProductProvider extends ChangeNotifier {
     bool confirm = false,
     void Function(Map<String, dynamic>)? onProgress,
   }) async {
-    final request =
-        http.MultipartRequest(
-            'POST',
-            _uri('/api/productos/importar', {'progreso': 'true'}),
-          )
-          ..headers.addAll(imageHeaders)
-          ..fields['confirmar'] = '$confirm'
-          ..files.add(
-            http.MultipartFile.fromBytes('archivo', bytes, filename: name),
-          );
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/api/productos/importar', {'progreso': 'true'}),
+    )
+      ..headers.addAll(imageHeaders)
+      ..fields['confirmar'] = '$confirm'
+      ..files.add(
+        http.MultipartFile.fromBytes('archivo', bytes, filename: name),
+      );
     final client = http.Client();
     Map<String, dynamic>? result;
     onProgress?.call({'etapa': 'envio'});
     try {
-      final response = await client
-          .send(request)
-          .timeout(const Duration(minutes: 2));
+      final response =
+          await client.send(request).timeout(const Duration(minutes: 2));
       if (response.statusCode < 200 ||
           response.statusCode >= 300 ||
           !(response.headers['content-type'] ?? '').contains(
@@ -309,9 +331,8 @@ class ProductProvider extends ChangeNotifier {
       if (product.components != null)
         'componentes': product.components!.map((c) => c.toJson()).toList(),
       'codigo': int.parse(product.code),
-      'codigoBarras': product.barcode.trim().isEmpty
-          ? null
-          : product.barcode.trim(),
+      'codigoBarras':
+          product.barcode.trim().isEmpty ? null : product.barcode.trim(),
       'nombre': product.name,
       'descripcion': product.description,
       'tipoProducto': product.type.replaceAll(' ', ''),
@@ -341,19 +362,19 @@ class ProductProvider extends ChangeNotifier {
     };
     final response = creating
         ? await http
-              .post(
-                _uri('/api/productos'),
-                headers: _headers,
-                body: jsonEncode(payload),
-              )
-              .timeout(ApiConfig.timeout)
+            .post(
+              _uri('/api/productos'),
+              headers: _headers,
+              body: jsonEncode(payload),
+            )
+            .timeout(ApiConfig.timeout)
         : await http
-              .put(
-                _uri('/api/productos/${product.id}'),
-                headers: _headers,
-                body: jsonEncode(payload),
-              )
-              .timeout(ApiConfig.timeout);
+            .put(
+              _uri('/api/productos/${product.id}'),
+              headers: _headers,
+              body: jsonEncode(payload),
+            )
+            .timeout(ApiConfig.timeout);
     var saved = _productFromApi(
       _body(response)['data'] as Map<String, dynamic>,
     );
@@ -472,7 +493,9 @@ class ProductProvider extends ChangeNotifier {
     final request = http.MultipartRequest('POST', _uri(path))
       ..headers[ApiConfig.apiKeyHeader] = ApiConfig.apiKeyValue
       ..headers.addAll(
-        _token.isEmpty ? const {} : {'Authorization': 'Bearer $_token'},
+        _token.isEmpty
+            ? const {}
+            : {'Authorization': 'Bearer ${SessionToken.use(_token)}'},
       )
       ..files.add(
         http.MultipartFile.fromBytes(

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/product.dart';
+import '../utils/session_token.dart';
 
 typedef SalePaymentInput = ({int cardId, double baseAmount, double amount});
 
@@ -147,7 +148,7 @@ class SalesProvider extends ChangeNotifier {
 
   Map<String, String> get _headers => {
         ...ApiConfig.headers,
-        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+        if (_token.isNotEmpty) 'Authorization': 'Bearer ${SessionToken.use(_token)}',
       };
 
   Future<void> requireOpenCash() async {

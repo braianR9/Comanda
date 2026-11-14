@@ -10,6 +10,7 @@ import '../../providers/product_provider.dart';
 import 'product_editor_screen.dart';
 import 'product_import_dialog.dart';
 import '../../theme/brand_colors.dart';
+import '../../models/product_group.dart';
 
 class ProductsScreen extends StatefulWidget {
   final bool embedded;
@@ -27,16 +28,29 @@ class ProductsScreen extends StatefulWidget {
 class _ProductsScreenState extends State<ProductsScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  String? _groupId;
+  String? _subgroupId;
   Timer? _searchTimer;
+
+  bool get _filtering =>
+      _query.trim().isNotEmpty || _groupId != null || _subgroupId != null;
+
+  /// Recarga la lista con el texto, el rubro y el subrubro elegidos.
+  Future<void> _reload({int page = 1}) =>
+      context.read<ProductProvider>().loadProductsPage(
+          page: page, text: _query, groupId: _groupId, subgroupId: _subgroupId);
 
   @override
   void initState() {
     super.initState();
     final companyId = context.read<AuthProvider>().session!.idEmpresa;
     final token = context.read<AuthProvider>().session!.token;
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => context.read<ProductProvider>().load(companyId, token: token),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<ProductProvider>();
+      await provider.load(companyId, token: token);
+      // Si la lista quedó filtrada de una visita anterior, se muestra completa.
+      if (mounted && provider.hasFilters) await _reload();
+    });
   }
 
   @override
@@ -95,39 +109,35 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Column(children: [
-                    Padding(
-                      padding: EdgeInsets.zero,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          setState(() => _query = value);
-                          _searchTimer?.cancel();
-                          _searchTimer =
-                              Timer(const Duration(milliseconds: 400), () {
-                            if (!mounted) return;
-                            context
-                                .read<ProductProvider>()
-                                .loadProductsPage(page: 1, text: value);
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Buscar por nombre, código, rubro o subrubro',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _query.isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _query = '');
-                                    context
-                                        .read<ProductProvider>()
-                                        .loadProductsPage(page: 1);
-                                  },
-                                  icon: const Icon(Icons.close_rounded),
-                                ),
-                        ),
-                      ),
-                    ),
+                    _filters(
+                        provider,
+                        TextField(
+                          controller: _searchController,
+                          onChanged: (value) {
+                            setState(() => _query = value);
+                            _searchTimer?.cancel();
+                            _searchTimer =
+                                Timer(const Duration(milliseconds: 400), () {
+                              if (!mounted) return;
+                              _reload();
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText:
+                                'Buscar por nombre, código, rubro o subrubro',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: _query.isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _query = '');
+                                      _reload();
+                                    },
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                          ),
+                        )),
                     const SizedBox(height: 20),
                     Expanded(
                       child: provider.loading
@@ -143,7 +153,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   },
                                 )
                               : products.isEmpty
-                                  ? _EmptyProducts(hasSearch: _query.trim().isNotEmpty)
+                                  ? _EmptyProducts(hasSearch: _filtering)
                                   : LayoutBuilder(
                                       builder: (context, constraints) {
                                       if (constraints.maxWidth >= 760) {
@@ -181,8 +191,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           totalPages: provider.totalPages,
                           totalItems: provider.totalItems,
                           pageSize: ProductProvider.pageSize,
-                          onPageChanged: (page) => provider.loadProductsPage(
-                              page: page, text: _query),
+                          onPageChanged: (page) => _reload(page: page),
                         ),
                       ),
                     ],
@@ -218,6 +227,81 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
       body: content,
     );
+  }
+
+  /// Buscador y, aparte, los filtros de rubro y subrubro (se combinan).
+  Widget _filters(ProductProvider provider, Widget search) {
+    final groups = provider.groups.where((g) => !g.isSubgroup).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final subgroups = _groupId == null
+        ? <ProductGroup>[]
+        : (provider.groups.where((g) => g.parentId == _groupId).toList()
+          ..sort((a, b) => a.name.compareTo(b.name)));
+    final group = DropdownButtonFormField<String?>(
+      key: ValueKey('rubro-$_groupId'),
+      initialValue: groups.any((g) => g.id == _groupId) ? _groupId : null,
+      isExpanded: true,
+      decoration: const InputDecoration(
+          labelText: 'Rubro', prefixIcon: Icon(Icons.category_outlined)),
+      items: [
+        const DropdownMenuItem<String?>(
+            value: null, child: Text('Todos los rubros')),
+        for (final g in groups)
+          DropdownMenuItem<String?>(
+              value: g.id,
+              child: Text(g.name, overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _groupId = value;
+          _subgroupId = null;
+        });
+        _reload();
+      },
+    );
+    final subgroup = DropdownButtonFormField<String?>(
+      key: ValueKey('subrubro-$_groupId-$_subgroupId'),
+      initialValue:
+          subgroups.any((g) => g.id == _subgroupId) ? _subgroupId : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+          labelText: 'Subrubro',
+          helperText: _groupId == null ? 'Elegí un rubro primero' : null),
+      items: [
+        const DropdownMenuItem<String?>(
+            value: null, child: Text('Todos los subrubros')),
+        for (final g in subgroups)
+          DropdownMenuItem<String?>(
+              value: g.id,
+              child: Text(g.name, overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: _groupId == null || subgroups.isEmpty
+          ? null
+          : (value) {
+              setState(() => _subgroupId = value);
+              _reload();
+            },
+    );
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 760) {
+        return Column(children: [
+          search,
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: group),
+            const SizedBox(width: 12),
+            Expanded(child: subgroup),
+          ]),
+        ]);
+      }
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(flex: 3, child: search),
+        const SizedBox(width: 12),
+        Expanded(flex: 2, child: group),
+        const SizedBox(width: 12),
+        Expanded(flex: 2, child: subgroup),
+      ]);
+    });
   }
 
   Future<void> _openProductForm([Product? product]) async {

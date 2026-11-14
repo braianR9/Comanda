@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../utils/session_token.dart';
 
 class StockMovement {
   final int id;
@@ -60,7 +61,7 @@ class StockMovementProvider extends ChangeNotifier {
 
   Map<String, String> get _headers => {
         ...ApiConfig.headers,
-        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token'
+        if (_token.isNotEmpty) 'Authorization': 'Bearer ${SessionToken.use(_token)}'
       };
 
   Future<void> load(String token,

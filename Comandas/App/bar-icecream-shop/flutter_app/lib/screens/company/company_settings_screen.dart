@@ -7,6 +7,7 @@ import '../../utils/api_response.dart';
 import '../../providers/auth_provider.dart';
 import '../purchases/purchase_api.dart';
 import 'afip_certificate_section.dart';
+import '../../utils/session_token.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
   const CompanySettingsScreen({super.key});
@@ -147,7 +148,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
               ApiConfig.uploadImageEndpoint(session.idEmpresa)))
         ..headers.addAll({
           ApiConfig.apiKeyHeader: ApiConfig.apiKeyValue,
-          'Authorization': 'Bearer ${_api.token}'
+          'Authorization': 'Bearer ${SessionToken.use(_api.token)}'
         })
         ..files.add(http.MultipartFile.fromBytes('Imagen', bytes,
             filename: files.first.name));

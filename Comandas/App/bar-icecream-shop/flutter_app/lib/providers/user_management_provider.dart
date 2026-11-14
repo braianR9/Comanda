@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/app_user.dart';
+import '../utils/session_token.dart';
 
 class UserManagementProvider extends ChangeNotifier {
   bool loading = false;
@@ -16,7 +17,7 @@ class UserManagementProvider extends ChangeNotifier {
 
   Map<String, String> get _headers => {
         ...ApiConfig.headers,
-        if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+        if (_token.isNotEmpty) 'Authorization': 'Bearer ${SessionToken.use(_token)}',
       };
 
   Future<void> load(String token, {bool includeInactive = true}) async {

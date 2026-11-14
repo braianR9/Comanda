@@ -33,18 +33,20 @@ import '../settings/google_sheet_settings_screen.dart';
 import '../price_lists/price_lists_screen.dart';
 import '../invoices/invoices_screen.dart';
 import '../settings/brand_settings_screen.dart';
+import 'setup_guide_card.dart';
 import '../../theme/brand_colors.dart';
 
 /// Secciones visibles según el rol de la sesión.
 /// 0 Inicio · 1 Productos · 2 Rubros · 3 Sectores · 4 Salón · 5 Descuentos y
 /// pagos · 6 Impresoras · 7 Movimientos de stock · 8 Clientes · 9 Usuarios ·
 /// 10 Listado de ventas · 11 Google Sheets · 12 Caja · 13 Listas de precios ·
-/// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal · 20 Libro de IVA Ventas.
+/// 14 Mostrador · 18 Comprobantes · 19 Colores de la sucursal · 20 Libro de IVA Ventas ·
+/// 21 Puesta en marcha.
 Set<int> _allowedSections(UserSession session) => {
       0,
       4, 14, // Empleados: tomar y modificar pedidos.
       if (session.canCheckout) ...{7, 8, 12, 16, 17, 18},
-      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19, 20},
+      if (session.canAccessMasters) ...{1, 2, 3, 5, 6, 10, 13, 15, 19, 20, 21},
       if (session.canManageUsers) ...{9, 11},
     };
 
@@ -391,7 +393,15 @@ class _WideLayoutState extends State<_WideLayout>
               },
             ),
           Expanded(
-            child: _section == 20
+            child: _section == 21
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(32),
+                    child: SetupGuideCard(
+                        token: widget.session.token,
+                        allowedSections: _allowedSections(widget.session),
+                        onNavigate: _selectSection,
+                        alwaysVisible: true))
+                : _section == 20
                 ? const VatSalesScreen(embedded: true)
                 : _section == 19
                     ? const BrandSettingsScreen()
@@ -484,7 +494,9 @@ class _WideLayoutState extends State<_WideLayout>
                                                                                             ? const SectorsScreen(embedded: true)
                                                                                             : SingleChildScrollView(
                                                                                                 padding: const EdgeInsets.all(32),
-                                                                                                child: _HomeContent(session: widget.session),
+                                                                                                child: _HomeContent(
+                                                                                                    session: widget.session,
+                                                                                                    onNavigate: _selectSection),
                                                                                               ),
           ),
         ],
@@ -584,6 +596,7 @@ class _MainMenu extends StatelessWidget {
             if (session.canAccessMasters) ...[
               const SizedBox(width: 6),
               _group('Configuración', Icons.settings_outlined, const {
+                21: 'Puesta en marcha',
                 15: 'Empresa y facturación',
                 19: 'Colores de la sucursal',
                 6: 'Impresoras',
@@ -732,7 +745,8 @@ class _SidebarItem extends StatelessWidget {
 // ── Contenido ─────────────────────────────────────────────────────────────────
 class _HomeContent extends StatefulWidget {
   final UserSession session;
-  const _HomeContent({required this.session});
+  final ValueChanged<int> onNavigate;
+  const _HomeContent({required this.session, required this.onNavigate});
 
   @override
   State<_HomeContent> createState() => _HomeContentState();
@@ -805,6 +819,11 @@ class _HomeContentState extends State<_HomeContent> {
 
     // Dos bloques: los datos de la empresa solos y, debajo, el estado del salón.
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (widget.session.canAccessMasters)
+        SetupGuideCard(
+            token: widget.session.token,
+            allowedSections: _allowedSections(widget.session),
+            onNavigate: widget.onNavigate),
       _HomeCard(
         child: isWide
             ? Row(

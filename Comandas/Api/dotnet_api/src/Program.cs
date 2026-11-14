@@ -96,6 +96,7 @@ builder.Services.AddScoped<PosService>();
 builder.Services.AddHttpClient<AfipClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<AfipCredentialService>();
 builder.Services.AddScoped<InvoiceService>();
+builder.Services.AddScoped<SetupGuideService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<GoogleSheetsService>();
 if (builder.Configuration.GetValue("Workers:GoogleSheets", true))

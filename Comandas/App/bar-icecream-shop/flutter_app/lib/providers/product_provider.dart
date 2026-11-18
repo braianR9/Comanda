@@ -65,16 +65,31 @@ class ProductProvider extends ChangeNotifier {
     String token = '',
     bool force = false,
   }) async {
-    final tokenChanged = _token != token;
+    // El token se renueva mientras se usa la app (los pedidos usan siempre el
+    // vigente), así que un token distinto no obliga a recargar.
     _token = token;
-    if (_companyId == companyId && _loaded && !force && !tokenChanged) return;
+    if (_companyId == companyId && _loaded && !force) return;
+    if (_companyId != companyId) {
+      _textFilter = '';
+      _groupFilter = null;
+      _subgroupFilter = null;
+    }
     _companyId = companyId;
     _loading = true;
     _loaded = false;
     _errorMessage = null;
     notifyListeners();
     try {
-      await Future.wait([_loadProducts(page: 1), _loadGroups(), _loadTaxes()]);
+      // Conserva los filtros de la lista (por ejemplo, al reintentar).
+      await Future.wait([
+        _loadProducts(
+            page: 1,
+            text: _textFilter,
+            groupId: _groupFilter,
+            subgroupId: _subgroupFilter),
+        _loadGroups(),
+        _loadTaxes()
+      ]);
       _loaded = true;
     } catch (error) {
       _errorMessage = error.toString().replaceFirst('Exception: ', '');
@@ -90,6 +105,9 @@ class ProductProvider extends ChangeNotifier {
   String _textFilter = '';
   String? _groupFilter;
   String? _subgroupFilter;
+  String get textFilter => _textFilter;
+  String? get groupFilter => _groupFilter;
+  String? get subgroupFilter => _subgroupFilter;
   bool get hasFilters =>
       _textFilter.isNotEmpty || _groupFilter != null || _subgroupFilter != null;
 

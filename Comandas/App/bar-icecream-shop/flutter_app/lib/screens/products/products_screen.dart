@@ -45,12 +45,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.initState();
     final companyId = context.read<AuthProvider>().session!.idEmpresa;
     final token = context.read<AuthProvider>().session!.token;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final provider = context.read<ProductProvider>();
-      await provider.load(companyId, token: token);
-      // Si la lista quedó filtrada de una visita anterior, se muestra completa.
-      if (mounted && provider.hasFilters) await _reload();
-    });
+    // Retoma los filtros con que quedó la lista (por ejemplo, al volver de
+    // editar un producto): el provider los conserva junto con la página.
+    final provider = context.read<ProductProvider>();
+    _query = provider.textFilter;
+    _searchController.text = _query;
+    _groupId = provider.groupFilter;
+    _subgroupId = provider.subgroupFilter;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => provider.load(companyId, token: token),
+    );
   }
 
   @override

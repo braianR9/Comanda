@@ -48,10 +48,16 @@ if (string.IsNullOrWhiteSpace(builder.Configuration["urls"]))
 }
 
 // ─── Base de datos PostgreSQL ────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(options =>
+// Avisos en memoria de trabajos nuevos (impresión, Google Sheets): evitan consultar la base cada
+// pocos segundos, así la base puede apagarse cuando nadie usa el sistema.
+builder.Services.AddSingleton<JobSignals>();
+builder.Services.AddSingleton<JobSignalInterceptor>();
+builder.Services.AddSingleton<PrintAgentState>();
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+        npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
+    .AddInterceptors(services.GetRequiredService<JobSignalInterceptor>()));
 
 // ─── Servicios de la aplicación ─────────────────────────────────────────────
 builder.Services.AddScoped<AuthService>();

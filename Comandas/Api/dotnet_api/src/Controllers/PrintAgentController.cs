@@ -14,7 +14,7 @@ public sealed class PrintAgentController(PrintAgentService service) : Controller
     {
         var agent = await Agent();
         if (agent == null) return Unauthorized(ApiResponse<PrintAgentJobDto?>.Fail("Clave del agente inválida.", 401));
-        return Ok(ApiResponse<PrintAgentJobDto?>.Ok(await service.NextAsync(agent, cancellationToken)));
+        return Ok(ApiResponse<PrintAgentJobDto?>.Ok(await service.WaitNextAsync(agent, cancellationToken)));
     }
 
     [HttpPost("jobs/{id:int}/result")]

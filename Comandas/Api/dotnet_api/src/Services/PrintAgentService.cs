@@ -10,11 +10,19 @@ namespace BarIceCreamShop.Api.Services;
 /// pide a la API los trabajos de sus impresoras ya armados (ESC/POS) y avisa si salieron.
 /// No necesita acceso a la base ni a los secretos de la API.
 public sealed class PrintAgentService(AppDbContext db, PrinterConfigurationService configurations, IConfiguration configuration,
-    ILogger<PrintAgentService> logger)
+    ILogger<PrintAgentService> logger, PrintAgentState state, JobSignals signals)
 {
-    public async Task<List<PrintAgentDto>> ListAsync(int company, int branch) =>
-        await db.PrintAgents.AsNoTracking().Where(x => x.IdEmpresa == company && x.IdSucursal == branch).OrderBy(x => x.Id)
+    /// Cuánto espera la API un trabajo antes de responder "nada" al agente (el agente corta a los 30 s).
+    public static readonly TimeSpan LongPoll = TimeSpan.FromSeconds(25);
+
+    public async Task<List<PrintAgentDto>> ListAsync(int company, int branch)
+    {
+        var agents = await db.PrintAgents.AsNoTracking().Where(x => x.IdEmpresa == company && x.IdSucursal == branch).OrderBy(x => x.Id)
             .Select(x => new PrintAgentDto(x.Id, x.Nombre, x.FechaCreacion, x.UltimoContacto, x.Equipo)).ToListAsync();
+        // El último contacto se guarda en la base cada hora; el reciente está en memoria.
+        return agents.Select(a => state.LastSeen(a.Id) is { } seen && (a.LastSeen == null || seen > a.LastSeen)
+            ? a with { LastSeen = seen } : a).ToList();
+    }
 
     /// Agrega una computadora y devuelve su clave. Solo se muestra esta vez.
     public async Task<PrintAgentKeyDto> CreateAsync(int company, int branch, PrintAgentRequest request)
@@ -31,6 +39,7 @@ public sealed class PrintAgentService(AppDbContext db, PrinterConfigurationServi
         var agent = await Require(company, branch, id);
         agent.Nombre = await ValidName(company, branch, request.Name, id);
         await db.SaveChangesAsync();
+        state.Forget(id, clearSeen: false);
         return new PrintAgentDto(agent.Id, agent.Nombre, agent.FechaCreacion, agent.UltimoContacto, agent.Equipo);
     }
 
@@ -40,6 +49,7 @@ public sealed class PrintAgentService(AppDbContext db, PrinterConfigurationServi
         var agent = await Require(company, branch, id);
         var key = NewKey(agent);
         await db.SaveChangesAsync();
+        state.Forget(id, clearSeen: true);
         return new PrintAgentKeyDto(agent.Id, key);
     }
 
@@ -48,24 +58,50 @@ public sealed class PrintAgentService(AppDbContext db, PrinterConfigurationServi
     {
         db.PrintAgents.Remove(await Require(company, branch, id));
         await db.SaveChangesAsync();
+        state.Forget(id, clearSeen: true);
     }
 
     public async Task<PrintAgent?> AuthenticateAsync(string? key, string? machine)
     {
         if (string.IsNullOrWhiteSpace(key)) return null;
         var hash = Hash(key.Trim());
-        var agent = await db.PrintAgents.SingleOrDefaultAsync(x => x.ClaveHash == hash);
-        if (agent == null) return null;
-        // El agente consulta cada pocos segundos: el contacto se registra como mucho una vez por minuto.
         var now = DateTime.UtcNow;
         machine = string.IsNullOrWhiteSpace(machine) ? null : machine.Trim()[..Math.Min(machine.Trim().Length, 150)];
-        if (agent.UltimoContacto is not { } last || now - last > TimeSpan.FromMinutes(1) || agent.Equipo != machine)
+        // El agente pregunta todo el día: se lee de la base y se guarda su contacto como mucho una vez por hora
+        // (o si cambió de computadora). Mientras tanto, la clave y el contacto se resuelven en memoria.
+        var snapshot = state.Find(hash, now);
+        if (snapshot == null || snapshot.Equipo != machine)
         {
+            if (state.IsInvalid(hash, now)) return null;
+            var agent = await db.PrintAgents.SingleOrDefaultAsync(x => x.ClaveHash == hash);
+            if (agent == null)
+            {
+                state.Invalid(hash, now);
+                return null;
+            }
             agent.UltimoContacto = now;
             agent.Equipo = machine;
             await db.SaveChangesAsync();
+            snapshot = state.Remember(hash, agent, now);
         }
-        return agent;
+        state.Seen(snapshot.Id, now);
+        return new PrintAgent { Id = snapshot.Id, IdEmpresa = snapshot.IdEmpresa, IdSucursal = snapshot.IdSucursal,
+            Nombre = snapshot.Nombre, Equipo = snapshot.Equipo };
+    }
+
+    /// Espera de a poco (long polling): si no hubo trabajos nuevos desde la última revisión de este agente,
+    /// aguarda el aviso en memoria sin consultar la base; responde null si no llega en <see cref="LongPoll"/>.
+    public async Task<PrintAgentJobDto?> WaitNextAsync(PrintAgent agent, CancellationToken cancellationToken)
+    {
+        var version = signals.Print.Version;
+        if (!state.NeedsCheck(agent.Id, version, DateTime.UtcNow))
+        {
+            if (!await signals.Print.WaitAsync(version, LongPoll, cancellationToken)) return null;
+            version = signals.Print.Version;
+        }
+        var job = await NextAsync(agent, cancellationToken);
+        if (job == null) state.Checked(agent.Id, version, DateTime.UtcNow);
+        return job;
     }
 
     /// Toma el próximo trabajo pendiente de las impresoras de esta computadora; null si no hay.

@@ -7,9 +7,14 @@ namespace BarIceCreamShop.Api.Services;
 public sealed class GoogleSheetSyncWorker(
     IServiceScopeFactory scopeFactory,
     GoogleSheetsService sheets,
+    JobSignals signals,
     ILogger<GoogleSheetSyncWorker> logger) : BackgroundService
 {
     private const int MaxAttempts = 5;
+
+    // Sin trabajos, espera el aviso de una venta nueva; igual revisa la cola a cada hora en punto
+    // (HourlyCheck). No consulta la base cada pocos segundos, así puede apagarse cuando no hay uso.
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -19,9 +24,13 @@ public sealed class GoogleSheetSyncWorker(
         {
             try
             {
-                var processed = sheets.Enabled && await ProcessNextAsync(stoppingToken);
-                if (!processed)
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                // Se lee antes de consultar: un aviso que llegue mientras tanto no se pierde.
+                var seen = signals.Sheets.Version;
+                var result = sheets.Enabled ? await ProcessNextAsync(stoppingToken) : JobResult.Empty;
+                if (result == JobResult.Failed)
+                    await Task.Delay(RetryDelay, stoppingToken);
+                else if (result == JobResult.Empty)
+                    await signals.Sheets.WaitAsync(seen, HourlyCheck.UntilNext(DateTime.UtcNow), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -35,7 +44,9 @@ public sealed class GoogleSheetSyncWorker(
         }
     }
 
-    private async Task<bool> ProcessNextAsync(CancellationToken cancellationToken)
+    private enum JobResult { Processed, Empty, Failed }
+
+    private async Task<JobResult> ProcessNextAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -45,7 +56,7 @@ public sealed class GoogleSheetSyncWorker(
             .Where(x => x.Status == "Pendiente")
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
-        if (job is null) return false;
+        if (job is null) return JobResult.Empty;
 
         try
         {
@@ -58,7 +69,7 @@ public sealed class GoogleSheetSyncWorker(
                 // Se desactivó la planilla para esta sucursal después de encolar el trabajo.
                 job.Status = "Cancelado";
                 await db.SaveChangesAsync(cancellationToken);
-                return true;
+                return JobResult.Processed;
             }
 
             if (await db.SaleVoids.AnyAsync(v => v.OrderId == order.Id, cancellationToken))
@@ -91,10 +102,10 @@ public sealed class GoogleSheetSyncWorker(
             await db.SaveChangesAsync(cancellationToken);
             logger.LogError(ex, "No se pudo sincronizar la venta {OrderId} con Google Sheets (intento {Attempt}).",
                 job.OrderId, job.Attempts);
-            // No reintentar en el mismo instante: deja que la pausa del bucle actúe como backoff.
-            return false;
+            // No reintentar en el mismo instante: el bucle espera un minuto antes de volver a probar.
+            return JobResult.Failed;
         }
 
-        return true;
+        return JobResult.Processed;
     }
 }

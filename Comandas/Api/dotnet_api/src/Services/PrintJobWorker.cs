@@ -12,15 +12,18 @@ public sealed class PrintJobWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PrintJobWorker> _logger;
+    private readonly JobSignals _signals;
 
     public PrintJobWorker(
         IServiceScopeFactory scopeFactory,
         IConfiguration configuration,
-        ILogger<PrintJobWorker> logger)
+        ILogger<PrintJobWorker> logger,
+        JobSignals signals)
     {
         _scopeFactory = scopeFactory;
         _configuration = configuration;
         _logger = logger;
+        _signals = signals;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,9 +35,15 @@ public sealed class PrintJobWorker : BackgroundService
         {
             try
             {
+                var seen = _signals.Print.Version;
                 var processed = await ProcessNextAsync(stoppingToken);
-                if (!processed)
+                if (processed) continue;
+                // Con PrintAgent:SucursalId corre aparte de la API que encola (no recibe avisos): sigue consultando.
+                // Si no, espera el aviso de un trabajo nuevo (y revisa a cada hora en punto por las dudas).
+                if (_configuration.GetValue<int?>("PrintAgent:SucursalId") is not null)
                     await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                else
+                    await _signals.Print.WaitAsync(seen, HourlyCheck.UntilNext(DateTime.UtcNow), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
